@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build output and release packages
+plugin/wg-live/assets/dist/
+artifacts/
+*.zip
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Test output (evidence/test-results/ is kept on purpose, see spec §8.3)
+/playwright-report/
+/test-results/
+/coverage/
+/blob-report/
+
+# wp-env
+.wp-env.override.json
+
+# Local tool state
+.claude/model-router/
+.claude/settings.local.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
