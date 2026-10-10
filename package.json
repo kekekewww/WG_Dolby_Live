@@ -1,0 +1,54 @@
+{
+  "name": "wg-live",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "wp:start": "wp-env start",
+    "wp:stop": "wp-env stop",
+    "wp:cli": "wp-env run cli wp",
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . && node scripts/check-css-scope.mjs",
+    "lint:php": "node scripts/lint-php.mjs",
+    "test:unit": "vitest run",
+    "build": "vite build && vite build --mode featured && node scripts/build-info.mjs",
+    "test:e2e": "playwright test",
+    "test:integration": "playwright test -c playwright.integration.config.ts",
+    "package": "node scripts/package.mjs",
+    "check:artifact": "node scripts/check-artifact.mjs",
+    "demo:audio": "node scripts/generate-demo-audio.mjs",
+    "measure:site": "node scripts/measure-site.mjs",
+    "test:e2e:dist": "playwright test --project=harness-dist",
+    "test:e2e:dev": "playwright test --project=harness-dev-chromium --project=harness-dev-firefox --project=harness-dev-webkit",
+    "serve:dist": "node dev/serve-dist.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.0",
+    "@types/node": "22.20.5",
+    "@wordpress/env": "11.17.0",
+    "eslint": "10.12.0",
+    "eslint-plugin-compat": "7.0.2",
+    "fflate": "0.8.3",
+    "globals": "17.13.0",
+    "jsdom": "29.1.1",
+    "postcss": "8.5.29",
+    "postcss-selector-parser": "7.1.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  },
+  "engines": {
+    "node": ">=22.13 <23 || ^24 || >=26"
+  },
+  "browserslist": [
+    "safari >= 15.4",
+    "ios_saf >= 15.4",
+    "chrome >= 100",
+    "edge >= 100",
+    "firefox >= 100"
+  ]
+}

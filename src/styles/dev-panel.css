@@ -1,0 +1,70 @@
+/*
+ * dev-panel.css - the dev/demo state panel (spec 5.6, plan D17). Only rendered when the server
+ * enabled dev tools. It is an in-flow, collapsible block at the end of the view, so it can never
+ * cover the player controls. The generous bottom margin keeps it clear of a fixed bottom banner
+ * (cookie notice, site chat button) and the iOS home indicator.
+ */
+.wg-live .wg-live__dev {
+  min-width: 0;
+  margin-block: var(--wg-space-4) calc(96px + var(--wg-safe-bottom));
+  padding: 0;
+  border: 2px dashed var(--wg-accent);
+  border-radius: var(--wg-card-radius);
+  background: var(--wg-card-surface);
+  color: var(--wg-text);
+}
+
+.wg-live .wg-live__dev-summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--wg-touch-secondary);
+  padding: var(--wg-space-2) var(--wg-space-4);
+  font-weight: var(--wg-font-weight-strong);
+  cursor: pointer;
+}
+
+.wg-live .wg-live__dev-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-4);
+  padding: var(--wg-space-2) var(--wg-space-4) var(--wg-space-4);
+}
+
+.wg-live .wg-live__dev-intro,
+.wg-live .wg-live__dev-simulated {
+  margin: 0;
+}
+
+.wg-live .wg-live__dev-simulated {
+  font-weight: var(--wg-font-weight-strong);
+  color: var(--wg-accent);
+}
+
+.wg-live .wg-live__dev-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-1);
+}
+
+.wg-live .wg-live__dev-label {
+  font-size: var(--wg-font-size-small);
+  font-weight: var(--wg-font-weight-strong);
+}
+
+.wg-live .wg-live__dev-select {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 360px;
+  min-height: var(--wg-touch-secondary);
+  padding: var(--wg-space-1) var(--wg-space-3);
+  border: 1px solid var(--wg-border);
+  border-radius: var(--wg-button-radius);
+  background: var(--wg-player-surface);
+  color: var(--wg-player-text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.wg-live .wg-live__dev-reset {
+  justify-self: start;
+}

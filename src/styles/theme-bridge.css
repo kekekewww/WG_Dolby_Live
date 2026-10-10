@@ -1,0 +1,77 @@
+/*
+ * theme-bridge.css - design tokens (spec 3.5, plan 3.3, docs/implementation/design-baseline.md section 3).
+ *
+ * Every token is defined on .wg-live and .wg-live-featured only. Values marked MEASURED come
+ * from the live site (sounds.wgstudiomusic.com, logged out, 2026-10-10, Chromium); values marked
+ * NEW are design proposals for components the site does not have, to be confirmed on staging.
+ * No fonts are shipped: the font stacks only name fonts the site already loads.
+ *
+ * Admin overrides (accent, on-accent, player surface/text) are appended after this file by PHP as
+ * ".wg-live,.wg-live-featured{--wg-accent:...}", so keep tokens that must follow an override
+ * expressed through var().
+ */
+.wg-live,
+.wg-live-featured {
+  /* --- typography --- */
+  /* MEASURED: Elementor content is "Noto Sans TC" (the body font Karla has no CJK glyphs). */
+  --wg-font-body: 'Noto Sans TC', Karla, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --wg-font-heading: 'Noto Sans TC', Karla, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  /* MEASURED: Elementor paragraphs use weight 200 (too thin on a dark photo background); NEW: 400 for UI text. */
+  --wg-font-weight-body: 400;
+  --wg-font-weight-strong: 500; /* MEASURED: Elementor headings are 500 */
+  --wg-font-weight-bold: 700; /* NEW */
+  --wg-font-size-body: 17px; /* MEASURED: body 17px / 28.05px */
+  --wg-line-height-body: 1.65; /* MEASURED */
+  --wg-font-size-small: 14px; /* NEW: auxiliary text, never below 14px */
+  --wg-font-size-h2: 38px; /* MEASURED: 38px / 49.4px (28px at the mobile breakpoint, see responsive.css) */
+  --wg-font-size-h3: 22px; /* NEW: the site's card h3 is 18px; section h3 needs more presence */
+  --wg-font-size-h4: 18px; /* MEASURED: card heading 18px */
+  --wg-line-height-heading: 1.3; /* MEASURED: 49.4 / 38 */
+
+  /* --- colour --- */
+  --wg-text: #f0f5fa; /* MEASURED: body/p/h2 colour */
+  --wg-text-muted: #c0c8d0; /* NEW: the site has no secondary text colour; 11.2:1 on #111 */
+  --wg-link: #f0d62b; /* MEASURED: content links */
+  --wg-link-hover: #c2a903; /* MEASURED: link hover (8.1:1 on #111) */
+  --wg-accent: #f0d62b; /* MEASURED: brand yellow (logo pixels, Astra colour 0, Elementor accent) */
+  --wg-accent-strong: #c2a903; /* MEASURED: Astra colour 1, button hover */
+  --wg-on-accent: #000; /* MEASURED: text on yellow buttons, 14.4:1 */
+  --wg-page-surface: transparent; /* NEW: content sits directly on the site's photo + 75% #111 overlay */
+  --wg-card-surface: rgba(17, 17, 17, 0.75); /* NEW: the site's overlay colour, reused for cards */
+  --wg-border: rgba(208, 213, 219, 0.5); /* MEASURED: Astra --ast-border-color, 3.97:1 on #111 */
+  --wg-success: #7ddc9a; /* NEW: status tones, always paired with text, never colour alone */
+  --wg-info: #8ec5ff; /* NEW */
+  --wg-warning: #f0d62b; /* NEW: same as the brand yellow */
+  --wg-danger: #ff8a80; /* NEW: 8.6:1 on #111 */
+
+  /* --- layout and shape --- */
+  --wg-content-max: 1140px; /* MEASURED: Elementor .e-con-inner (Astra container is 1200px) */
+  --wg-gutter: 20px; /* MEASURED: Astra page gutter on mobile (Elementor outer padding is 10px) */
+  --wg-button-radius: 3px; /* MEASURED: Elementor / WPForms buttons (WooCommerce uses 4px) */
+  --wg-card-radius: 6px; /* MEASURED: li.product (card background still to be checked on staging) */
+  --wg-space-1: 4px; /* NEW scale from spec 3.6 */
+  --wg-space-2: 8px;
+  --wg-space-3: 12px;
+  --wg-space-4: 16px;
+  --wg-space-5: 24px;
+  --wg-space-6: 32px;
+  --wg-space-7: 48px;
+  --wg-touch-primary: 48px; /* spec 3.6 */
+  --wg-touch-secondary: 44px; /* spec 3.6 */
+
+  /* --- motion and focus --- */
+  --wg-transition: 200ms linear; /* MEASURED: links 0.2s linear; spec 3.6 allows 160-220ms */
+  --wg-focus-ring: 2px solid var(--wg-accent); /* NEW: the site's 1px dotted focus is hard to see */
+  --wg-focus-offset: 2px; /* NEW */
+
+  /* --- notches and home-indicator areas (iOS) --- */
+  --wg-safe-top: env(safe-area-inset-top, 0px);
+  --wg-safe-right: env(safe-area-inset-right, 0px);
+  --wg-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --wg-safe-left: env(safe-area-inset-left, 0px);
+
+  /* --- media stage (independent of the site background, spec 3.5) --- */
+  --wg-player-surface: #111; /* NEW (from the site palette: Astra colour 7) */
+  --wg-player-text: #f0f5fa; /* NEW (from the measured text colour), 17.2:1 */
+  --wg-player-surface-raised: #1b1b1b; /* NEW */
+}

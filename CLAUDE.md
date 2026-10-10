@@ -4,20 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-The repository contains no code yet. The single source of truth is `WG_Studio_Live_Design_and_WordPress_Deployment_Spec.md` (written in Traditional Chinese). Section numbers below (§N) refer to it. Read the relevant section before you implement anything; section 20 holds the spec's direct instructions to the coding agent.
+The M1 code now exists (`src/`, `plugin/wg-live/`, `scripts/`, `dev/`, `docs/deploy/`). The single source of truth is `WG_Studio_Live_Design_and_WordPress_Deployment_Spec.md` (written in Traditional Chinese). Section numbers below (§N) refer to it. Read the relevant section before you implement anything; section 20 holds the spec's direct instructions to the coding agent.
 
 The project is **`wg-live`**, a WordPress plugin. It adds a "Live / 線上音樂會" area to https://sounds.wgstudiomusic.com/ (Astra theme + Elementor/Elementor Pro + WooCommerce, timezone Asia/Taipei). Viewers choose **Binaural (headphones)** or **Dolby Atmos (home theater)** playback. The studio supplies the streams; this project builds the UI and the platform integration.
 
 ## Milestones: what you may claim
 
 - **M1 (current scope):** the full UI flow, the admin event management, the installable ZIP, Elementor integration, playback through a real **DemoAdapter** with test media, staging and production deployment steps, and rollback.
-- **M2 (out of scope, don't build):** real ticket checks, playback authorization, stream protection/DRM, end-to-end Atmos validation on real devices, and load testing with 300 concurrent viewers.
+- **M2 (out of scope, don't build):** real ticket checks, playback authorization, stream protection/DRM, end-to-end Atmos validation on real devices, and checking provider capacity and bitrates for 300 concurrent streams.
+- **Load testing in M1 (§13.5):** only a stepped test of pages, static assets and the `wg-live/v1/events*` endpoints, run in an environment the admin has approved. It never requests `/playback` media and never sends 300 streams against production.
+
+**Binding contracts:** [docs/implementation/M1-PLAN.md](docs/implementation/M1-PLAN.md) (rev 2, after the contract review) and `src/types.ts`. Implement against them, and change them only together.
 
 Keep working on M1 while M2 is undecided. Never report M1 as "paid live streaming is securely online". Final reports keep four groups separate: 已實作 (implemented), 已測試 (tested), 已部署 (deployed), and 尚待外部條件 (waiting on external conditions) (§20).
 
-## Commands (planned, per §11.1)
+## Commands (per §11.1)
 
-The project has no `package.json` yet. Create these scripts before you claim they work:
+These scripts exist in `package.json` (also `lint:php`, `test:integration`, `test:e2e:dev`, `test:e2e:dist`, `serve:dist`, `demo:audio`). Run them before you claim a change works:
 
 ```bash
 npm ci
@@ -54,7 +57,9 @@ Two halves live in one repo. Only the PHP plugin and the built static assets shi
 **Data and security**
 - `PublicEvent` never contains source URLs or credentials. A real playback source comes from the backend only after the entitlement check. Never expose private sources through REST, data attributes, JSON-LD, or `VITE_*` env vars.
 - When no entitlement result is found, deny playback; never fail open. When no provider exists, return `{ kind: 'not_ready' }`.
-- The dev/demo state panel only appears in a server-confirmed dev environment or an authorized preview. No public `?paid=true`, `?debug=1`, or similar parameter may change playback conditions.
+- The dev/demo state panel appears only in `local`/`development`, or on `staging` for a logged-in user with the manage capability. It **never** appears on `production`, not even in admin previews. No public `?paid=true`, `?debug=1`, or similar parameter may change playback conditions.
+- Entitlement is checked on the server before any source is resolved (`Entitlement::check`). The client-side placeholder only drives the display.
+- Event 代稱 (slug) is an explicit required field matching `^[a-z0-9]+(?:-[a-z0-9]+)*$`. Never let WordPress derive it from a Chinese title.
 - Don't use WordPress as a PHP proxy for media segments. Don't add a Service Worker. Don't cache personalized or entitlement responses.
 
 **Scope**

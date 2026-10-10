@@ -1,0 +1,284 @@
+/*
+ * featured.css - the homepage card rendered by templates/featured.php (plan D2, 6.10).
+ *
+ * This is the only stylesheet the homepage loads (wg-live-featured.css). The build (src/featured.ts)
+ * bundles theme-bridge.css in front of it so the --wg-* tokens exist, and every token is still read
+ * with a measured fallback, var(--wg-x, <value>), as a second line of defence. The admin
+ * overrides that PHP appends after this file (".wg-live,.wg-live-featured{--wg-accent:...}") still
+ * win because they set the same custom properties on the same element.
+ *
+ * Everything lives under .wg-live-featured. The host page is hostile on purpose (see
+ * dev/site-chrome.css), so element resets use :where() (no extra specificity) and component rules
+ * use two classes. Targets: CTA >= 48px, text >= 16px, auxiliary text >= 14px.
+ */
+
+/* ---- box model ---- */
+.wg-live-featured *,
+.wg-live-featured *::before,
+.wg-live-featured *::after {
+  box-sizing: border-box;
+}
+
+/* ---- root ---- */
+.wg-live-featured {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--wg-content-max, 1140px);
+  min-width: 0;
+  margin: 0 auto;
+  padding: 0;
+  color: var(--wg-text, #f0f5fa);
+  font-family: var(--wg-font-body, 'Noto Sans TC', Karla, 'PingFang TC', 'Microsoft JhengHei', sans-serif);
+  font-size: var(--wg-font-size-body, 17px);
+  font-style: normal;
+  font-weight: var(--wg-font-weight-body, 400);
+  line-height: var(--wg-line-height-body, 1.65);
+  letter-spacing: normal;
+  text-align: start;
+  text-indent: 0;
+  text-transform: none;
+  overflow-wrap: break-word;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* ---- element resets (zero extra specificity) ---- */
+.wg-live-featured :where(h2, h3) {
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  font-family: var(--wg-font-heading, 'Noto Sans TC', Karla, 'PingFang TC', 'Microsoft JhengHei', sans-serif);
+  font-style: normal;
+  font-weight: var(--wg-font-weight-strong, 500);
+  line-height: var(--wg-line-height-heading, 1.3);
+  letter-spacing: normal;
+  text-align: start;
+  text-transform: none;
+}
+
+.wg-live-featured :where(p, div) {
+  margin: 0;
+  padding: 0;
+  text-align: start;
+}
+
+.wg-live-featured :where(img) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.wg-live-featured :where(a) {
+  color: var(--wg-link, #f0d62b);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+/* ---- keyboard focus ---- */
+.wg-live-featured :focus-visible {
+  outline: 2px solid var(--wg-accent, #f0d62b);
+  outline-offset: 2px;
+}
+
+/* ---- the card ---- */
+.wg-live-featured.wg-live-featured--event {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--wg-border, rgba(208, 213, 219, 0.5));
+  border-radius: var(--wg-card-radius, 6px);
+  background: var(--wg-card-surface, rgba(17, 17, 17, 0.75));
+}
+
+.wg-live-featured .wg-live-featured__media {
+  display: block;
+  min-width: 0;
+  background: var(--wg-player-surface, #111);
+}
+
+.wg-live-featured .wg-live-featured__poster {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.wg-live-featured .wg-live-featured__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--wg-space-3, 12px);
+  min-width: 0;
+  padding: var(--wg-space-5, 24px) var(--wg-gutter, 20px);
+}
+
+.wg-live-featured .wg-live-featured__title {
+  margin: 0;
+  color: var(--wg-text, #f0f5fa);
+  font-size: 24px;
+  font-weight: var(--wg-font-weight-strong, 500);
+  line-height: var(--wg-line-height-heading, 1.3);
+}
+
+.wg-live-featured .wg-live-featured__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wg-space-2, 8px) var(--wg-space-3, 12px);
+  margin: 0;
+  color: var(--wg-text, #f0f5fa);
+}
+
+.wg-live-featured .wg-live-featured__time {
+  margin: 0;
+  color: var(--wg-text, #f0f5fa);
+  font-size: var(--wg-font-size-body, 17px);
+}
+
+.wg-live-featured .wg-live-featured__text {
+  margin: 0;
+  color: var(--wg-text-muted, #c0c8d0);
+}
+
+.wg-live-featured .wg-live-featured__note {
+  margin: 0;
+  color: var(--wg-text-muted, #c0c8d0);
+  font-size: var(--wg-font-size-small, 14px);
+  line-height: 1.5;
+}
+
+/* ---- badges: always text, never colour alone ---- */
+.wg-live-featured .wg-live-featured__badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  margin: 0;
+  padding: 2px var(--wg-space-3, 12px);
+  border: 1px solid currentColor;
+  border-radius: var(--wg-button-radius, 3px);
+  background: transparent;
+  color: var(--wg-text, #f0f5fa);
+  font-size: var(--wg-font-size-small, 14px);
+  font-weight: var(--wg-font-weight-strong, 500);
+  line-height: 1.3;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.wg-live-featured .wg-live-featured__badge--demo {
+  margin-inline-start: var(--wg-space-2, 8px);
+  border-style: dashed;
+  color: var(--wg-accent, #f0d62b);
+}
+
+.wg-live-featured--live .wg-live-featured__badge--status {
+  border-color: var(--wg-accent, #f0d62b);
+  background: var(--wg-accent, #f0d62b);
+  color: var(--wg-on-accent, #000);
+}
+
+.wg-live-featured--cancelled .wg-live-featured__badge--status {
+  color: var(--wg-danger, #ff8a80);
+}
+
+.wg-live-featured--ended .wg-live-featured__badge--status {
+  color: var(--wg-text-muted, #c0c8d0);
+}
+
+/* ---- call to action ---- */
+.wg-live-featured .wg-live-featured__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wg-space-3, 12px);
+  margin: var(--wg-space-2, 8px) 0 0;
+}
+
+.wg-live-featured .wg-live-featured__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--wg-touch-primary, 48px);
+  min-height: var(--wg-touch-primary, 48px);
+  padding: var(--wg-space-2, 8px) var(--wg-space-5, 24px);
+  border: 1px solid var(--wg-accent, #f0d62b);
+  border-radius: var(--wg-button-radius, 3px);
+  background: var(--wg-accent, #f0d62b);
+  color: var(--wg-on-accent, #000);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: var(--wg-font-weight-strong, 500);
+  line-height: 1.3;
+  letter-spacing: normal;
+  text-align: center;
+  text-decoration: none;
+  text-transform: none;
+  transition:
+    color var(--wg-transition, 200ms linear),
+    background-color var(--wg-transition, 200ms linear),
+    border-color var(--wg-transition, 200ms linear);
+}
+
+.wg-live-featured .wg-live-featured__cta:hover {
+  border-color: var(--wg-accent-strong, #c2a903);
+  background: var(--wg-accent-strong, #c2a903);
+  color: var(--wg-on-accent, #000);
+}
+
+/* ---- empty / disabled state ---- */
+.wg-live-featured.wg-live-featured--empty {
+  display: block;
+  padding: var(--wg-space-5, 24px) var(--wg-gutter, 20px);
+  border: 1px solid var(--wg-border, rgba(208, 213, 219, 0.5));
+  border-radius: var(--wg-card-radius, 6px);
+  background: var(--wg-card-surface, rgba(17, 17, 17, 0.75));
+}
+
+.wg-live-featured .wg-live-featured__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--wg-touch-secondary, 44px);
+  color: var(--wg-link, #f0d62b);
+  font-size: 16px;
+}
+
+/* ---- two columns from tablet width ---- */
+@media (min-width: 768px) {
+  .wg-live-featured.wg-live-featured--event {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: center;
+  }
+
+  .wg-live-featured .wg-live-featured__body {
+    padding: var(--wg-space-6, 32px);
+  }
+
+  .wg-live-featured .wg-live-featured__title {
+    font-size: 28px;
+  }
+}
+
+/* ---- user preferences ---- */
+@media (prefers-reduced-motion: reduce) {
+  .wg-live-featured .wg-live-featured__cta {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .wg-live-featured.wg-live-featured--event,
+  .wg-live-featured.wg-live-featured--empty {
+    border-color: CanvasText;
+  }
+
+  .wg-live-featured .wg-live-featured__cta {
+    border-color: ButtonText;
+  }
+}

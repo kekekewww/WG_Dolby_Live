@@ -1,0 +1,565 @@
+/*
+ * player.css - the player view (spec 5.3, plan 3.3 / 6.x).
+ *
+ * Layout is mobile first and follows the DOM order the spec asks for: title + status, stage, main
+ * controls, current mode + switch, programme / info, help link. From 768px the same DOM becomes two
+ * columns (stage + controls | info). Every selector is two classes (".wg-live .wg-live__x") so theme
+ * and Elementor kit rules cannot win by specificity. Targets: 48px primary, 44px secondary. Nothing
+ * here animates the stage with playback: no visualizer, no pulsing (spec 7.3).
+ *
+ * The stage and controls are a dark functional surface (--wg-player-surface / --wg-player-text),
+ * independent of the page background. Inside it the text tokens are re-pointed at the player colours,
+ * so the shared primitives (.wg-live__btn, links, muted text) stay readable if an admin override
+ * changes the surface.
+ */
+
+/* ---- [hidden] must win over the display values set below ---- */
+.wg-live .wg-live__player-view [hidden] {
+  display: none !important;
+}
+
+/* ---- view grid ---- */
+.wg-live .wg-live__player-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-5);
+  align-items: start;
+  min-width: 0;
+}
+
+.wg-live .wg-live__player-view--unavailable {
+  display: block;
+}
+
+/* ---- title area ---- */
+.wg-live .wg-live__player-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-3);
+  min-width: 0;
+}
+
+.wg-live .wg-live__player-title {
+  margin: 0;
+  font-size: var(--wg-font-size-h2);
+  overflow-wrap: anywhere;
+}
+
+.wg-live .wg-live__player-title .wg-live__badge {
+  vertical-align: middle;
+}
+
+.wg-live .wg-live__player-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wg-space-2) var(--wg-space-3);
+}
+
+.wg-live .wg-live__player-meta {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--wg-text-muted);
+  font-size: 16px;
+}
+
+/* ---- status + entitlement panels ---- */
+.wg-live .wg-live__status,
+.wg-live .wg-live__entitlement {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-2);
+  min-width: 0;
+  padding: var(--wg-space-4) var(--wg-space-5);
+  border: 1px solid var(--wg-border);
+  border-inline-start-width: 4px;
+  border-radius: var(--wg-card-radius);
+  background: var(--wg-card-surface);
+}
+
+.wg-live .wg-live__status[data-tone='info'] {
+  border-inline-start-color: var(--wg-info);
+}
+
+.wg-live .wg-live__status[data-tone='warning'] {
+  border-inline-start-color: var(--wg-warning);
+}
+
+.wg-live .wg-live__status[data-tone='error'] {
+  border-inline-start-color: var(--wg-danger);
+  border-inline-start-style: double;
+}
+
+.wg-live .wg-live__entitlement {
+  border-inline-start-color: var(--wg-warning);
+  border-inline-start-style: dashed;
+}
+
+.wg-live .wg-live__status-title {
+  margin: 0;
+  font-size: var(--wg-font-size-h3);
+  overflow-wrap: anywhere;
+}
+
+.wg-live .wg-live__status-detail,
+.wg-live .wg-live__entitlement-message,
+.wg-live .wg-live__demo-notice,
+.wg-live .wg-live__error-code,
+.wg-live .wg-live__entitlement-note {
+  margin: 0;
+}
+
+.wg-live .wg-live__entitlement-message {
+  font-weight: var(--wg-font-weight-strong);
+}
+
+.wg-live .wg-live__demo-notice {
+  justify-self: start;
+  padding: var(--wg-space-1) var(--wg-space-3);
+  border: 1px dashed var(--wg-accent);
+  border-radius: var(--wg-button-radius);
+  color: var(--wg-accent);
+  font-size: var(--wg-font-size-small);
+  font-weight: var(--wg-font-weight-strong);
+}
+
+.wg-live .wg-live__status-actions {
+  margin-top: var(--wg-space-2);
+}
+
+/* ---- player group: stage + controls ---- */
+.wg-live .wg-live__player {
+  --wg-text: var(--wg-player-text);
+  --wg-link: var(--wg-player-text);
+  --wg-link-hover: var(--wg-accent);
+  --wg-border: rgba(240, 245, 250, 0.35);
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--wg-border);
+  border-radius: var(--wg-card-radius);
+  background: var(--wg-player-surface);
+  color: var(--wg-player-text);
+}
+
+.wg-live .wg-live__stage {
+  position: relative;
+  min-width: 0;
+  background: var(--wg-player-surface);
+  color: var(--wg-player-text);
+}
+
+.wg-live .wg-live__stage--video {
+  aspect-ratio: 16 / 9;
+}
+
+.wg-live .wg-live__media--video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #000;
+  object-fit: contain;
+}
+
+/* Audio has no picture: the element stays in the DOM (stable identity) but takes no space. */
+.wg-live .wg-live__media--audio {
+  display: none;
+  width: 0;
+  height: 0;
+  border: 0;
+}
+
+.wg-live .wg-live__frame-slot {
+  position: absolute;
+  inset: 0;
+}
+
+/* Audio stage: cover art and text, no forced 16:9 blank (spec 5.3). */
+.wg-live .wg-live__stage-art {
+  display: block;
+  margin: 0;
+  padding: 0;
+}
+
+.wg-live .wg-live__stage-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(60vh, 340px);
+  border: 0;
+  object-fit: cover;
+}
+
+.wg-live .wg-live__stage-img--unsized {
+  aspect-ratio: 16 / 9;
+}
+
+.wg-live .wg-live__stage-art--text {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  min-height: 140px;
+  padding: var(--wg-space-6) var(--wg-space-5);
+  text-align: center;
+}
+
+.wg-live .wg-live__stage-title {
+  margin: 0;
+  color: var(--wg-player-text);
+  font-size: var(--wg-font-size-h3);
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* ---- controls ---- */
+.wg-live .wg-live__controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-4);
+  padding: var(--wg-space-4);
+  border-top: 1px solid var(--wg-border);
+  background: var(--wg-player-surface-raised);
+}
+
+.wg-live .wg-live__controls-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-3);
+  min-width: 0;
+}
+
+.wg-live .wg-live__play {
+  width: 100%;
+}
+
+.wg-live .wg-live__start-reason {
+  margin: 0;
+}
+
+.wg-live .wg-live__transport {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wg-space-3);
+}
+
+.wg-live .wg-live__mute[aria-pressed='true'] {
+  border-style: double;
+  border-width: 3px;
+}
+
+.wg-live .wg-live__volume {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wg-space-2);
+  min-height: var(--wg-touch-secondary);
+}
+
+.wg-live .wg-live__volume-label {
+  font-size: 16px;
+}
+
+.wg-live .wg-live__volume-input {
+  width: 140px;
+  min-height: var(--wg-touch-secondary);
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* ---- mode selector (spec 5.2) ---- */
+.wg-live .wg-live__mode-selector {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.wg-live .wg-live__mode-legend {
+  margin: 0 0 var(--wg-space-3);
+  padding: 0;
+  font-size: var(--wg-font-size-h4);
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.4;
+}
+
+.wg-live .wg-live__mode-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-3);
+}
+
+.wg-live .wg-live__mode {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+/* The real radio sits invisibly over the whole card so a tap anywhere selects it and keyboard
+   focus is a real focus. */
+.wg-live .wg-live__mode-input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.wg-live .wg-live__mode-input:disabled {
+  cursor: not-allowed;
+}
+
+.wg-live .wg-live__mode-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-2);
+  align-content: start;
+  height: 100%;
+  min-height: var(--wg-touch-primary);
+  padding: var(--wg-space-4);
+  border: 1px solid var(--wg-border);
+  border-radius: var(--wg-card-radius);
+  background: transparent;
+  color: var(--wg-text);
+  cursor: pointer;
+  transition:
+    border-color var(--wg-transition),
+    background-color var(--wg-transition);
+}
+
+.wg-live .wg-live__mode-input:hover:not(:disabled) + .wg-live__mode-card {
+  border-color: var(--wg-accent);
+}
+
+/* Selected: accent border + inner ring + a visible「已選取」marker (never colour alone). */
+.wg-live .wg-live__mode-input:checked + .wg-live__mode-card {
+  border-color: var(--wg-accent);
+  background: rgba(240, 214, 43, 0.1);
+  box-shadow: inset 0 0 0 2px var(--wg-accent);
+}
+
+.wg-live .wg-live__mode-input:focus-visible + .wg-live__mode-card {
+  outline: var(--wg-focus-ring);
+  outline-offset: var(--wg-focus-offset);
+}
+
+.wg-live .wg-live__mode-input:disabled + .wg-live__mode-card {
+  border-style: dashed;
+  color: var(--wg-text-muted);
+  cursor: not-allowed;
+}
+
+.wg-live .wg-live__mode-title {
+  font-size: var(--wg-font-size-h4);
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.4;
+}
+
+.wg-live .wg-live__mode-desc,
+.wg-live .wg-live__mode-helper {
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.wg-live .wg-live__mode-helper {
+  color: var(--wg-text-muted);
+  font-size: var(--wg-font-size-small);
+}
+
+.wg-live .wg-live__mode-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wg-space-2);
+  margin-top: var(--wg-space-2);
+}
+
+.wg-live .wg-live__mode-action {
+  font-weight: var(--wg-font-weight-strong);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.wg-live .wg-live__mode-marker,
+.wg-live .wg-live__mode-unavailable {
+  padding: 2px var(--wg-space-3);
+  border-radius: var(--wg-button-radius);
+  font-size: var(--wg-font-size-small);
+  font-weight: var(--wg-font-weight-bold);
+  line-height: 1.4;
+}
+
+.wg-live .wg-live__mode-marker {
+  background: var(--wg-accent);
+  color: var(--wg-on-accent);
+}
+
+.wg-live .wg-live__mode-unavailable {
+  border: 1px dashed currentColor;
+}
+
+.wg-live .wg-live__mode-help {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--wg-touch-secondary);
+  margin-top: var(--wg-space-2);
+}
+
+/* ---- current mode + switch ---- */
+.wg-live .wg-live__modebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wg-space-3);
+  min-width: 0;
+}
+
+.wg-live .wg-live__mode-info {
+  min-width: 0;
+}
+
+.wg-live .wg-live__mode-label {
+  margin: 0;
+  font-weight: var(--wg-font-weight-strong);
+}
+
+.wg-live .wg-live__mode-note {
+  margin: var(--wg-space-1) 0 0;
+}
+
+/* ---- info + programme ---- */
+.wg-live .wg-live__aside {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-4);
+  min-width: 0;
+}
+
+.wg-live .wg-live__info {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-3);
+  min-width: 0;
+}
+
+.wg-live .wg-live__info-heading {
+  margin: 0;
+}
+
+.wg-live .wg-live__info-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-3);
+}
+
+.wg-live .wg-live__info-text,
+.wg-live .wg-live__info-when,
+.wg-live .wg-live__programme-note {
+  margin: 0;
+}
+
+.wg-live .wg-live__programme {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-2);
+}
+
+.wg-live .wg-live__programme-heading {
+  margin: 0;
+}
+
+.wg-live .wg-live__programme-list {
+  margin: 0;
+  padding-inline-start: var(--wg-space-5);
+  list-style: decimal;
+}
+
+.wg-live .wg-live__programme-list li {
+  margin: 0 0 var(--wg-space-1);
+  padding: 0;
+  list-style: decimal;
+}
+
+.wg-live .wg-live__help-link {
+  margin: 0;
+}
+
+/* ---- breakpoints (spec 7.1 candidates) ---- */
+@media (min-width: 544px) {
+  .wg-live .wg-live__play {
+    width: auto;
+    min-width: 220px;
+    justify-self: start;
+  }
+}
+
+@media (min-width: 768px) {
+  .wg-live .wg-live__player-view {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    column-gap: var(--wg-space-6);
+  }
+
+  .wg-live .wg-live__player-head {
+    grid-column: 1 / -1;
+  }
+
+  .wg-live .wg-live__player {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .wg-live .wg-live__aside {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .wg-live .wg-live__dialog--inline,
+  .wg-live .wg-live__dev {
+    grid-column: 1 / -1;
+  }
+
+  .wg-live .wg-live__mode-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wg-live .wg-live__controls {
+    padding: var(--wg-space-5);
+  }
+}
+
+/* ---- forced colours: keep selection and focus visible without our colours ---- */
+@media (forced-colors: active) {
+  .wg-live .wg-live__mode-input:checked + .wg-live__mode-card {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+  }
+
+  .wg-live .wg-live__mode-input:focus-visible + .wg-live__mode-card {
+    outline: 3px solid Highlight;
+  }
+
+  .wg-live .wg-live__mode-marker {
+    border: 1px solid ButtonText;
+    background: ButtonFace;
+    color: ButtonText;
+  }
+
+  .wg-live .wg-live__status,
+  .wg-live .wg-live__entitlement,
+  .wg-live .wg-live__player {
+    border-color: CanvasText;
+  }
+}

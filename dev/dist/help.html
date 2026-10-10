@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Listening Guide 收聽說明 | 開發測試頁（dist help）</title>
+    <link rel="stylesheet" href="/dev/site-chrome.css" />
+    <!--WG_LIVE_DIST:css-->
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="site-logo" href="/dev/stub.html?page=home">FAKE SITE LOGO</a>
+      <nav class="site-nav" aria-label="示範網站主選單">
+        <ul>
+          <li><a href="/dev/stub.html?page=home">首頁</a></li>
+          <li><a href="/dev/dist/index.html">Live</a></li>
+          <li><a href="/dev/dist/listen.html?wg_event=demo-live-binaural-atmos">Listen</a></li>
+          <li><a href="/dev/dist/help.html" aria-current="page">Listening Guide</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main class="site-main">
+      <p class="site-note">dist 測試頁：載入已建置的 wg-live.css（&lt;link&gt;）與 wg-live.js（&lt;script defer&gt;），方式與 WordPress 相同。</p>
+      <h1>示範網站頁面標題</h1>
+      <p>這是示範網站的一般段落文字，使用了刻意誇張的全域 p 樣式。</p>
+      <button type="button">全域按鈕（紅色）</button>
+
+      <div class="wg-live wg-live--help" data-wg-live-view="help" id="wg-live-1">
+        <script type="application/json" class="wg-live__config">__WG_LIVE_CONFIG:help__</script>
+        <noscript>
+          <p>需要啟用 JavaScript 才能顯示收聽說明。<a href="/dev/dist/index.html">活動列表</a>｜<a href="/dev/dist/help.html">收聽說明</a>｜<a href="/dev/stub.html?page=contact">聯絡我們</a></p>
+        </noscript>
+        <div class="wg-live__sr-status" role="status" aria-atomic="true"></div>
+        <div class="wg-live__mount" aria-busy="true"><div class="wg-live__skeleton wg-live__skeleton--help"></div></div>
+      </div>
+
+      <p>容器之後的一般段落。</p>
+      <a href="/dev/stub.html?page=store">全域連結範例</a>
+    </main>
+
+    <footer class="site-footer">
+      <p>FAKE SITE FOOTER &copy; dev harness | <a href="/dev/stub.html?page=contact">Contact</a></p>
+    </footer>
+
+    <!--WG_LIVE_DIST:js-->
+  </body>
+</html>

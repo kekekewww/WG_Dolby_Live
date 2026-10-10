@@ -1,0 +1,49 @@
+=== WG Studio Live ===
+Requires at least: 6.3
+Requires PHP: 7.4
+Stable tag: 0.1.0
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Tags: live, concert, audio, binaural, dolby atmos
+
+Live / 線上音樂會: event pages and a Binaural / Dolby Atmos listening-mode player interface for the WG Studio website.
+
+== Description ==
+
+WG Studio Live adds a Live area to the site: an events page, a player page and a listening guide, plus a small featured-event card for the homepage.
+
+This is milestone M1. It delivers the interface, the admin event management and a demo player that plays short test audio. It does not check tickets, does not authorize playback and does not protect streams. No real concert stream is connected in this version, and the compatibility table in the listening guide stays "pending" until devices are actually tested.
+
+Features in this version:
+
+* Custom event type with an explicit, validated event slug, start time and time zone, status, supported listening modes, programme, poster and optional product link.
+* Shortcodes: `[wg_live view="events|player|help"]` (optional `event="slug"` and `heading="h1|h2"`) and `[wg_live_featured]`.
+* Page assets load only on the bound Live pages, the homepage card and the Elementor preview. The homepage card is rendered in PHP and loads no script.
+* Deployment mode "disabled" (default) hides every public part of the plugin. Mode "demo" shows the interface with the bundled demo audio.
+* A public read-only REST API under `wg-live/v1` (events, event, playback) that never returns source files for real events and never varies by user.
+
+The plugin does not create accounts, checkout or payment flows and does not change the theme, menus or the homepage.
+
+== Installation ==
+
+1. Upload the `wg-live` folder to `/wp-content/plugins/` or install the ZIP from Plugins > Add New > Upload Plugin.
+2. Activate the plugin. It starts in deployment mode "disabled".
+3. Open the WG Live admin menu, then Settings, create or bind the Live, Listen and Listening Guide pages, then switch the deployment mode to "demo" when ready.
+4. Add the shortcodes to the bound pages (or to an Elementor Shortcode widget) and `[wg_live_featured]` to the homepage.
+
+Requirements: WordPress 6.3 or newer and PHP 7.4 or newer.
+
+== Browser support ==
+
+The interface targets these minimum browsers: Safari and iOS Safari 15.4, Chrome and Edge 100, Firefox 100. Playback paths are chosen by feature detection, not by browser name. Real-device results are recorded separately and are not claimed here.
+
+== Demo assets and third-party notices ==
+
+The two demo audio files (`assets/demo/demo-tone-1.mp3`, `assets/demo/demo-tone-2.mp3`) and the demo poster (`assets/demo/poster-demo.svg`) were created for this project. They contain no recordings, samples, fonts or artwork from any other party, and ship under the same license as the plugin. See `assets/demo/LICENSE-demo.txt`. The demo audio is a way to try the interface only: it is not Binaural or Dolby Atmos validation material.
+
+The plugin bundles no third-party code. The built script and stylesheet in `assets/dist` are compiled from this project's own source.
+
+== Changelog ==
+
+= 0.1.0 =
+* First M1 release: interface, event management, demo player, shortcodes and public REST endpoints.

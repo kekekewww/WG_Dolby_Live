@@ -1,0 +1,65 @@
+/*
+ * accessibility.css - user preference media queries. Imported last so it can override any view.
+ */
+
+/* Spec 7.3: no non-essential motion. Loading placeholders keep their stable height but stop pulsing. */
+@media (prefers-reduced-motion: reduce) {
+  .wg-live *,
+  .wg-live *::before,
+  .wg-live *::after,
+  .wg-live-featured *,
+  .wg-live-featured *::before,
+  .wg-live-featured *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .wg-live .wg-live__skeleton {
+    animation: none;
+  }
+}
+
+/* Windows high contrast: let system colours win, keep shapes and focus visible. */
+@media (forced-colors: active) {
+  .wg-live .wg-live__btn,
+  .wg-live .wg-live__badge,
+  .wg-live .wg-live__boot-error {
+    border: 1px solid ButtonText;
+    forced-color-adjust: auto;
+  }
+
+  .wg-live .wg-live__btn--primary {
+    border-color: Highlight;
+    background: ButtonFace;
+    color: ButtonText;
+  }
+
+  .wg-live .wg-live__btn:disabled,
+  .wg-live .wg-live__btn[aria-disabled='true'] {
+    border-style: dashed;
+    border-color: GrayText;
+    color: GrayText;
+  }
+
+  .wg-live :focus-visible,
+  .wg-live .wg-live__btn:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .wg-live .wg-live__skeleton {
+    border: 1px dashed GrayText;
+    background: transparent;
+  }
+}
+
+/* Users asking for more contrast get a solid, stronger border colour. */
+@media (prefers-contrast: more) {
+  .wg-live,
+  .wg-live-featured {
+    --wg-border: #f0f5fa;
+    --wg-text-muted: #f0f5fa;
+  }
+}

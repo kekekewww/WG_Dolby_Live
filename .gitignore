@@ -29,3 +29,4 @@ artifacts/
 Thumbs.db
 .vscode/
 .idea/
+/playwright-report-integration/

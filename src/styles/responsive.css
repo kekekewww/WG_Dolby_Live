@@ -1,0 +1,50 @@
+/*
+ * responsive.css - breakpoints.
+ *
+ * Astra's own breakpoints (544 / 767-768 / 921-922, measured as declared @media widths in
+ * design-baseline.md 2.8) are inherited for the type scale. 768 and 1024 are the candidate layout
+ * breakpoints from spec 7.1; they get final values after the staging check. View stylesheets add
+ * their own layout rules at the same widths.
+ */
+
+/* MEASURED: h2 38px -> 28px on 390/360 wide viewports; the switch is placed at Astra's 767/768 break. */
+@media (max-width: 767px) {
+  .wg-live,
+  .wg-live-featured {
+    --wg-font-size-h2: 28px;
+    --wg-font-size-h3: 20px;
+  }
+}
+
+/* Narrow phones: action rows stack and fill the width so every target is easy to hit. */
+@media (max-width: 543px) {
+  .wg-live .wg-live__actions--stack {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .wg-live .wg-live__actions--stack > .wg-live__btn {
+    width: 100%;
+  }
+}
+
+/* Spec 7.1 candidate: 768. */
+@media (min-width: 768px) {
+  .wg-live .wg-live__skeleton--player {
+    min-height: 480px;
+  }
+}
+
+/* Spec 7.1 candidate: 1024. */
+@media (min-width: 1024px) {
+  .wg-live .wg-live__skeleton--events {
+    min-height: 480px;
+  }
+}
+
+/* Landscape phones with a notch: keep content out of the cut-out when the viewport extends under it. */
+@supports (padding: max(0px)) {
+  .wg-live {
+    padding-inline: max(0px, var(--wg-safe-left)) max(0px, var(--wg-safe-right));
+  }
+}

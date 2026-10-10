@@ -1,0 +1,399 @@
+/**
+ * Player view (`/live/listen/`, spec 5.3, plan 6.2 - 6.10).
+ *
+ * Resolves the event (shortcode `event` attribute wins over `?wg_event=`), builds the
+ * coordinator with its providers and renders the whole page ONCE. After that every state change
+ * only updates the existing nodes in place (plan 6.6): the media element, the focused control and
+ * the open dialog keep their identity. Disabled mode and an unknown event render a message and the
+ * way out, without creating a controller or sending a request.
+ *
+ * Mobile order (spec 5.3): title + status, stage, main controls, current mode, switch,
+ * programme / info, help link. On wide screens the same DOM becomes stage + info columns.
+ */
+import { createStageArt, createPlayerShell } from '../components/player-shell';
+import { createModeSelector } from '../components/mode-selector';
+import { createPlayerControls, handlePlayerKeydown } from '../components/player-controls';
+import { createModeLabel, createStatusPanel, createUnavailablePanel } from '../components/status-panel';
+import { createEntitlementPanel } from '../components/entitlement-panel';
+import { createSwitchDialog } from '../components/dialog';
+import { createDevPanel } from '../components/dev-panel';
+import { h, safeUrl, uid } from '../dom';
+import { DEMO_EVENT_BADGE, playerCopy, statusCopy } from '../i18n/copy';
+import { createAdapterFactory } from '../adapters/factory';
+import { createEntitlementPlaceholder } from '../adapters/entitlement-placeholder';
+import { createRestEventProvider, createRestPlaybackProvider } from '../adapters/providers';
+import { createPlayerController } from '../state/coordinator';
+import type { CoordinatorDeps } from '../state/coordinator';
+import { startEventPoller } from '../state/event-poller';
+import { pageRegistry } from '../state/page-registry';
+import { isUrgentAnnouncement, selectAnnouncement, selectGate, selectModeLabel } from '../state/model';
+import { readModePreference, writeModePreference } from '../util/storage';
+import { readEventParam, readModeParam } from '../util/url';
+import { formatEventDateTime } from '../util/time';
+import type { AppState, BootConfig, ListeningMode, PublicEvent } from '../types';
+import type { ViewContext, ViewInstance } from './types';
+
+type Heading = 'h1' | 'h2' | 'h3' | 'h4';
+
+function otherMode(mode: ListeningMode): ListeningMode {
+  return mode === 'binaural' ? 'atmos' : 'binaural';
+}
+
+function setText(node: HTMLElement, text: string): void {
+  if (node.textContent !== text) node.textContent = text;
+}
+
+/** Heading levels below the view title: h1 -> h2/h3, h2 -> h3/h4 (plan 3.3). */
+function levels(base: 'h1' | 'h2'): { section: Heading; sub: Heading } {
+  return base === 'h1' ? { section: 'h2', sub: 'h3' } : { section: 'h3', sub: 'h4' };
+}
+
+/* ------------------------------------------------------------------ */
+/* Disabled mode / unknown event: no controller                        */
+/* ------------------------------------------------------------------ */
+
+function mountUnavailable(mount: HTMLElement, boot: BootConfig, kind: 'disabled' | 'not_found'): ViewInstance {
+  const panel = createUnavailablePanel(kind, boot.links, boot.heading);
+  const root = h('section', { className: 'wg-live__player-view wg-live__player-view--unavailable', dataset: { gate: kind } }, panel.el);
+  mount.replaceChildren(root);
+  return {
+    destroy(): void {
+      root.remove();
+    },
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Static pieces                                                       */
+/* ------------------------------------------------------------------ */
+
+function paragraphs(text: string): HTMLElement[] {
+  return text
+    .split(/\r?\n+/)
+    .map((line) => line.trim())
+    .filter((line) => line !== '')
+    .map((line) => h('p', { className: 'wg-live__info-text', text: line }));
+}
+
+/* ------------------------------------------------------------------ */
+/* Main view                                                           */
+/* ------------------------------------------------------------------ */
+
+export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewContext): ViewInstance {
+  if (boot.deploymentMode === 'disabled') return mountUnavailable(mount, boot, 'disabled');
+
+  const slug = boot.fixedEventSlug ?? readEventParam(window.location.search);
+  const found = slug === null ? null : (boot.events.find((e) => e.slug === slug) ?? null);
+  if (found === null) return mountUnavailable(mount, boot, 'not_found');
+  // A const (not the narrowed `found`) so function declarations below keep the non-null type.
+  const event: PublicEvent = found;
+
+  const { section: sectionTag, sub: subTag } = levels(boot.heading);
+
+  /* ---- controller ---- */
+  const shell = createPlayerShell(event.mediaKind);
+  const fromParam = readModeParam(window.location.search, event.availableModes);
+  const remembered = readModePreference();
+  const preselect: ListeningMode | null =
+    fromParam ?? (remembered !== null && event.availableModes.includes(remembered) ? remembered : null);
+
+  const eventProvider = createRestEventProvider(boot.rest.root, boot.events);
+  const deps: CoordinatorDeps = {
+    boot,
+    event,
+    host: shell.host,
+    env: ctx.env,
+    adapterFactory: createAdapterFactory(),
+    playbackProvider: createRestPlaybackProvider(boot.rest.root),
+    entitlementProvider: createEntitlementPlaceholder(boot.events),
+    eventProvider,
+    root: ctx.root,
+    preselect,
+    onModeRemembered: writeModePreference,
+  };
+  const controller = createPlayerController(deps);
+  const unregister = pageRegistry.register(controller);
+
+  /* ---- title area ---- */
+  const demoBadge = event.isDemo
+    ? h('span', { className: 'wg-live__badge wg-live__badge--demo', text: DEMO_EVENT_BADGE })
+    : null;
+  const titleText = h('span', { className: 'wg-live__player-title-text', text: event.title });
+  const title = h(boot.heading, { className: 'wg-live__player-title wg-live__heading' }, titleText, demoBadge ? ' ' : null, demoBadge);
+  const meta = h('p', { className: 'wg-live__player-meta' });
+  const statusBadge = h('span', { className: 'wg-live__badge wg-live__player-status-badge' });
+
+  /* ---- panels ---- */
+  const info = h('section', { className: 'wg-live__info' });
+  const infoHeadingId = uid('wg-live-info');
+  const infoHeading = h(sectionTag, {
+    className: 'wg-live__info-heading wg-live__heading wg-live__heading--h3',
+    id: infoHeadingId,
+    tabindex: -1,
+    text: playerCopy.info.heading,
+  });
+  const infoBody = h('div', { className: 'wg-live__info-body' });
+  info.append(infoHeading, infoBody);
+  info.setAttribute('aria-labelledby', infoHeadingId);
+
+  const dialog = createSwitchDialog({
+    onOpen: (target) => controller.prepareSwitch(target),
+    onConfirm: (target) => {
+      controller.switchMode(target).catch(() => undefined);
+    },
+    fallbackFocus: () => statusPanel.heading,
+  });
+
+  function currentModeForSwitch(state: AppState): ListeningMode | null {
+    return state.player.activeMode ?? state.player.lastGoodMode ?? state.player.loadedMode ?? state.player.selectedMode;
+  }
+
+  function openSwitchDialog(trigger: HTMLElement): void {
+    const state = controller.getState();
+    if (state.player.status === 'switching' || state.player.status === 'loading') return;
+    const current = currentModeForSwitch(state);
+    if (current === null) return;
+    dialog.open(trigger, current, otherMode(current));
+  }
+
+  const statusPanel = createStatusPanel({
+    controller,
+    headingTag: sectionTag,
+    links: boot.links,
+    event,
+    onSwitchMode: openSwitchDialog,
+    onViewEvent: () => {
+      infoHeading.focus();
+    },
+  });
+  const entitlementPanel = createEntitlementPanel({ controller, links: boot.links, event });
+
+  const selector = createModeSelector({
+    onSelect: (mode) => controller.selectMode(mode),
+    helpHref: safeUrl(boot.links.help),
+  });
+  const controls = createPlayerControls({
+    controller,
+    mediaKind: event.mediaKind,
+    stage: shell.stage,
+    media: shell.host.media,
+  });
+  const modeLabel = createModeLabel();
+  const switchButton = h('button', {
+    className: 'wg-live__btn wg-live__btn--secondary wg-live__switch',
+    type: 'button',
+    text: statusCopy.action.switchMode,
+    hidden: true,
+  });
+  const modeBar = h(
+    'div',
+    { className: 'wg-live__modebar', attrs: { role: 'group', 'aria-label': playerCopy.modeBar.groupLabel } },
+    modeLabel.el,
+    switchButton,
+  );
+  shell.controlsSlot.append(selector.el, controls.el, modeBar);
+
+  const helpHref = safeUrl(boot.links.help);
+  const helpLink = helpHref
+    ? h('p', { className: 'wg-live__help-link' }, h('a', { href: helpHref, text: playerCopy.helpLink }))
+    : null;
+
+  const head = h(
+    'header',
+    { className: 'wg-live__player-head' },
+    title,
+    h('div', { className: 'wg-live__player-sub' }, statusBadge, meta),
+    statusPanel.el,
+    entitlementPanel.el,
+  );
+
+  const devPanel = controller.dev ? createDevPanel(controller.dev) : null;
+
+  const view = h(
+    'section',
+    { className: 'wg-live__player-view', dataset: { event: event.slug, mediaKind: event.mediaKind } },
+    head,
+    shell.el,
+    // Info and the help link stay together (spec 5.3 order) and share the second column on wide screens.
+    h('div', { className: 'wg-live__aside' }, info, helpLink),
+    dialog.el,
+    devPanel ? devPanel.el : null,
+  );
+
+  if (event.mediaKind === 'video') {
+    const poster = safeUrl(event.posterUrl);
+    if (poster !== null) shell.host.media.setAttribute('poster', poster);
+  } else {
+    shell.stage.prepend(createStageArt(event));
+  }
+
+  /* ---- in-place rendering ---- */
+  let lastEvent: PublicEvent | null = null;
+
+  function renderEventDetails(data: PublicEvent): void {
+    if (lastEvent === data) return;
+    lastEvent = data;
+    setText(titleText, data.title);
+
+    const when = formatEventDateTime(data.startsAt, data.displayTimezone);
+    const performers = data.performers.filter((name) => name.trim() !== '');
+    const nodes: Array<Node | string> = [];
+    if (performers.length > 0) {
+      nodes.push(playerCopy.header.performers(performers.join(playerCopy.header.performersJoiner)));
+    }
+    if (when.machine !== '') {
+      if (nodes.length > 0) nodes.push(' · ');
+      nodes.push(h('time', { attrs: { datetime: when.machine }, text: when.full }));
+    }
+    meta.replaceChildren(...nodes);
+    meta.hidden = nodes.length === 0;
+
+    const body: Node[] = [...paragraphs(data.description)];
+    if (when.machine !== '') {
+      body.push(
+        h(
+          'p',
+          { className: 'wg-live__info-when' },
+          h('strong', { text: `${playerCopy.info.dateLabel}：` }),
+          h('time', { attrs: { datetime: when.machine }, text: when.full }),
+        ),
+      );
+    }
+    const programme = data.programme.filter((item) => item.trim() !== '');
+    if (programme.length > 0) {
+      const programmeHeadingId = `${infoHeadingId}-programme`;
+      body.push(
+        h(
+          'section',
+          { className: 'wg-live__programme', attrs: { 'aria-labelledby': programmeHeadingId } },
+          h(subTag, { className: 'wg-live__programme-heading wg-live__heading wg-live__heading--h4', id: programmeHeadingId, text: playerCopy.info.programmeHeading }),
+          h('ul', { className: 'wg-live__programme-list' }, ...programme.map((item) => h('li', { text: item }))),
+          h('p', { className: 'wg-live__programme-note wg-live__small wg-live__muted', text: playerCopy.info.programmeNote }),
+        ),
+      );
+    }
+    infoBody.replaceChildren(...body);
+  }
+
+  function render(state: AppState): void {
+    const data: PublicEvent = state.event.data ?? event;
+    renderEventDetails(data);
+
+    const status = state.event.status ?? data.status;
+    setText(statusBadge, statusCopy.eventStatus[status]);
+    statusBadge.className = `wg-live__badge wg-live__player-status-badge${status === 'live' ? ' wg-live__badge--live' : status === 'cancelled' ? ' wg-live__badge--error' : ' wg-live__badge--muted'}`;
+
+    statusPanel.update(state);
+    entitlementPanel.update(state);
+    modeLabel.update(state);
+    controls.update(state);
+    devPanel?.update(state);
+
+    const gate = selectGate(state).kind;
+    const controlsVisible = gate === 'scheduled' || gate === 'doors_open' || gate === 'open';
+    const playerStatus = state.player.status;
+    const preStart =
+      playerStatus === 'idle' ||
+      playerStatus === 'selecting' ||
+      (playerStatus === 'failed' && state.player.lastGoodMode === null);
+    shell.controlsSlot.hidden = !controlsVisible;
+
+    selector.el.hidden = !(controlsVisible && preStart);
+    selector.update({ selected: state.player.selectedMode, available: data.availableModes });
+
+    const engaged = playerStatus !== 'idle' && playerStatus !== 'selecting';
+    const canSwitch = controlsVisible && engaged && data.availableModes.length > 1 && currentModeForSwitch(state) !== null;
+    switchButton.hidden = !canSwitch;
+    if (playerStatus === 'switching' || playerStatus === 'loading') switchButton.setAttribute('aria-disabled', 'true');
+    else switchButton.removeAttribute('aria-disabled');
+    modeBar.hidden = !controlsVisible || (selectModeLabel(state) === null && switchButton.hidden);
+
+    view.dataset.status = playerStatus;
+    view.dataset.gate = gate;
+
+    // A modal about a stream that is gone (ended, cancelled, not yet open) must not linger.
+    if (dialog.isOpen() && (!controlsVisible || gate !== 'open' || !engaged)) dialog.close();
+    dialog.notifyStatus(playerStatus);
+  }
+
+  /* ---- announcements (plan 6.10): only what selectAnnouncement() says, only when it changes ---- */
+  let lastAnnounced: string | null = null;
+  function announce(state: AppState): void {
+    const message = selectAnnouncement(state);
+    if (message === null) {
+      lastAnnounced = null;
+      return;
+    }
+    if (message === lastAnnounced) return;
+    lastAnnounced = message;
+    ctx.announce(message, isUrgentAnnouncement(state) ? { immediate: true } : undefined);
+  }
+
+  /* ---- wiring ---- */
+  const onSwitchClick = (): void => {
+    if (switchButton.getAttribute('aria-disabled') === 'true') return;
+    openSwitchDialog(switchButton);
+  };
+  switchButton.addEventListener('click', onSwitchClick);
+
+  const onKeydown = (keyEvent: KeyboardEvent): void => {
+    handlePlayerKeydown(keyEvent, controller);
+  };
+  shell.el.addEventListener('keydown', onKeydown);
+
+  const initial = controller.getState();
+  render(initial);
+  lastAnnounced = selectAnnouncement(initial); // never announce the state the page loaded in
+  mount.replaceChildren(view);
+
+  let destroyed = false;
+  const unsubscribe = controller.subscribe((state) => {
+    if (destroyed) return;
+    render(state);
+    announce(state);
+  });
+
+  /** Release everything this view owns (idempotent). The caller decides what the mount shows next. */
+  function teardown(): void {
+    if (destroyed) return;
+    destroyed = true;
+    poller.stop();
+    unsubscribe();
+    shell.el.removeEventListener('keydown', onKeydown);
+    switchButton.removeEventListener('click', onSwitchClick);
+    dialog.destroy();
+    selector.destroy();
+    controls.destroy();
+    statusPanel.destroy();
+    entitlementPanel.destroy();
+    devPanel?.destroy();
+    unregister();
+    controller.destroy();
+    view.remove();
+  }
+
+  const poller = startEventPoller({
+    provider: eventProvider,
+    slug: event.slug,
+    root: ctx.root,
+    onEvent: (next) => controller.updateEvent(next),
+    onGone: () => {
+      // The event was unpublished or removed while the page was open: stop the media and say so.
+      if (destroyed) return;
+      teardown();
+      const gone = createUnavailablePanel('not_found', boot.links, boot.heading);
+      mount.replaceChildren(h('section', { className: 'wg-live__player-view wg-live__player-view--unavailable', dataset: { gate: 'not_found' } }, gone.el));
+      ctx.announce(statusCopy.gate.eventNotFound.title, { immediate: true });
+    },
+  });
+
+  return {
+    destroy: teardown,
+    stop(): void {
+      if (!destroyed) controller.stop();
+    },
+    refresh(): void {
+      if (!destroyed) poller.refreshNow();
+    },
+  };
+}

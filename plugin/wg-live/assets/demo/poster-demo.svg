@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="t d">
+  <title id="t">介面示範 · WG Studio Live</title>
+  <desc id="d">操作示範，非正式演出</desc>
+  <rect width="1600" height="900" fill="#2b2824"/>
+  <rect x="64" y="64" width="1472" height="772" fill="none" stroke="#a89a82" stroke-width="2"/>
+  <text x="800" y="330" text-anchor="middle" font-family="'Noto Serif TC','PMingLiU','Songti TC',serif" font-size="30" letter-spacing="8" fill="#a89a82">LIVE</text>
+  <text x="800" y="620" text-anchor="middle" font-family="'Noto Sans TC','Microsoft JhengHei','PingFang TC',sans-serif" font-size="76" font-weight="600" fill="#f1ebe0">介面示範 · WG Studio Live</text>
+  <text x="800" y="700" text-anchor="middle" font-family="'Noto Sans TC','Microsoft JhengHei','PingFang TC',sans-serif" font-size="36" fill="#cfc6b6">操作示範，非正式演出</text>
+</svg>

@@ -1,0 +1,454 @@
+/*
+ * events.css - the events view (plan 6.1) plus the pieces it shares with the help view
+ * (view header, FAQ list, notice and panel boxes).
+ *
+ * Every selector is two classes (".wg-live .wg-live__x") so a host theme or the Elementor kit
+ * ("h2 { ... }", ".elementor-kit-21 a { ... }") cannot win by specificity; base.css supplies the
+ * zero-specificity resets. Rhythm follows docs/implementation/design-baseline.md: 20px between a
+ * heading and what follows (MEASURED, section 2.7), about 40px between blocks (20px spacer
+ * containers plus 10px padding, MEASURED), 6px card radius (MEASURED), cards without shadows,
+ * gradients or blur (spec 2.4). Layout needs no breakpoint to collapse: the grids use
+ * minmax(min(100%, N), 1fr), and the featured card switches to two columns at 768px (spec 7.1).
+ */
+
+/* ---- view header (shared with help) ---- */
+.wg-live .wg-live__events,
+.wg-live .wg-live__help {
+  --wg-block-gap: 40px; /* MEASURED rhythm between blocks */
+  --wg-heading-gap: 20px; /* MEASURED: 20px from heading to next element */
+  display: block;
+  min-width: 0;
+}
+
+.wg-live .wg-live__events-header,
+.wg-live .wg-live__help-header {
+  display: block;
+  margin: 0 0 var(--wg-block-gap);
+}
+
+.wg-live .wg-live__view-title {
+  margin: 0 0 var(--wg-space-2);
+  color: var(--wg-text);
+  font-family: var(--wg-font-heading);
+  font-size: var(--wg-font-size-h2);
+  font-weight: var(--wg-font-weight-strong);
+  line-height: var(--wg-line-height-heading);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.wg-live .wg-live__view-subtitle {
+  margin: 0 0 var(--wg-space-3);
+  color: var(--wg-text);
+  font-size: var(--wg-font-size-h4);
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.4;
+}
+
+.wg-live .wg-live__view-intro {
+  max-width: 40em;
+  margin: 0;
+  font-size: var(--wg-font-size-body);
+  line-height: var(--wg-line-height-body);
+}
+
+/* ---- sections ---- */
+.wg-live .wg-live__events-section {
+  display: block;
+  min-width: 0;
+  margin: 0 0 var(--wg-block-gap);
+}
+
+.wg-live .wg-live__events-section > .wg-live__heading,
+.wg-live .wg-live__guide > .wg-live__heading {
+  margin-bottom: var(--wg-heading-gap);
+}
+
+/* ---- event list (grid of cards) ---- */
+.wg-live .wg-live__event-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 20px; /* MEASURED: .e-con-inner gap 20px */
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wg-live .wg-live__event-list-item {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ---- event card ---- */
+.wg-live .wg-live__event-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--wg-border);
+  border-radius: var(--wg-card-radius);
+  background: var(--wg-card-surface);
+  color: var(--wg-text);
+  overflow: hidden;
+}
+
+.wg-live .wg-live__event-card--over {
+  border-style: dashed;
+}
+
+.wg-live .wg-live__event-card-media {
+  display: block;
+  margin: 0;
+  padding: 0;
+  background: var(--wg-player-surface);
+}
+
+.wg-live .wg-live__event-card-img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto; /* width/height attributes reserve the box (no layout shift) */
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  object-fit: cover;
+}
+
+.wg-live .wg-live__event-card-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--wg-space-3);
+  min-width: 0;
+  padding: var(--wg-space-5);
+}
+
+.wg-live .wg-live__event-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wg-space-2);
+}
+
+.wg-live .wg-live__event-card-title {
+  margin: 0;
+  color: var(--wg-text);
+  font-family: var(--wg-font-heading);
+  font-size: var(--wg-font-size-h4); /* MEASURED: card h3 18px */
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.4;
+  letter-spacing: normal;
+  text-transform: none;
+  overflow-wrap: anywhere; /* long titles wrap instead of widening the page */
+}
+
+.wg-live .wg-live__event-card-title .wg-live__badge {
+  vertical-align: middle;
+}
+
+.wg-live .wg-live__event-card-performers,
+.wg-live .wg-live__event-card-when,
+.wg-live .wg-live__event-card-countdown,
+.wg-live .wg-live__event-card-modes {
+  margin: 0;
+  color: var(--wg-text);
+  font-size: var(--wg-font-size-body);
+  line-height: var(--wg-line-height-body);
+  overflow-wrap: anywhere;
+}
+
+.wg-live .wg-live__event-card-label,
+.wg-live .wg-live__event-card-modes-label {
+  color: var(--wg-text-muted);
+}
+
+/*
+ * base.css keeps <time> on one line; a full date and zone label is too long for a 320px card.
+ * keep-all stops a break inside 台北時間: the line may only wrap at the spaces and brackets.
+ */
+.wg-live .wg-live__event-card-when time {
+  white-space: normal;
+  word-break: keep-all;
+}
+
+.wg-live .wg-live__event-card-countdown {
+  color: var(--wg-text-muted);
+  font-size: var(--wg-font-size-small);
+}
+
+.wg-live .wg-live__event-card-countdown[hidden] {
+  display: none;
+}
+
+.wg-live .wg-live__event-card-modes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--wg-space-1) var(--wg-space-2);
+}
+
+.wg-live .wg-live__event-card-mode-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wg-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wg-live .wg-live__event-card-mode {
+  display: block;
+  margin: 0;
+  padding: 2px var(--wg-space-3);
+  border: 1px solid var(--wg-border);
+  border-radius: var(--wg-button-radius);
+  color: var(--wg-text);
+  font-size: var(--wg-font-size-small);
+  line-height: 1.5;
+}
+
+.wg-live .wg-live__event-card-actions {
+  margin-top: auto;
+  padding-top: var(--wg-space-2);
+}
+
+/* ---- details panel (expanded by the primary CTA or the 活動簡介 toggle) ---- */
+.wg-live .wg-live__event-details {
+  display: block;
+  padding-top: var(--wg-space-4);
+  border-top: 1px solid var(--wg-border);
+}
+
+.wg-live .wg-live__event-details[hidden] {
+  display: none;
+}
+
+.wg-live .wg-live__event-details-text {
+  margin: 0 0 var(--wg-space-3);
+  color: var(--wg-text);
+  font-size: var(--wg-font-size-body);
+  line-height: var(--wg-line-height-body);
+}
+
+.wg-live .wg-live__event-details-label {
+  margin: var(--wg-space-4) 0 var(--wg-space-2);
+  color: var(--wg-text-muted);
+  font-size: var(--wg-font-size-small);
+  font-weight: var(--wg-font-weight-strong);
+}
+
+.wg-live .wg-live__event-programme {
+  margin: 0 0 var(--wg-space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.wg-live .wg-live__event-programme-item {
+  margin: 0;
+  padding: var(--wg-space-1) 0;
+  color: var(--wg-text);
+  line-height: 1.5;
+}
+
+.wg-live .wg-live__event-details-note {
+  margin: var(--wg-space-3) 0 0;
+}
+
+/* ---- featured card ---- */
+.wg-live .wg-live__event-card--featured .wg-live__event-card-title {
+  font-size: var(--wg-font-size-h3);
+}
+
+@media (min-width: 768px) {
+  .wg-live .wg-live__event-card--featured.wg-live__event-card--has-media {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: stretch;
+  }
+
+  .wg-live .wg-live__event-card--featured .wg-live__event-card-img {
+    height: 100%;
+    min-height: 100%;
+  }
+
+  .wg-live .wg-live__event-card--featured .wg-live__event-card-body {
+    padding: var(--wg-space-6);
+  }
+
+  .wg-live .wg-live__event-card--featured .wg-live__event-card-title {
+    font-size: 28px; /* NEW: one step below the 38px view title */
+  }
+}
+
+/* ---- listening guide (聆聽方式) ---- */
+.wg-live .wg-live__guide {
+  display: block;
+  margin: 0;
+}
+
+.wg-live .wg-live__guide-lead {
+  max-width: 40em;
+  margin: 0 0 var(--wg-space-5);
+  font-size: var(--wg-font-size-body);
+  line-height: var(--wg-line-height-body);
+}
+
+.wg-live .wg-live__guide-modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wg-live .wg-live__guide-mode {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  padding: var(--wg-space-5);
+  border: 1px solid var(--wg-border);
+  border-radius: var(--wg-card-radius);
+  background: var(--wg-card-surface);
+}
+
+.wg-live .wg-live__guide-mode-name {
+  margin: 0 0 var(--wg-space-2);
+  color: var(--wg-text);
+  font-size: var(--wg-font-size-h4);
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.4;
+}
+
+.wg-live .wg-live__guide-mode-text,
+.wg-live .wg-live__guide-mode-note {
+  margin: 0 0 var(--wg-space-2);
+}
+
+.wg-live .wg-live__guide-mode-text {
+  color: var(--wg-text);
+}
+
+.wg-live .wg-live__guide-help {
+  margin: var(--wg-space-4) 0 0;
+}
+
+/* ---- panels: empty and disabled states ---- */
+.wg-live .wg-live__panel {
+  display: block;
+  margin: 0 0 var(--wg-block-gap);
+  padding: var(--wg-space-6) var(--wg-space-5);
+  border: 1px solid var(--wg-border);
+  border-radius: var(--wg-card-radius);
+  background: var(--wg-card-surface);
+}
+
+.wg-live .wg-live__panel > .wg-live__heading {
+  margin-bottom: var(--wg-space-3);
+}
+
+.wg-live .wg-live__panel > p {
+  margin: 0 0 var(--wg-space-4);
+}
+
+.wg-live .wg-live__panel > .wg-live__actions {
+  margin-top: var(--wg-space-4);
+}
+
+/* ---- notice (cancelled / ended details; text first, border colour is only a hint) ---- */
+.wg-live .wg-live__notice {
+  display: block;
+  margin: var(--wg-space-4) 0 0;
+  padding: var(--wg-space-3) var(--wg-space-4);
+  border: 1px solid var(--wg-border);
+  border-inline-start: 4px solid var(--wg-warning);
+  border-radius: var(--wg-button-radius);
+  background: transparent;
+}
+
+.wg-live .wg-live__notice--error {
+  border-inline-start-color: var(--wg-danger);
+}
+
+.wg-live .wg-live__notice-title {
+  margin: 0;
+  color: var(--wg-text);
+  font-weight: var(--wg-font-weight-strong);
+}
+
+.wg-live .wg-live__notice-text {
+  margin: var(--wg-space-1) 0 0;
+  color: var(--wg-text);
+  font-size: var(--wg-font-size-body);
+}
+
+/* ---- FAQ (shared with help) ---- */
+.wg-live .wg-live__faq-list {
+  display: block;
+  border-top: 1px solid var(--wg-border);
+}
+
+.wg-live .wg-live__faq-item {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--wg-border);
+}
+
+.wg-live .wg-live__faq-question {
+  display: list-item;
+  min-height: var(--wg-touch-secondary);
+  margin: 0;
+  padding: var(--wg-space-3) var(--wg-space-2);
+  color: var(--wg-text);
+  font-size: var(--wg-font-size-body);
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.wg-live .wg-live__faq-answer {
+  padding: 0 var(--wg-space-2) var(--wg-space-4);
+}
+
+.wg-live .wg-live__faq-answer p {
+  margin: 0 0 var(--wg-space-2);
+  color: var(--wg-text);
+}
+
+.wg-live .wg-live__faq-more-row {
+  margin: var(--wg-space-4) 0 0;
+}
+
+/* ---- phones ---- */
+@media (max-width: 543px) {
+  .wg-live .wg-live__event-card-body {
+    padding: var(--wg-space-4);
+  }
+
+  .wg-live .wg-live__panel {
+    padding: var(--wg-space-5) var(--wg-space-4);
+  }
+
+  .wg-live .wg-live__events,
+  .wg-live .wg-live__help {
+    --wg-block-gap: 32px;
+  }
+}
+
+/* ---- forced colours: borders carry the structure ---- */
+@media (forced-colors: active) {
+  .wg-live .wg-live__event-card,
+  .wg-live .wg-live__guide-mode,
+  .wg-live .wg-live__panel,
+  .wg-live .wg-live__notice,
+  .wg-live .wg-live__event-card-mode {
+    border-color: CanvasText;
+  }
+}

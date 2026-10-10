@@ -1,0 +1,440 @@
+/*
+ * base.css - scoped primitives shared by all views.
+ *
+ * Everything lives under .wg-live / .wg-live-featured. The host page is hostile on purpose
+ * (see dev/site-chrome.css: global button/a/h1-h4/p/img/audio/dialog/table rules, content-box,
+ * justified text), so the root sets every property our components rely on, and element resets
+ * use :where() (zero specificity above the scope class) so any component class beats them.
+ * Our own primitives use ".wg-live .wg-live__x" (two classes) to also beat theme/Elementor kit
+ * rules such as ".elementor-kit-21 button". Component stylesheets that restyle a primitive
+ * should use the same two-class form.
+ */
+
+/* ---- box model ---- */
+.wg-live *,
+.wg-live *::before,
+.wg-live *::after,
+.wg-live-featured *,
+.wg-live-featured *::before,
+.wg-live-featured *::after {
+  box-sizing: border-box;
+}
+
+/* ---- root ---- */
+.wg-live,
+.wg-live-featured {
+  box-sizing: border-box;
+}
+
+.wg-live {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: var(--wg-content-max);
+  min-width: 0;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  background: var(--wg-page-surface);
+  color: var(--wg-text);
+  font-family: var(--wg-font-body);
+  font-size: var(--wg-font-size-body);
+  font-style: normal;
+  font-weight: var(--wg-font-weight-body);
+  line-height: var(--wg-line-height-body);
+  letter-spacing: normal;
+  text-align: start;
+  text-indent: 0;
+  text-transform: none;
+  word-spacing: normal;
+  overflow-wrap: break-word;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* ---- element resets (zero extra specificity) ---- */
+.wg-live :where(h1, h2, h3, h4, h5, h6) {
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  font-family: var(--wg-font-heading);
+  font-style: normal;
+  font-weight: var(--wg-font-weight-strong);
+  line-height: var(--wg-line-height-heading);
+  letter-spacing: normal;
+  text-align: start;
+  text-transform: none;
+}
+
+.wg-live :where(p, figure, blockquote, dl, dd, pre) {
+  margin: 0;
+  padding: 0;
+  text-align: start;
+}
+
+.wg-live :where(ul, ol) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wg-live :where(li) {
+  margin: 0;
+  padding: 0;
+  text-align: start;
+}
+
+.wg-live :where(fieldset) {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.wg-live :where(legend) {
+  padding: 0;
+}
+
+.wg-live :where(img, svg, picture, canvas) {
+  max-width: 100%;
+  border: 0;
+  vertical-align: middle;
+}
+
+.wg-live :where(img) {
+  height: auto;
+}
+
+.wg-live :where(audio, video) {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  border: 0;
+}
+
+.wg-live :where(table) {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.wg-live :where(th, td) {
+  padding: 0;
+  border: 0;
+  text-align: start;
+  vertical-align: top;
+}
+
+.wg-live :where(dialog) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.wg-live :where(button) {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.wg-live :where(input, select, textarea) {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  accent-color: var(--wg-accent);
+}
+
+.wg-live :where(a) {
+  color: var(--wg-link);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  transition: color var(--wg-transition);
+}
+
+.wg-live :where(a):hover {
+  color: var(--wg-link-hover);
+}
+
+.wg-live :where(strong, b) {
+  font-weight: var(--wg-font-weight-bold);
+}
+
+.wg-live :where(time) {
+  white-space: nowrap;
+}
+
+/* ---- text helpers ---- */
+.wg-live .wg-live__heading {
+  margin: 0 0 var(--wg-space-3);
+  color: var(--wg-text);
+  font-family: var(--wg-font-heading);
+  font-size: var(--wg-font-size-h2);
+  font-weight: var(--wg-font-weight-strong);
+  line-height: var(--wg-line-height-heading);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.wg-live .wg-live__heading--h3 {
+  font-size: var(--wg-font-size-h3);
+}
+
+.wg-live .wg-live__heading--h4 {
+  font-size: var(--wg-font-size-h4);
+}
+
+.wg-live .wg-live__muted {
+  color: var(--wg-text-muted);
+}
+
+.wg-live .wg-live__small {
+  font-size: var(--wg-font-size-small);
+  line-height: 1.5;
+}
+
+/* ---- screen-reader only text and the live region ---- */
+.wg-live .wg-live__visually-hidden,
+.wg-live .wg-live__sr-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- buttons (primary 48px, secondary/ghost 44px targets) ---- */
+.wg-live .wg-live__btn {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--wg-space-2);
+  min-width: var(--wg-touch-secondary);
+  min-height: var(--wg-touch-secondary);
+  padding: var(--wg-space-2) var(--wg-space-5);
+  border: 1px solid transparent;
+  border-radius: var(--wg-button-radius);
+  background: transparent;
+  color: var(--wg-text);
+  font-family: var(--wg-font-body);
+  font-size: 16px;
+  font-style: normal;
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.3;
+  letter-spacing: normal;
+  text-align: center;
+  text-decoration: none;
+  text-transform: none;
+  white-space: normal;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color var(--wg-transition),
+    background-color var(--wg-transition),
+    border-color var(--wg-transition);
+}
+
+.wg-live .wg-live__btn--primary {
+  min-height: var(--wg-touch-primary);
+  min-width: var(--wg-touch-primary);
+  border-color: var(--wg-accent);
+  background: var(--wg-accent);
+  color: var(--wg-on-accent);
+}
+
+.wg-live .wg-live__btn--primary:hover {
+  border-color: var(--wg-accent-strong);
+  background: var(--wg-accent-strong);
+  color: var(--wg-on-accent);
+}
+
+.wg-live .wg-live__btn--secondary {
+  border-color: var(--wg-text);
+  background: transparent;
+  color: var(--wg-text);
+}
+
+.wg-live .wg-live__btn--secondary:hover {
+  border-color: var(--wg-accent);
+  color: var(--wg-accent);
+}
+
+.wg-live .wg-live__btn--ghost {
+  padding-inline: var(--wg-space-3);
+  color: var(--wg-link);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.wg-live .wg-live__btn--ghost:hover {
+  color: var(--wg-link-hover);
+}
+
+.wg-live .wg-live__btn--block {
+  display: flex;
+  width: 100%;
+}
+
+/* Disabled looks different without colour alone: dashed border, muted text, no hover. */
+.wg-live .wg-live__btn:disabled,
+.wg-live .wg-live__btn[aria-disabled='true'] {
+  border-style: dashed;
+  border-color: var(--wg-border);
+  background: transparent;
+  color: var(--wg-text-muted);
+  cursor: not-allowed;
+}
+
+.wg-live .wg-live__btn--ghost:disabled,
+.wg-live .wg-live__btn--ghost[aria-disabled='true'] {
+  border-color: transparent;
+  text-decoration: none;
+}
+
+/* ---- keyboard focus (visible on the dark site background) ---- */
+.wg-live :focus-visible {
+  outline: var(--wg-focus-ring);
+  outline-offset: var(--wg-focus-offset);
+}
+
+.wg-live .wg-live__btn:focus-visible {
+  outline: var(--wg-focus-ring);
+  outline-offset: var(--wg-focus-offset);
+}
+
+/* Programmatic focus targets (headings with tabindex="-1") get no ring on click, only on keyboard focus. */
+.wg-live [tabindex='-1']:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ---- badge: always text, never colour alone ---- */
+.wg-live .wg-live__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wg-space-1);
+  min-height: 24px;
+  padding: 2px var(--wg-space-3);
+  border: 1px solid currentColor;
+  border-radius: var(--wg-button-radius);
+  background: transparent;
+  color: var(--wg-text);
+  font-size: var(--wg-font-size-small);
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.3;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.wg-live .wg-live__badge--demo {
+  border-style: dashed;
+  color: var(--wg-accent);
+}
+
+.wg-live .wg-live__badge--live {
+  border-color: var(--wg-accent);
+  background: var(--wg-accent);
+  color: var(--wg-on-accent);
+}
+
+.wg-live .wg-live__badge--info {
+  color: var(--wg-info);
+}
+
+.wg-live .wg-live__badge--success {
+  color: var(--wg-success);
+}
+
+.wg-live .wg-live__badge--warning {
+  color: var(--wg-warning);
+}
+
+.wg-live .wg-live__badge--error {
+  color: var(--wg-danger);
+}
+
+.wg-live .wg-live__badge--muted {
+  color: var(--wg-text-muted);
+}
+
+/* ---- action rows ---- */
+.wg-live .wg-live__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wg-space-3);
+}
+
+/* ---- mount + skeleton: fixed heights keep layout shift near zero ---- */
+.wg-live .wg-live__mount {
+  display: block;
+  min-width: 0;
+}
+
+.wg-live .wg-live__skeleton {
+  display: block;
+  width: 100%;
+  min-height: 320px;
+  border-radius: var(--wg-card-radius);
+  background: var(--wg-card-surface);
+  animation: wg-live-skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+.wg-live .wg-live__skeleton--events {
+  min-height: 560px;
+}
+
+.wg-live .wg-live__skeleton--player {
+  min-height: 560px;
+}
+
+.wg-live .wg-live__skeleton--help {
+  min-height: 480px;
+}
+
+@keyframes wg-live-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* ---- boot / mount failure ---- */
+.wg-live .wg-live__boot-error {
+  padding: var(--wg-space-5);
+  border: 1px solid var(--wg-border);
+  border-radius: var(--wg-card-radius);
+  background: var(--wg-card-surface);
+}
+
+.wg-live .wg-live__boot-error-title {
+  font-weight: var(--wg-font-weight-strong);
+}
+
+.wg-live .wg-live__boot-error-hint {
+  margin-top: var(--wg-space-2);
+  color: var(--wg-text-muted);
+  font-size: var(--wg-font-size-small);
+}

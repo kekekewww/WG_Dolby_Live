@@ -1,0 +1,171 @@
+/*
+ * Fake "site chrome" with deliberately aggressive GLOBAL theme-like rules.
+ * If the plugin CSS is scoped correctly, none of this may leak into .wg-live.
+ * Dev harness only; never packaged.
+ */
+
+* {
+  box-sizing: content-box;
+}
+
+html {
+  font-size: 18px;
+}
+
+body {
+  margin: 0;
+  background: #111111;
+  color: #f0f5fa;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.1rem;
+  line-height: 1.9;
+}
+
+a {
+  color: #c2185b;
+  text-decoration: underline wavy;
+}
+
+a:hover {
+  color: #00acc1;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 1.4em 0 0.6em;
+  color: #8c9eff;
+  font-family: 'Courier New', monospace;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+p {
+  margin: 0 0 1.6em;
+  text-align: justify;
+}
+
+ul,
+ol {
+  padding-left: 3em;
+}
+
+li {
+  margin: 0.6em 0;
+}
+
+button,
+input[type='button'],
+input[type='submit'],
+.button {
+  padding: 20px 44px;
+  border: 4px solid #000;
+  border-radius: 0;
+  background: #e00000;
+  color: #fff;
+  font-family: Impact, sans-serif;
+  font-size: 22px;
+  text-transform: uppercase;
+  cursor: crosshair;
+}
+
+button:hover,
+.button:hover {
+  background: #8b0000;
+}
+
+img,
+svg {
+  max-width: 100%;
+  border: 4px dashed #ff00ff;
+}
+
+audio,
+video {
+  display: block;
+  width: 100%;
+  border: 6px solid #00c853;
+}
+
+table {
+  border-collapse: separate;
+  border-spacing: 8px;
+}
+
+th,
+td {
+  padding: 18px;
+  border: 2px dotted #1a237e;
+}
+
+dialog {
+  background: #ffeb3b;
+  color: #000;
+  border: 8px double #000;
+}
+
+/* --- fake header / nav / footer (these use their own classes) --- */
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 32px;
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.site-header .site-logo {
+  color: #fff;
+  font-family: Impact, sans-serif;
+  font-size: 1.6rem;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+}
+
+.site-nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-nav li {
+  margin: 0;
+}
+
+.site-nav a {
+  color: #ffd54f;
+  text-decoration: none;
+}
+
+.site-main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+.site-footer {
+  padding: 32px;
+  background: #1a1a1a;
+  color: #bdbdbd;
+  text-align: center;
+}
+
+.site-footer a {
+  color: #ffd54f;
+}
+
+.site-note {
+  padding: 10px 16px;
+  border: 2px dashed #c2185b;
+  background: #fff;
+  color: #222;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+}

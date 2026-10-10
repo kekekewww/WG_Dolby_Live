@@ -1,0 +1,1014 @@
+/**
+ * Player coordinator (M1-PLAN 6.2-6.8): the async half of the state layer.
+ *
+ * - It is the ONLY owner of timers: the retry wait, the watchdog interval and the `online`
+ *   listener. stop() clears all of them; destroy() also aborts every fetch.
+ * - One adapter at a time. A new attempt destroys the old adapter first, then creates, loads and
+ *   plays the new one in the same synchronous call stack (start invariant, plan 6.3).
+ * - Every user action bumps `requestId` and aborts the previous action's fetches. Adapter signals
+ *   are tied to the adapter instance (one per attempt), so a superseded adapter cannot touch
+ *   the state, and a failure is classified once per attempt, in `failAttempt()` (plan 6.5).
+ * - State changes only through the pure reducer.
+ */
+import type {
+  AdapterErrorDetail,
+  AdapterEvent,
+  AppState,
+  DevControls,
+  DevFault,
+  EntitlementProvider,
+  EventProvider,
+  EventStatus,
+  ListeningMode,
+  MediaHost,
+  NotReadyReason,
+  PlaybackAdapter,
+  PlaybackSource,
+  PlaybackSourceProvider,
+  PlayerController,
+  PlayerError,
+  PlayerErrorCode,
+  PublicEvent,
+  AdapterEnv,
+  AdapterFactory,
+  BootConfig,
+} from '../types';
+import { createInitialState, isBlockingGate, publicErrorCode, selectCanStart, selectGate } from './model';
+import { pageRegistry } from './page-registry';
+import { reduce } from './reducer';
+import type { Action } from './reducer';
+import { WATCHED_STATUSES, hasPlaybackIntent } from './transitions';
+
+export interface CoordinatorDeps {
+  boot: BootConfig;
+  event: PublicEvent | null;
+  host: MediaHost;
+  env: AdapterEnv;
+  adapterFactory: AdapterFactory;
+  playbackProvider: PlaybackSourceProvider;
+  entitlementProvider: EntitlementProvider;
+  eventProvider: EventProvider;
+  root: HTMLElement;
+  preselect: ListeningMode | null;
+  /** Called when a start/switch is confirmed playing, so the view can remember the mode (plan 6.3). */
+  onModeRemembered?(mode: ListeningMode): void;
+}
+
+/* ---- policy numbers (plan 6.5) ---- */
+export const RETRY_DELAYS_MS: readonly number[] = [2_000, 5_000, 10_000];
+export const MAX_RETRIES = 3;
+export const LOAD_TIMEOUT_MS = 20_000;
+export const STALL_GRACE_MS = 3_000;
+export const STALL_FAIL_MS = 15_000;
+export const BUDGET_RESET_MS = 30_000;
+export const NON_FATAL_TOLERANCE_MS = 15_000;
+const TICK_MS = 500;
+
+type Playable = Exclude<PlaybackSource, { kind: 'not_ready' }>;
+type AttemptKind = 'start' | 'switch';
+type FailureVariant = 'media' | 'stall' | 'resolve';
+
+interface AttemptCtx {
+  kind: AttemptKind;
+  mode: ListeningMode;
+  source: Playable;
+  /** onModeRemembered fires once per start/switch, however many network retries it took. */
+  remembered: boolean;
+}
+
+/** Everything that belongs to the one live adapter. Replaced as a whole on every attempt. */
+interface Current {
+  adapter: PlaybackAdapter;
+  ctx: AttemptCtx;
+  attemptAbort: AbortController;
+  offs: Array<() => void>;
+  /** Failure already classified for this attempt (a media `error` and a play() rejection count once). */
+  errorHandled: boolean;
+  hasPlayed: boolean;
+  stalled: boolean;
+  loadStartedAt: number;
+  lastTime: number;
+  lastProgressAt: number;
+  playingSince: number | null;
+  nonFatal: { code: AdapterErrorDetail['code']; since: number } | null;
+}
+
+type ResolveResult =
+  | { ok: true; source: Playable }
+  | { ok: false; reason: 'not_ready'; notReady: NotReadyReason }
+  | { ok: false; reason: 'error' }
+  | { ok: false; reason: 'aborted' };
+
+const ENTITLEMENT_STATUSES = ['guest', 'not_entitled', 'entitled', 'unavailable'] as const;
+
+function nowMs(): number {
+  return Date.now();
+}
+
+function errorName(error: unknown): string {
+  return typeof error === 'object' && error !== null && typeof (error as { name?: unknown }).name === 'string'
+    ? (error as { name: string }).name
+    : '';
+}
+
+function isAbort(error: unknown): boolean {
+  return errorName(error) === 'AbortError';
+}
+
+function isOffline(): boolean {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+const ADAPTER_CODES: readonly string[] = ['network', 'decode', 'unsupported', 'play_blocked', 'unknown'];
+
+/** AdapterLoadError (adapters/native-media.ts) carries `detail`; any other rejection has none. */
+function detailOf(error: unknown): AdapterErrorDetail | null {
+  if (typeof error !== 'object' || error === null) return null;
+  const detail = (error as { detail?: unknown }).detail;
+  if (typeof detail !== 'object' || detail === null) return null;
+  const code = (detail as { code?: unknown }).code;
+  if (typeof code !== 'string' || !ADAPTER_CODES.includes(code)) return null;
+  return { code: code as AdapterErrorDetail['code'], fatal: (detail as { fatal?: unknown }).fatal !== false };
+}
+
+function notReadyToErrorCode(reason: NotReadyReason): PlayerErrorCode {
+  switch (reason) {
+    case 'source_not_configured':
+      return 'not_configured';
+    case 'not_entitled':
+      return 'not_entitled';
+    case 'entitlement_unavailable':
+      return 'entitlement_unavailable';
+    case 'mode_unavailable':
+      return 'unsupported';
+    case 'disabled':
+    case 'event_not_found':
+    case 'event_not_playable':
+      return 'unknown';
+    default: {
+      const unreachable: never = reason;
+      return unreachable;
+    }
+  }
+}
+
+export function createPlayerController(deps: CoordinatorDeps): PlayerController & { dev: DevControls | null } {
+  const { host, boot } = deps;
+
+  let state: AppState = createInitialState(boot, deps.event, deps.preselect);
+  const listeners = new Set<(s: AppState) => void>();
+  let destroyed = false;
+
+  /* ---- request ownership (plan 6.4) ---- */
+  let requestId = 0;
+  let actionAbort: AbortController | null = null;
+
+  /* ---- the single live adapter ---- */
+  let current: Current | null = null;
+  let lastAttempt: { kind: AttemptKind; mode: ListeningMode } | null = null;
+  /** 'prepare' = the descriptor fetch failed (retry re-fetches); 'attempt' = a load/play failed. */
+  let failureOrigin: 'prepare' | 'attempt' | null = null;
+
+  /* ---- timers: the only ones in the state layer ---- */
+  let retriesUsed = 0;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let onlineHandler: (() => void) | null = null;
+  let watchdog: ReturnType<typeof setInterval> | null = null;
+
+  /* ---- descriptors, entitlement, dev ---- */
+  const descriptors = new Map<ListeningMode, Playable>();
+  const prefetching = new Map<ListeningMode, AbortController>();
+  let entitlementAbort: AbortController | null = null;
+  let entitlementRequest = 0;
+  let eventOverride: EventStatus | null = null;
+  let entitlementOverride: (typeof ENTITLEMENT_STATUSES)[number] | null = null;
+  let fault: DevFault | null = null;
+
+  /* ================================================================ */
+  /* Store                                                             */
+  /* ================================================================ */
+
+  function dispatch(action: Action): void {
+    const next = reduce(state, action);
+    if (next === state) return;
+    state = next;
+    syncWatchdog();
+    for (const listener of [...listeners]) {
+      try {
+        listener(state);
+      } catch {
+        // A broken subscriber must not break the others or the coordinator.
+      }
+    }
+  }
+
+  function gateKind(): ReturnType<typeof selectGate>['kind'] {
+    return selectGate(state).kind;
+  }
+
+  function offers(mode: ListeningMode): boolean {
+    return state.event.data?.availableModes.includes(mode) === true;
+  }
+
+  /** A timer fired or an event arrived after the root left the document: nothing may keep running. */
+  function alive(): boolean {
+    if (destroyed) return false;
+    if (!deps.root.isConnected) {
+      destroy();
+      return false;
+    }
+    return true;
+  }
+
+  /* ================================================================ */
+  /* Requests                                                          */
+  /* ================================================================ */
+
+  /** Every user action starts here: bump requestId and abort the previous action's fetches. */
+  function beginAction(): number {
+    requestId += 1;
+    actionAbort?.abort();
+    actionAbort = new AbortController();
+    return requestId;
+  }
+
+  function clearRetry(): void {
+    if (retryTimer !== null) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+    if (onlineHandler !== null) {
+      window.removeEventListener('online', onlineHandler);
+      onlineHandler = null;
+    }
+  }
+
+  function teardownCurrent(): void {
+    const cur = current;
+    if (cur === null) return;
+    current = null;
+    for (const off of cur.offs) {
+      try {
+        off();
+      } catch {
+        // ignore
+      }
+    }
+    cur.attemptAbort.abort();
+    try {
+      cur.adapter.destroy();
+    } catch {
+      // destroy() is idempotent by contract; a throwing adapter must not leave the page half torn down.
+    }
+    syncWatchdog();
+  }
+
+  /** The common part of stop(): invalidate everything an old attempt could still do. */
+  function halt(): void {
+    requestId += 1;
+    actionAbort?.abort();
+    actionAbort = null;
+    clearRetry();
+    teardownCurrent();
+    retriesUsed = 0;
+    failureOrigin = null;
+    lastAttempt = null;
+  }
+
+  /* ================================================================ */
+  /* Source descriptors (JSON only, never media)                       */
+  /* ================================================================ */
+
+  function toResult(source: PlaybackSource): ResolveResult {
+    if (typeof source !== 'object' || source === null) return { ok: false, reason: 'error' };
+    if (source.kind === 'not_ready') return { ok: false, reason: 'not_ready', notReady: source.reason };
+    if (source.kind === 'demo' && typeof source.url === 'string' && source.url !== '') {
+      return { ok: true, source: { kind: 'demo', url: source.url, mimeType: typeof source.mimeType === 'string' ? source.mimeType : '' } };
+    }
+    // M1: a server hls/iframe source is treated as not configured (plan D5, 6.9).
+    return { ok: false, reason: 'not_ready', notReady: 'source_not_configured' };
+  }
+
+  function fetchDescriptor(mode: ListeningMode, signal: AbortSignal): Promise<ResolveResult> {
+    const event = state.event.data;
+    if (event === null) return Promise.resolve({ ok: false, reason: 'not_ready', notReady: 'event_not_found' });
+    return deps.playbackProvider.resolve(event.id, mode, signal).then(
+      (source): ResolveResult => (signal.aborted ? { ok: false, reason: 'aborted' } : toResult(source)),
+      (error: unknown): ResolveResult =>
+        signal.aborted || isAbort(error) ? { ok: false, reason: 'aborted' } : { ok: false, reason: 'error' },
+    );
+  }
+
+  function syncPrepared(): void {
+    const mode = state.player.selectedMode;
+    dispatch({ type: 'mode/prepared', prepared: mode !== null && descriptors.has(mode) });
+  }
+
+  /** Prefetch the descriptor of `mode` into the cache. For the selected mode it also drives preparedMode. */
+  function prefetch(mode: ListeningMode): void {
+    if (destroyed || descriptors.has(mode) || prefetching.has(mode)) return;
+    if (isBlockingGate(gateKind()) || !offers(mode)) return;
+    const controller = new AbortController();
+    prefetching.set(mode, controller);
+    void fetchDescriptor(mode, controller.signal).then((result) => {
+      if (prefetching.get(mode) === controller) prefetching.delete(mode);
+      if (destroyed || controller.signal.aborted) return;
+      const selected = state.player.selectedMode === mode;
+      if (result.ok) {
+        descriptors.set(mode, result.source);
+        if (selected) {
+          dispatch({ type: 'prepare/clear_not_ready' });
+          syncPrepared();
+        }
+      } else if (result.reason === 'not_ready') {
+        if (selected) dispatch({ type: 'prepare/not_ready', reason: result.notReady });
+      } else if (result.reason === 'error' && selected && state.player.status === 'selecting') {
+        failureOrigin = 'prepare';
+        dispatch({ type: 'prepare/failed', error: { code: 'network', mode, publicCode: publicErrorCode('network', 'resolve') } });
+      }
+    });
+  }
+
+  /** Make the selected mode's descriptor available (cache hit: instantly prepared). */
+  function ensurePrepared(): void {
+    const mode = state.player.selectedMode;
+    if (destroyed || mode === null) return;
+    if (isBlockingGate(gateKind())) return;
+    if (descriptors.has(mode)) {
+      syncPrepared();
+      return;
+    }
+    prefetch(mode);
+  }
+
+  /* ================================================================ */
+  /* Entitlement                                                       */
+  /* ================================================================ */
+
+  function abortEntitlement(): void {
+    entitlementRequest += 1;
+    entitlementAbort?.abort();
+    entitlementAbort = null;
+  }
+
+  function fetchEntitlement(): void {
+    const event = state.event.data;
+    if (destroyed || event === null || isBlockingGate(gateKind())) return;
+    if (entitlementOverride !== null && event.isDemo) {
+      dispatch({ type: 'entitlement/set', status: entitlementOverride });
+      return;
+    }
+    abortEntitlement();
+    const controller = new AbortController();
+    entitlementAbort = controller;
+    const request = entitlementRequest;
+    deps.entitlementProvider.get(event.id, controller.signal).then(
+      (result) => {
+        if (destroyed || controller.signal.aborted || request !== entitlementRequest) return;
+        const status = (ENTITLEMENT_STATUSES as readonly string[]).includes(result?.status) ? result.status : 'unavailable';
+        dispatch({ type: 'entitlement/set', status: status as (typeof ENTITLEMENT_STATUSES)[number] });
+      },
+      (error: unknown) => {
+        if (destroyed || controller.signal.aborted || request !== entitlementRequest || isAbort(error)) return;
+        // Fail closed: an unknown answer never lets playback through.
+        dispatch({ type: 'entitlement/set', status: 'unavailable' });
+      },
+    );
+  }
+
+  /* ================================================================ */
+  /* Failure classification: ONE place (plan 6.5)                      */
+  /* ================================================================ */
+
+  function onlineFix(code: AdapterErrorDetail['code']): AdapterErrorDetail['code'] {
+    // navigator.onLine === false at failure -> network (retried; and retried early on `online`).
+    return code === 'unknown' && isOffline() ? 'network' : code;
+  }
+
+  function failAttempt(cur: Current, rawCode: AdapterErrorDetail['code'], variant: FailureVariant): void {
+    if (destroyed || current !== cur || cur.errorHandled) return;
+    const code = onlineFix(rawCode);
+    if (code === 'play_blocked') {
+      // Not a failure of the attempt: the user can resume it with a click.
+      blockedPlay(cur);
+      return;
+    }
+    cur.errorHandled = true;
+    if (code === 'network' && retriesUsed < MAX_RETRIES) {
+      scheduleRetry(cur);
+      return;
+    }
+    terminalFailure(cur.ctx.mode, code, variant);
+  }
+
+  function terminalFailure(mode: ListeningMode, code: PlayerErrorCode, variant: FailureVariant): void {
+    clearRetry();
+    teardownCurrent();
+    failureOrigin = 'attempt';
+    const error: PlayerError = { code, mode, publicCode: publicErrorCode(code, variant) };
+    dispatch({ type: 'attempt/failed', error });
+  }
+
+  function blockedPlay(cur: Current): void {
+    if (destroyed || current !== cur) return;
+    if (state.player.status === 'paused' && state.player.error?.code === 'play_blocked') return;
+    cur.stalled = false;
+    cur.playingSince = null;
+    const error: PlayerError = { code: 'play_blocked', mode: cur.ctx.mode, publicCode: publicErrorCode('play_blocked') };
+    dispatch({ type: 'attempt/play_blocked', error });
+  }
+
+  /** Bounded, network-only automatic retry: 2 s, 5 s, 10 s, then failed (plan 6.5). */
+  function scheduleRetry(cur: Current): void {
+    const ctx = cur.ctx;
+    retriesUsed += 1;
+    const attempt = retriesUsed;
+    const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1] ?? 10_000;
+    clearRetry();
+    teardownCurrent();
+    dispatch({ type: 'retry/wait', attempt, max: MAX_RETRIES });
+    if (state.player.status !== 'reconnecting' && state.player.status !== 'switching') {
+      // The state refused the move (for example the user stopped meanwhile): do not retry.
+      return;
+    }
+
+    const fire = (): void => {
+      clearRetry();
+      if (!alive()) return;
+      void runAttempt(ctx, false);
+    };
+    retryTimer = setTimeout(fire, delay);
+    if (isOffline()) {
+      onlineHandler = fire;
+      window.addEventListener('online', onlineHandler);
+    }
+  }
+
+  /* ================================================================ */
+  /* Adapter signals                                                   */
+  /* ================================================================ */
+
+  function onPlaying(cur: Current): void {
+    if (current !== cur) return;
+    const t = nowMs();
+    cur.hasPlayed = true;
+    cur.stalled = false;
+    cur.nonFatal = null;
+    cur.lastTime = host.media.currentTime;
+    cur.lastProgressAt = t;
+    cur.playingSince = cur.playingSince ?? t;
+    dispatch({ type: 'adapter/playing' });
+    if (state.player.status !== 'playing') return;
+    failureOrigin = null;
+    if (!cur.ctx.remembered) {
+      cur.ctx.remembered = true;
+      try {
+        deps.onModeRemembered?.(cur.ctx.mode);
+      } catch {
+        // A storage failure must not affect playback.
+      }
+    }
+  }
+
+  function onPaused(cur: Current): void {
+    if (current !== cur) return;
+    cur.stalled = false;
+    cur.playingSince = null;
+    dispatch({ type: 'adapter/paused' });
+  }
+
+  function onWaiting(cur: Current): void {
+    if (current !== cur || state.player.status !== 'playing') return;
+    // The 3 s grace period starts at the event; the watchdog turns it into `reconnecting`.
+    cur.lastProgressAt = nowMs();
+  }
+
+  function onEnded(cur: Current): void {
+    if (current !== cur) return;
+    if (cur.adapter.kind === 'demo') return; // demo sources loop (plan 6.4)
+    cur.playingSince = null;
+    dispatch({ type: 'adapter/ended' });
+  }
+
+  function onAdapterError(cur: Current, detail: AdapterErrorDetail | undefined): void {
+    if (current !== cur) return;
+    const d: AdapterErrorDetail = detail ?? { code: 'unknown', fatal: true };
+    if (d.fatal === false) {
+      // A library that is still retrying on its own is tolerated for up to 15 s.
+      cur.nonFatal = cur.nonFatal ?? { code: d.code, since: nowMs() };
+      return;
+    }
+    failAttempt(cur, d.code, 'media');
+  }
+
+  function onLoaded(cur: Current): void {
+    if (current !== cur) return;
+    // Capabilities are per instance and final once load() resolved (plan 6.10).
+    dispatch({ type: 'attempt/capabilities', capabilities: cur.adapter.capabilities });
+  }
+
+  function onLoadRejected(cur: Current, error: unknown): void {
+    if (current !== cur || cur.attemptAbort.signal.aborted || isAbort(error)) return;
+    // The adapter reports the same failure through its 'error' event first; errorHandled dedupes.
+    failAttempt(cur, detailOf(error)?.code ?? 'unknown', 'media');
+  }
+
+  function onPlayRejected(cur: Current, error: unknown): void {
+    if (current !== cur) return;
+    const name = errorName(error);
+    if (name === 'AbortError') return; // benign: the state follows the action that interrupted play()
+    if (name === 'NotAllowedError') {
+      blockedPlay(cur);
+      return;
+    }
+    if (name === 'NotSupportedError') {
+      const mime = cur.ctx.source.kind === 'demo' ? cur.ctx.source.mimeType : '';
+      const mimeKnown = mime === '' || host.media.canPlayType(mime) !== '';
+      // HAVE_NOTHING after a non-empty canPlayType means the fetch failed, not the format.
+      failAttempt(cur, mimeKnown && host.media.readyState === 0 ? 'network' : 'unsupported', 'media');
+      return;
+    }
+    failAttempt(cur, 'unknown', 'media');
+  }
+
+  /* ================================================================ */
+  /* Attempts: destroy(old) -> load(new) -> play(), synchronously      */
+  /* ================================================================ */
+
+  function takeFault(): DevFault | null {
+    const f = fault;
+    fault = null;
+    return f;
+  }
+
+  /**
+   * `fromUser`: the caller is a user action (dispatches start/switch and notifies the page registry).
+   * Automatic retries and resolved-then-run attempts have already put the state where it belongs.
+   */
+  function runAttempt(ctx: AttemptCtx, fromUser: boolean): Promise<void> {
+    beginAction();
+    clearRetry();
+    teardownCurrent();
+    lastAttempt = { kind: ctx.kind, mode: ctx.mode };
+    failureOrigin = null;
+
+    if (fromUser) {
+      dispatch(ctx.kind === 'start' ? { type: 'attempt/start', mode: ctx.mode } : { type: 'attempt/switch', mode: ctx.mode });
+      if (state.player.status !== 'loading' && state.player.status !== 'switching') return Promise.resolve();
+    }
+    pageRegistry.notifyLoading(controller);
+
+    let adapter: PlaybackAdapter;
+    try {
+      adapter = deps.adapterFactory(ctx.source.kind, host, deps.env);
+    } catch {
+      terminalFailure(ctx.mode, 'unknown', 'media');
+      return Promise.resolve();
+    }
+
+    const t = nowMs();
+    const cur: Current = {
+      adapter,
+      ctx,
+      attemptAbort: new AbortController(),
+      offs: [],
+      errorHandled: false,
+      hasPlayed: false,
+      stalled: false,
+      loadStartedAt: t,
+      lastTime: host.media.currentTime,
+      lastProgressAt: t,
+      playingSince: null,
+      nonFatal: null,
+    };
+    const subscribe = (event: AdapterEvent, fn: (detail?: AdapterErrorDetail) => void): void => {
+      cur.offs.push(adapter.on(event, fn));
+    };
+    subscribe('playing', () => onPlaying(cur));
+    subscribe('paused', () => onPaused(cur));
+    subscribe('waiting', () => onWaiting(cur));
+    subscribe('ended', () => onEnded(cur));
+    subscribe('error', (detail) => onAdapterError(cur, detail));
+    // 'stalled' is a hint only (plan 6.5): the watchdog decides.
+    current = cur;
+    dispatch({ type: 'attempt/attached', mode: ctx.mode });
+    syncWatchdog();
+
+    const injected = takeFault();
+
+    // load(): assigns the source synchronously; the promise only reports readiness.
+    if (injected === null || injected === 'play_blocked') {
+      let loading: Promise<void>;
+      try {
+        loading = adapter.load(ctx.source, cur.attemptAbort.signal);
+      } catch (error) {
+        loading = Promise.reject(error);
+      }
+      loading.then(
+        () => onLoaded(cur),
+        (error: unknown) => onLoadRejected(cur, error),
+      );
+      adapter.setMuted(state.player.muted);
+      adapter.setVolume(state.player.volume);
+    } else {
+      queueMicrotask(() => failAttempt(cur, injected, 'media'));
+      return Promise.resolve();
+    }
+
+    if (current !== cur || cur.errorHandled) return Promise.resolve(); // load() failed synchronously
+    if (injected === 'play_blocked') {
+      queueMicrotask(() => blockedPlay(cur));
+      return Promise.resolve();
+    }
+
+    // play(): still inside the click handler's call stack (no await above).
+    let playing: Promise<void>;
+    try {
+      playing = adapter.play();
+    } catch (error) {
+      playing = Promise.reject(error);
+    }
+    return playing.then(
+      () => undefined,
+      (error: unknown) => onPlayRejected(cur, error),
+    );
+  }
+
+  /** User action with a descriptor that is not cached yet: resolve first (best effort, no gesture guarantee). */
+  function runAfterResolve(kind: AttemptKind, mode: ListeningMode): Promise<void> {
+    const id = beginAction();
+    clearRetry();
+    teardownCurrent();
+    lastAttempt = { kind, mode };
+    failureOrigin = null;
+    dispatch(kind === 'start' ? { type: 'attempt/start', mode } : { type: 'attempt/switch', mode });
+    if (state.player.status !== 'loading' && state.player.status !== 'switching') return Promise.resolve();
+    pageRegistry.notifyLoading(controller);
+    const signal = (actionAbort as AbortController).signal;
+    return fetchDescriptor(mode, signal).then((result) => {
+      if (destroyed || id !== requestId || signal.aborted) return;
+      if (result.ok) {
+        descriptors.set(mode, result.source);
+        void runAttempt({ kind, mode, source: result.source, remembered: false }, false);
+        return;
+      }
+      if (result.reason === 'aborted') return;
+      if (result.reason === 'not_ready') {
+        failureOrigin = 'attempt';
+        if (state.player.selectedMode === mode || kind === 'start') {
+          dispatch({ type: 'prepare/not_ready', reason: result.notReady });
+        }
+        dispatch({
+          type: 'attempt/failed',
+          error: { code: notReadyToErrorCode(result.notReady), mode, publicCode: publicErrorCode(notReadyToErrorCode(result.notReady)) },
+        });
+        return;
+      }
+      failureOrigin = 'attempt';
+      dispatch({ type: 'attempt/failed', error: { code: 'network', mode, publicCode: publicErrorCode('network', 'resolve') } });
+    });
+  }
+
+  /* ================================================================ */
+  /* Watchdog                                                          */
+  /* ================================================================ */
+
+  function syncWatchdog(): void {
+    const want = !destroyed && current !== null && WATCHED_STATUSES.includes(state.player.status);
+    if (want && watchdog === null) {
+      watchdog = setInterval(tick, TICK_MS);
+    } else if (!want && watchdog !== null) {
+      clearInterval(watchdog);
+      watchdog = null;
+    }
+  }
+
+  /**
+   * One interval for everything (plan 6.5): load timeout 20 s; while playing, no currentTime progress
+   * for 3 s -> reconnecting and for 15 s -> network error; non-fatal library errors tolerated 15 s;
+   * the retry budget resets after 30 s of continuous playback. It never runs while paused.
+   * "Progress" only means something once playback started, so before the first `playing` the load
+   * timeout is the only clock (otherwise the 15 s rule would always beat the 20 s one).
+   */
+  function tick(): void {
+    if (!alive()) return;
+    const cur = current;
+    if (cur === null) {
+      syncWatchdog();
+      return;
+    }
+    const t = nowMs();
+    const time = host.media.currentTime;
+    const advanced = time !== cur.lastTime;
+    if (advanced) {
+      cur.lastTime = time;
+      cur.lastProgressAt = t;
+    }
+    const status = state.player.status;
+    const sinceProgress = t - cur.lastProgressAt;
+
+    if (cur.nonFatal !== null && t - cur.nonFatal.since >= NON_FATAL_TOLERANCE_MS) {
+      failAttempt(cur, cur.nonFatal.code, 'media');
+      return;
+    }
+
+    if (cur.hasPlayed) {
+      if (status === 'playing') {
+        if (cur.playingSince !== null && t - cur.playingSince >= BUDGET_RESET_MS) retriesUsed = 0;
+        if (sinceProgress >= STALL_FAIL_MS) {
+          failAttempt(cur, 'network', 'stall');
+        } else if (sinceProgress >= STALL_GRACE_MS) {
+          cur.stalled = true;
+          cur.playingSince = null;
+          dispatch({ type: 'adapter/stalled' });
+        }
+        return;
+      }
+      if (status === 'reconnecting' && cur.stalled) {
+        if (advanced) {
+          // Sound is back although no `playing` event came (adapters without reliable events).
+          cur.stalled = false;
+          cur.playingSince = t;
+          dispatch({ type: 'adapter/playing' });
+        } else if (sinceProgress >= STALL_FAIL_MS) {
+          failAttempt(cur, 'network', 'stall');
+        }
+        return;
+      }
+    }
+
+    if (status === 'loading' || status === 'switching' || status === 'reconnecting') {
+      if (t - cur.loadStartedAt >= LOAD_TIMEOUT_MS) failAttempt(cur, 'network', 'stall');
+    }
+  }
+
+  /* ================================================================ */
+  /* Event changes (plan 6.4)                                          */
+  /* ================================================================ */
+
+  function stopInternal(): void {
+    halt();
+    dispatch({ type: 'player/stopped' });
+    ensurePrepared();
+    syncWatchdog();
+  }
+
+  function syncEvent(data: PublicEvent | null): void {
+    const prevStatus = state.event.status;
+    const prevGate = gateKind();
+    const effective = data !== null ? (eventOverride ?? data.status) : null;
+    dispatch({ type: 'event/set', data, status: effective, simulated: data !== null && eventOverride !== null });
+
+    const { selectedMode, status } = state.player;
+    if (selectedMode !== null && data !== null && !data.availableModes.includes(selectedMode)) {
+      if (status === 'idle' || status === 'selecting' || status === 'failed') dispatch({ type: 'mode/select', mode: null });
+    }
+
+    const nextGate = gateKind();
+    if (prevStatus === effective && prevGate === nextGate) return;
+
+    const intent = hasPlaybackIntent(state.player.status) || state.player.status === 'failed';
+    const toFinished = effective === 'ended' || effective === 'cancelled';
+    const toWaiting = effective === 'scheduled' || effective === 'doors_open';
+    // ended/cancelled/not found, and scheduled/doors_open while sound was wanted: stop, keep selectedMode.
+    // live <-> intermission changes nothing about the adapter.
+    if (effective === null || toFinished || isBlockingGate(nextGate) || (toWaiting && intent)) {
+      stopInternal();
+    }
+
+    // The server may answer differently under the new status: ask again.
+    dispatch({ type: 'prepare/clear_not_ready' });
+    if (isBlockingGate(nextGate)) {
+      abortEntitlement();
+    } else {
+      fetchEntitlement();
+      ensurePrepared();
+    }
+  }
+
+  /* ================================================================ */
+  /* Controller                                                        */
+  /* ================================================================ */
+
+  function stop(): void {
+    if (destroyed) return;
+    stopInternal();
+  }
+
+  function destroy(): void {
+    if (destroyed) return;
+    halt();
+    listeners.clear();
+    dispatch({ type: 'player/stopped' });
+    destroyed = true;
+    for (const c of prefetching.values()) c.abort();
+    prefetching.clear();
+    abortEntitlement();
+    if (watchdog !== null) {
+      clearInterval(watchdog);
+      watchdog = null;
+    }
+    unregister();
+  }
+
+  const done = Promise.resolve();
+
+  const controller: PlayerController & { dev: DevControls | null } = {
+    getState: () => state,
+
+    subscribe(listener) {
+      if (destroyed) return () => undefined;
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+
+    selectMode(mode) {
+      if (destroyed) return;
+      dispatch({ type: 'mode/select', mode });
+      if (state.player.selectedMode === mode) {
+        if (state.player.status === 'selecting') failureOrigin = null;
+        ensurePrepared();
+      }
+    },
+
+    start() {
+      if (destroyed || !selectCanStart(state)) return done;
+      const mode = state.player.selectedMode;
+      if (mode === null) return done;
+      const source = descriptors.get(mode);
+      if (source === undefined) return done;
+      retriesUsed = 0;
+      return runAttempt({ kind: 'start', mode, source, remembered: false }, true);
+    },
+
+    togglePlay() {
+      if (destroyed) return done;
+      const cur = current;
+      const status = state.player.status;
+
+      if (status === 'playing' || (status === 'reconnecting' && cur !== null)) {
+        if (cur === null) return done;
+        beginAction();
+        cur.adapter.pause();
+        onPaused(cur);
+        return done;
+      }
+      if (status === 'reconnecting') {
+        // Waiting for a retry with no adapter: "pause" means give up.
+        stopInternal();
+        return done;
+      }
+      if (status === 'paused' && cur !== null) {
+        // Resume (also after play_blocked): adapter.play() directly, no new resolve (plan 6.3).
+        beginAction();
+        cur.errorHandled = false;
+        cur.stalled = false;
+        const t = nowMs();
+        cur.loadStartedAt = t;
+        cur.lastProgressAt = t;
+        cur.lastTime = host.media.currentTime;
+        dispatch({ type: 'attempt/resume' });
+        if (state.player.status !== 'loading') return done;
+        pageRegistry.notifyLoading(controller);
+        const injected = takeFault();
+        if (injected === 'play_blocked') {
+          queueMicrotask(() => blockedPlay(cur));
+          return done;
+        }
+        if (injected !== null) {
+          queueMicrotask(() => failAttempt(cur, injected, 'media'));
+          return done;
+        }
+        let playing: Promise<void>;
+        try {
+          playing = cur.adapter.play();
+        } catch (error) {
+          playing = Promise.reject(error);
+        }
+        return playing.then(
+          () => undefined,
+          (error: unknown) => onPlayRejected(cur, error),
+        );
+      }
+      return done; // loading / switching: pause is unavailable (plan 6.4)
+    },
+
+    setMuted(muted) {
+      if (destroyed) return;
+      dispatch({ type: 'audio/muted', muted: muted === true });
+      current?.adapter.setMuted(state.player.muted);
+    },
+
+    setVolume(volume) {
+      if (destroyed) return;
+      dispatch({ type: 'audio/volume', volume });
+      current?.adapter.setVolume(state.player.volume);
+    },
+
+    seekToLive() {
+      if (destroyed || current === null || state.capabilities?.seekToLive !== true) return;
+      current.adapter.seekToLive();
+    },
+
+    prepareSwitch(mode) {
+      if (destroyed) return;
+      prefetch(mode);
+    },
+
+    switchMode(mode) {
+      if (destroyed || !offers(mode)) return done;
+      const { status, pendingMode, loadedMode, error } = state.player;
+      if (!['playing', 'paused', 'reconnecting', 'failed', 'switching'].includes(status)) return done;
+      if (gateKind() !== 'open' || state.entitlement !== 'entitled') return done;
+      if (status === 'switching' && pendingMode === mode) return done; // double click
+      if ((status === 'playing' || status === 'paused') && loadedMode === mode && error === null) return done;
+      retriesUsed = 0;
+      const source = descriptors.get(mode);
+      if (source !== undefined) return runAttempt({ kind: 'switch', mode, source, remembered: false }, true);
+      return runAfterResolve('switch', mode);
+    },
+
+    retry() {
+      if (destroyed || state.player.status !== 'failed') return done;
+      if (failureOrigin === 'prepare') {
+        // The descriptor fetch failed: go back to selecting and fetch again.
+        beginAction();
+        failureOrigin = null;
+        const mode = state.player.selectedMode;
+        if (mode !== null) controller.selectMode(mode);
+        return done;
+      }
+      const mode = state.player.error?.mode ?? lastAttempt?.mode ?? state.player.selectedMode;
+      if (mode === null || !offers(mode)) return done;
+      const kind = lastAttempt?.kind ?? 'start';
+      retriesUsed = 0;
+      const source = descriptors.get(mode);
+      if (source !== undefined) return runAttempt({ kind, mode, source, remembered: false }, true);
+      return runAfterResolve(kind, mode);
+    },
+
+    retryEntitlement() {
+      if (destroyed) return done;
+      dispatch({ type: 'entitlement/set', status: 'unknown' });
+      fetchEntitlement();
+      return done;
+    },
+
+    reloadLastGood() {
+      const mode = state.player.lastGoodMode;
+      if (destroyed || state.player.status !== 'failed' || mode === null || !offers(mode)) return done;
+      retriesUsed = 0;
+      const source = descriptors.get(mode);
+      if (source !== undefined) return runAttempt({ kind: 'switch', mode, source, remembered: false }, true);
+      return runAfterResolve('switch', mode);
+    },
+
+    stop,
+
+    updateEvent(event) {
+      if (destroyed) return;
+      const known = state.event.data;
+      if (known !== null && (known.id !== event.id || known.slug !== event.slug)) return; // another event
+      syncEvent(event);
+    },
+
+    destroy,
+
+    dev: null,
+  };
+
+  const unregister = pageRegistry.register(controller);
+
+  if (boot.devTools) {
+    controller.dev = {
+      setEventStatus(status) {
+        if (destroyed) return;
+        eventOverride = status;
+        syncEvent(state.event.data);
+      },
+      setEntitlement(status) {
+        if (destroyed) return;
+        const event = state.event.data;
+        if (event === null || !event.isDemo) return; // simulated entitlement: demo events only
+        entitlementOverride = status;
+        if (status === null) {
+          fetchEntitlement();
+          return;
+        }
+        abortEntitlement();
+        dispatch({ type: 'entitlement/set', status });
+      },
+      injectFault(next) {
+        fault = destroyed ? null : next;
+      },
+    };
+  }
+
+  /* ---- mount: entitlement and the preselected mode's descriptor (plan 6.2, 6.3) ---- */
+  fetchEntitlement();
+  ensurePrepared();
+
+  return controller;
+}

@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<ruleset name="wg-live PHP compatibility">
+	<description>PHP cross-version compatibility (PHP 7.4 and everything newer) for the wg-live plugin and the seed script. Run through "npm run lint:php" (scripts/lint-php.mjs).</description>
+
+	<!-- Scope: the plugin and the seed script only. -->
+	<file>plugin/wg-live</file>
+	<file>scripts/seed-demo.php</file>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="sp"/>
+
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+
+	<!-- M1-PLAN D8: PHP 7.4 or newer. -->
+	<config name="testVersion" value="7.4-"/>
+	<rule ref="PHPCompatibilityWP"/>
+</ruleset>
