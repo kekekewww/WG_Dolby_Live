@@ -40,6 +40,19 @@ export const eventsCopy = {
     contactForCancel: '聯絡我們',
   },
 
+  /* ---- date tile (decorative: the card keeps its <time> text, HYBRID.md) ---- */
+  tile: {
+    month: (year: number, month: number): string => `${year}年${month}月`,
+    weekday: (weekday: string): string => `週${weekday}`,
+  },
+
+  /* ---- poster placeholder (an event without a poster, HYBRID.md; decorative, aria-hidden) ---- */
+  posterPlaceholder: {
+    brand: 'WG Studio Live',
+    demo: '介面示範',
+    demoNote: '操作示範，非正式演出',
+  },
+
   /* ---- 聆聽方式 section (plan 6.1 section 3, spec 5.2) ---- */
   guide: {
     heading: '聆聽方式', // [plan 6.1]

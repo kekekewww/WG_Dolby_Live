@@ -385,6 +385,46 @@ describe('events view: poster', () => {
     expect(cardBySlug('event-2').querySelector('img')).toBeNull();
     expect(cardBySlug('event-2').classList.contains('wg-live__event-card--has-media')).toBe(false);
   });
+
+  it('shows the on-brand placeholder instead of an empty block, aria-hidden, with the demo line for demo events only', () => {
+    mountView(
+      makeBoot({
+        events: [makeEvent({ id: 1, poster: null, posterUrl: null, isDemo: true }), makeEvent({ id: 2, poster: null, posterUrl: null })],
+        featuredEventSlug: 'event-1',
+      }),
+    );
+    const demo = cardBySlug('event-1').querySelector('.wg-live__poster-placeholder') as HTMLElement;
+    expect(demo.getAttribute('aria-hidden')).toBe('true');
+    expect(demo.textContent).toContain('介面示範 · WG Studio Live');
+    expect(demo.textContent).toContain('操作示範，非正式演出');
+    const real = cardBySlug('event-2').querySelector('.wg-live__poster-placeholder') as HTMLElement;
+    expect(real.textContent).toBe('WG Studio Live');
+  });
+
+  it('does not render the placeholder when a poster image exists', () => {
+    mountView(makeBoot({ events: [makeEvent({ poster, posterUrl: poster.url })] }));
+    expect(cardBySlug('event-1').querySelector('.wg-live__poster-placeholder')).toBeNull();
+  });
+});
+
+describe('events view: date tile', () => {
+  it('renders an aria-hidden tile per card (lg on the hero, sm in the grid) and keeps the <time> text for screen readers', () => {
+    mountView(makeBoot({ events: [makeEvent({ id: 1, status: 'live' }), makeEvent({ id: 2 })], featuredEventSlug: 'event-1' }));
+    const hero = cardBySlug('event-1');
+    const small = cardBySlug('event-2');
+    expect(hero.querySelector('.wg-live__date-tile--lg.wg-live__date-tile--live')?.getAttribute('aria-hidden')).toBe('true');
+    expect(small.querySelector('.wg-live__date-tile--sm.wg-live__date-tile--scheduled')).not.toBeNull();
+    const when = small.querySelector('.wg-live__event-card-when') as HTMLElement;
+    expect(when.classList.contains('wg-live__visually-hidden')).toBe(true);
+    expect(when.querySelector('time')?.getAttribute('datetime')).not.toBe('');
+  });
+
+  it('keeps the visible date text when the start time is invalid (no tile)', () => {
+    mountView(makeBoot({ events: [makeEvent({ startsAt: 'garbage' })] }));
+    const card = cardBySlug('event-1');
+    expect(card.querySelector('.wg-live__date-tile')).toBeNull();
+    expect(card.querySelector('.wg-live__event-card-when')?.classList.contains('wg-live__visually-hidden')).toBe(false);
+  });
 });
 
 describe('events view: primary CTA per status (plan 6.1 table)', () => {

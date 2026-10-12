@@ -37,16 +37,24 @@ describe('php-security F1: a second do_shortcode() pass finds no [tag]', () => {
     expect(encode).toContain('JSON_HEX_QUOT');
   });
 
+  it('class-shortcodes.php names global classes with a leading backslash (the file is namespaced, nothing is imported)', () => {
+    const code = read('includes/class-shortcodes.php');
+    expect(Array.from(code.matchAll(/new\s+(?!\\)(DateTime\w*)\s*\(/g)).map((m) => m[0])).toEqual([]);
+  });
+
   it('the featured card template routes every text and attribute through Shortcodes::defuse_brackets', () => {
     const shortcodes = read('includes/class-shortcodes.php');
     // Hex references: do_shortcode()'s unescape_invalid_shortcodes() reverts the decimal &#91;/&#93;.
     expect(method(shortcodes, 'defuse_brackets')).toMatch(/array\(\s*'&#x5B;',\s*'&#x5D;'\s*\)/);
 
     const template = read('templates/featured.php');
+    // A missing namespace separator (WG_LiveShortcodes::) is a fatal "class not found" at render time.
+    expect(template).not.toMatch(/(^|[^\\\w])WG_LiveShortcodes/);
+    expect(Array.from(template.matchAll(/(?<![\\\w])Shortcodes::defuse_brackets/g))).toEqual([]);
     const echoes = Array.from(template.matchAll(/echo\s+(esc_html|esc_url|esc_attr)\(\s*([^;]*?)\s*\);/g));
-    const bare = echoes.filter((m) => !/\$wg_heading|\$wg_title_id|\$args\['status'\]|\$args\['machine_time'\]|\(string\)/.test(m[2] as string));
+    const bare = echoes.filter((m) => !/\$wg_heading|\$wg_title_id|\$wg_badge_id|\$wg_label_by|\$wg_status|\$wg_variant|\$args\['status'\]|\$args\['machine_time'\]|\(string\)/.test(m[2] as string));
     expect(bare, bare.map((m) => m[0]).join('\n')).toEqual([]);
-    for (const needle of ["$args['title']", "$args['status_label']", "$args['text']", "$args['replay_pending']", "$args['demo_badge']", "$args['fallback']", "$wg_time['full']", "$wg_cta['label']", "$wg_poster['alt']"]) {
+    for (const needle of ["$args['title']", "$args['status_label']", "$args['text']", "$args['replay_pending']", "$args['demo_badge']", "$args['fallback']", "$wg_time['full']", "$wg_cta['label']", "$wg_poster['alt']", "$wg_tile['month']", "$wg_tile['day']", "$wg_tile['when']", "$wg_tile['zone']", "$args['poster_brand']", "$args['poster_note']"]) {
       expect(template, needle).toMatch(new RegExp(`defuse_brackets\\( esc_(html|attr)\\( ${needle.replace(/[$[\]]/g, '\\$&')} \\) \\)`));
     }
   });

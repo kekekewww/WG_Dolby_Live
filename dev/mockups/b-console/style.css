@@ -1,0 +1,1398 @@
+/*
+ * Direction B · Console. Mockup stylesheet, portable: everything is scoped under .wg-live, selectors use the
+ * real component class names (two-class form like src/styles/*.css) so the plugin can adopt it file by file.
+ * Plan and porting notes: docs/design/directions/b-console.md.
+ *
+ * Tokens marked MEASURED come from docs/implementation/design-baseline.md; NEW ones are proposals.
+ * No fonts are shipped (the site already loads Noto Sans TC). No animation except 200ms colour changes.
+ * No glow, no gradients on surfaces, no meters. A lit lamp means "on" and always sits next to text.
+ */
+
+/* ------------------------------------------------------------------ tokens */
+.wg-live {
+  --wg-font-body: 'Noto Sans TC', Karla, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --wg-font-weight-body: 400;
+  --wg-font-weight-strong: 500; /* MEASURED (Elementor headings) */
+  --wg-font-size-body: 17px; /* MEASURED */
+  --wg-line-height-body: 1.65; /* MEASURED */
+  --wg-font-size-small: 14px;
+  --wg-font-size-h2: 38px; /* MEASURED */
+  --wg-font-size-h3: 22px;
+  --wg-line-height-heading: 1.3; /* MEASURED */
+
+  --wg-text: #f0f5fa; /* MEASURED */
+  --wg-text-muted: #b4bcc6; /* NEW, 8.6:1 on the chassis */
+  --wg-link: #f0d62b; /* MEASURED */
+  --wg-link-hover: #c2a903; /* MEASURED */
+  --wg-accent: #f0d62b; /* MEASURED brand yellow */
+  --wg-accent-strong: #c2a903; /* MEASURED */
+  --wg-on-accent: #000; /* MEASURED */
+  --wg-danger: #ff8a80;
+
+  /* NEW: the console surfaces */
+  --wg-chassis: #1b1b1e;
+  --wg-chassis-edge: #323237;
+  --wg-plate: #111112;
+  --wg-key: #2b2b30;
+  --wg-key-hover: #36363c;
+  --wg-key-edge: #0b0b0c;
+  --wg-lamp-off: #0d0d0e;
+  --wg-lamp-ring: #6c6c74;
+  --wg-brushed: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.003 0.9' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.12 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  --wg-button-radius: 3px; /* MEASURED */
+  --wg-radius: 3px;
+  --wg-space-1: 4px;
+  --wg-space-2: 8px;
+  --wg-space-3: 12px;
+  --wg-space-4: 16px;
+  --wg-space-5: 24px;
+  --wg-space-6: 32px;
+  --wg-space-7: 48px;
+  --wg-touch-primary: 48px;
+  --wg-touch-secondary: 44px;
+  --wg-transition: 200ms linear;
+  --wg-focus-ring: 2px solid var(--wg-accent);
+  --wg-focus-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .wg-live {
+    --wg-font-size-h2: 28px; /* MEASURED */
+    --wg-font-size-h3: 20px;
+  }
+}
+
+/* ------------------------------------------------------------------ base */
+.wg-live,
+.wg-live *,
+.wg-live *::before,
+.wg-live *::after {
+  box-sizing: border-box;
+}
+
+.wg-live {
+  display: block;
+  width: 100%;
+  max-width: 1140px;
+  min-width: 0;
+  margin: 0 auto;
+  color: var(--wg-text);
+  font-family: var(--wg-font-body);
+  font-size: var(--wg-font-size-body);
+  font-weight: var(--wg-font-weight-body);
+  line-height: var(--wg-line-height-body);
+  overflow-wrap: break-word;
+}
+
+/* The host theme sets margins on p, ul, h2 (body.wgm p = 0,1,2): this two-class form beats it and still loses to component rules below. */
+.wg-live .wg-live__mount :where(h2, h3, h4, p, ul, ol, li, dl, dd, fieldset, legend, figure) {
+  margin: 0;
+  padding: 0;
+}
+
+.wg-live :where(h2, h3, h4) {
+  color: var(--wg-text);
+  font-family: var(--wg-font-body);
+  font-weight: var(--wg-font-weight-strong);
+  line-height: var(--wg-line-height-heading);
+}
+
+.wg-live :where(ul, ol) {
+  list-style: none;
+}
+
+.wg-live :where(fieldset) {
+  min-width: 0;
+  border: 0;
+}
+
+.wg-live :where(img) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 0;
+}
+
+.wg-live :where(time) {
+  white-space: nowrap;
+}
+
+.wg-live :where(a) {
+  color: var(--wg-link);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  transition: color var(--wg-transition);
+}
+
+.wg-live :where(a):hover {
+  color: var(--wg-link-hover);
+}
+
+.wg-live :focus-visible {
+  outline: var(--wg-focus-ring);
+  outline-offset: var(--wg-focus-offset);
+}
+
+.wg-live [hidden] {
+  display: none !important;
+}
+
+.wg-live .wg-live__sr-status,
+.wg-live .wg-live__visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.wg-live .wg-live__muted {
+  color: var(--wg-text-muted);
+}
+
+.wg-live .wg-live__small {
+  font-size: var(--wg-font-size-small);
+  line-height: 1.5;
+}
+
+.wg-live .wg-live__heading {
+  color: var(--wg-text);
+  font-size: var(--wg-font-size-h2);
+  font-weight: var(--wg-font-weight-strong);
+  line-height: var(--wg-line-height-heading);
+}
+
+.wg-live .wg-live__heading--h3 {
+  margin-bottom: var(--wg-space-4);
+  font-size: var(--wg-font-size-h3);
+}
+
+.wg-live .wg-live__heading--h4 {
+  font-size: 18px;
+}
+
+/* Silkscreen caption: the small printed label on a faceplate. Sentence case, no tracking, no mono. */
+.wg-live .wg-live__caption,
+.wg-live .wg-live__field-label {
+  color: var(--wg-text-muted);
+  font-size: var(--wg-font-size-small);
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.4;
+}
+
+/* ------------------------------------------------------------------ lamp: lit means "on" (static, no glow) */
+.wg-live .wg-live__lamp {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--wg-lamp-off);
+  box-shadow: inset 0 0 0 1px var(--wg-lamp-ring);
+}
+
+.wg-live .wg-live__lamp[data-lit='true'] {
+  background: var(--wg-accent);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.28);
+}
+
+/* ------------------------------------------------------------------ buttons: primary / key / link */
+.wg-live .wg-live__btn {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--wg-space-2);
+  min-width: var(--wg-touch-secondary);
+  min-height: var(--wg-touch-secondary);
+  padding: var(--wg-space-2) var(--wg-space-5);
+  border-radius: var(--wg-button-radius);
+  color: var(--wg-text);
+  font-family: var(--wg-font-body);
+  font-size: 16px;
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.3;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color var(--wg-transition),
+    background-color var(--wg-transition);
+}
+
+.wg-live .wg-live__btn:focus-visible {
+  outline: var(--wg-focus-ring);
+  outline-offset: var(--wg-focus-offset);
+}
+
+.wg-live .wg-live__btn--primary {
+  min-height: var(--wg-touch-primary);
+  background: var(--wg-accent);
+  color: var(--wg-on-accent);
+}
+
+.wg-live .wg-live__btn--primary:hover {
+  background: var(--wg-accent-strong);
+  color: var(--wg-on-accent);
+}
+
+/* Secondary: a dark key with a bottom edge, like a console button. No outline. */
+.wg-live .wg-live__btn--secondary {
+  background: var(--wg-key);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 2px 0 var(--wg-key-edge);
+  color: var(--wg-text);
+}
+
+.wg-live .wg-live__btn--secondary:hover {
+  background: var(--wg-key-hover);
+  color: var(--wg-text);
+}
+
+.wg-live .wg-live__btn--secondary:active {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+  transform: translateY(1px);
+}
+
+/* Link-style action: a real link or a disclosure that reads as text. */
+.wg-live .wg-live__btn--ghost {
+  padding-inline: var(--wg-space-3);
+  color: var(--wg-link);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+}
+
+.wg-live .wg-live__btn--ghost:hover {
+  color: var(--wg-link-hover);
+}
+
+.wg-live .wg-live__btn:disabled,
+.wg-live .wg-live__btn[aria-disabled='true'] {
+  background: var(--wg-key);
+  box-shadow: none;
+  color: var(--wg-text-muted);
+  cursor: not-allowed;
+}
+
+.wg-live .wg-live__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wg-space-3);
+}
+
+/* ------------------------------------------------------------------ badges: lamp + text, demo plate */
+.wg-live .wg-live__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wg-space-2);
+  min-height: 24px;
+  color: var(--wg-text);
+  font-size: 15px;
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.wg-live .wg-live__badge--muted {
+  color: var(--wg-text-muted);
+}
+
+.wg-live .wg-live__badge--error {
+  color: var(--wg-danger);
+}
+
+/* The 「介面示範」 badge and the demo notice share one flat yellow-tinted plate. */
+.wg-live .wg-live__badge--demo,
+.wg-live .wg-live__demo-notice {
+  padding: 2px var(--wg-space-3);
+  border-radius: var(--wg-radius);
+  background: rgba(240, 214, 43, 0.14);
+  color: var(--wg-accent);
+  font-size: var(--wg-font-size-small);
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.5;
+}
+
+.wg-live .wg-live__demo-notice {
+  display: inline-block;
+  padding-block: 4px;
+  text-wrap: balance;
+}
+
+/* ------------------------------------------------------------------ shared: labelled fields (演出者 / 演出時間 / 聆聽模式) */
+.wg-live .wg-live__field {
+  display: grid;
+  grid-template-columns: 5.2em minmax(0, 1fr);
+  column-gap: var(--wg-space-3);
+  align-items: baseline;
+}
+
+/* ------------------------------------------------------------------ events: header */
+.wg-live .wg-live__events-header {
+  margin-bottom: var(--wg-space-6);
+}
+
+.wg-live .wg-live__view-title {
+  margin: 0;
+}
+
+/* The site's own divider under page titles (measured on /biography/, /store/: short light bar). */
+.wg-live .wg-live__view-title::after {
+  content: '';
+  display: block;
+  width: 56px;
+  height: 3px;
+  margin-top: var(--wg-space-3);
+  background: var(--wg-text);
+}
+
+.wg-live .wg-live__view-subtitle {
+  margin-top: var(--wg-space-4);
+  font-size: 20px;
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.4;
+}
+
+.wg-live .wg-live__view-intro {
+  margin-top: var(--wg-space-1);
+}
+
+.wg-live .wg-live__events-section {
+  margin-top: var(--wg-space-7);
+}
+
+.wg-live .wg-live__events-header + .wg-live__events-section {
+  margin-top: var(--wg-space-6);
+}
+
+/* ------------------------------------------------------------------ events: featured unit */
+.wg-live .wg-live__event-card {
+  min-width: 0;
+  border-radius: var(--wg-radius);
+  background: var(--wg-chassis);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.wg-live .wg-live__event-card--featured {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.wg-live .wg-live__event-card-media {
+  padding: var(--wg-space-3);
+  min-width: 0;
+}
+
+/* The poster sits in a recessed window, the same device as the player display. */
+.wg-live .wg-live__event-card-img {
+  width: 100%;
+  border-radius: 2px;
+  box-shadow: 0 0 0 4px var(--wg-plate);
+}
+
+.wg-live .wg-live__event-card-body {
+  display: grid;
+  gap: var(--wg-space-3);
+  min-width: 0;
+  padding: var(--wg-space-5);
+  align-content: center;
+}
+
+.wg-live .wg-live__event-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wg-space-3);
+}
+
+.wg-live .wg-live__event-card-title {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.4;
+}
+
+.wg-live .wg-live__event-card--featured .wg-live__event-card-title {
+  font-size: 26px;
+}
+
+.wg-live .wg-live__event-card-title .wg-live__badge {
+  margin-left: var(--wg-space-2);
+  vertical-align: middle;
+}
+
+.wg-live .wg-live__event-card-performers,
+.wg-live .wg-live__event-card-when,
+.wg-live .wg-live__event-card-modes {
+  display: grid;
+  grid-template-columns: 5.2em minmax(0, 1fr);
+  column-gap: var(--wg-space-3);
+  align-items: baseline;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.wg-live .wg-live__event-card-label,
+.wg-live .wg-live__event-card-modes-label {
+  color: var(--wg-text-muted);
+  font-size: var(--wg-font-size-small);
+  font-weight: var(--wg-font-weight-strong);
+}
+
+.wg-live .wg-live__event-card-when time {
+  white-space: normal;
+}
+
+.wg-live .wg-live__when-date,
+.wg-live .wg-live__when-time {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.wg-live .wg-live__event-card-countdown {
+  font-size: var(--wg-font-size-small);
+}
+
+.wg-live .wg-live__event-card-mode-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wg-space-2);
+}
+
+/* Mode tags: small recessed plates, text only. */
+.wg-live .wg-live__event-card-mode {
+  padding: 2px var(--wg-space-3);
+  border-radius: var(--wg-radius);
+  background: var(--wg-plate);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+  font-size: var(--wg-font-size-small);
+  line-height: 1.6;
+}
+
+.wg-live .wg-live__event-card-actions {
+  margin-top: var(--wg-space-2);
+}
+
+.wg-live .wg-live__event-details {
+  display: grid;
+  gap: var(--wg-space-2);
+  padding-top: var(--wg-space-2);
+}
+
+/* ------------------------------------------------------------------ events: listening guide (plain columns) */
+.wg-live .wg-live__guide-lead {
+  max-width: 46em;
+  margin-bottom: var(--wg-space-5);
+}
+
+.wg-live .wg-live__guide-modes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-5);
+}
+
+.wg-live .wg-live__guide-mode-name {
+  margin-bottom: var(--wg-space-2);
+  font-size: 18px;
+}
+
+.wg-live .wg-live__guide-mode-text {
+  font-size: 16px;
+}
+
+.wg-live .wg-live__guide-mode-note {
+  margin-top: var(--wg-space-2);
+}
+
+.wg-live .wg-live__guide-help {
+  margin-top: var(--wg-space-5);
+}
+
+/* ------------------------------------------------------------------ events: session schedule (1U strips) */
+.wg-live .wg-live__event-list {
+  display: grid;
+  gap: 2px;
+}
+
+.wg-live .wg-live__event-list .wg-live__event-card-body {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-2);
+  padding: var(--wg-space-4) var(--wg-space-5) var(--wg-space-5);
+  align-content: start;
+}
+
+.wg-live .wg-live__event-card--over .wg-live__event-card-title,
+.wg-live .wg-live__event-card--over .wg-live__event-card-performers {
+  color: var(--wg-text-muted);
+}
+
+/* ------------------------------------------------------------------ events: FAQ strips */
+.wg-live .wg-live__faq-list {
+  display: grid;
+  gap: 2px;
+}
+
+.wg-live .wg-live__faq-item {
+  border-radius: var(--wg-radius);
+  background: var(--wg-chassis);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.wg-live .wg-live__faq-question {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wg-space-4);
+  min-height: 52px;
+  padding: var(--wg-space-2) var(--wg-space-5);
+  font-size: 17px;
+  font-weight: var(--wg-font-weight-strong);
+  list-style: none;
+  cursor: pointer;
+}
+
+.wg-live .wg-live__faq-question::-webkit-details-marker {
+  display: none;
+}
+
+.wg-live .wg-live__faq-question::after {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-bottom: 4px;
+  border-right: 2px solid var(--wg-text-muted);
+  border-bottom: 2px solid var(--wg-text-muted);
+  transform: rotate(45deg);
+  transition: transform var(--wg-transition);
+}
+
+.wg-live .wg-live__faq-item[open] .wg-live__faq-question::after {
+  margin-bottom: -4px;
+  transform: rotate(225deg);
+}
+
+.wg-live .wg-live__faq-answer {
+  display: grid;
+  gap: var(--wg-space-2);
+  padding: 0 var(--wg-space-5) var(--wg-space-4);
+  color: var(--wg-text-muted);
+  font-size: 16px;
+}
+
+.wg-live .wg-live__faq-more-row {
+  margin-top: var(--wg-space-4);
+}
+
+/* ------------------------------------------------------------------ player: view grid + head */
+.wg-live .wg-live__player-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-5);
+  align-items: start;
+  min-width: 0;
+}
+
+.wg-live .wg-live__player-head {
+  display: grid;
+  gap: var(--wg-space-3);
+  min-width: 0;
+}
+
+.wg-live .wg-live__player-title {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.wg-live .wg-live__player-title .wg-live__badge {
+  margin-left: var(--wg-space-2);
+  vertical-align: middle;
+}
+
+.wg-live .wg-live__player-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wg-space-2) var(--wg-space-5);
+}
+
+.wg-live .wg-live__player-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wg-space-1) var(--wg-space-5);
+  font-size: 16px;
+}
+
+.wg-live .wg-live__player-meta .wg-live__field {
+  display: inline-flex;
+  gap: var(--wg-space-2);
+}
+
+.wg-live .wg-live__player-meta time {
+  white-space: normal;
+  word-break: keep-all;
+}
+
+/* ------------------------------------------------------------------ player: the faceplate */
+.wg-live .wg-live__player {
+  display: grid;
+  gap: var(--wg-space-2);
+  min-width: 0;
+  padding: var(--wg-space-3);
+  border-radius: 4px;
+  background-color: var(--wg-chassis);
+  background-image: var(--wg-brushed);
+  box-shadow:
+    0 0 0 1px #000,
+    inset 0 0 0 1px var(--wg-chassis-edge),
+    inset 0 2px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Plates: recessed bays set into the chassis. */
+.wg-live .wg-live__stage,
+.wg-live .wg-live__mode-selector,
+.wg-live .wg-live__controls-main,
+.wg-live .wg-live__modebar {
+  min-width: 0;
+  border-radius: var(--wg-radius);
+  background: var(--wg-plate);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.65),
+    0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* Display window: poster + readout. */
+.wg-live .wg-live__stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-4);
+  padding: var(--wg-space-4);
+  align-items: center;
+}
+
+.wg-live .wg-live__stage-art {
+  margin: 0;
+}
+
+.wg-live .wg-live__stage-img {
+  width: 100%;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #2a2a2e;
+}
+
+.wg-live .wg-live__media--audio {
+  display: none;
+}
+
+.wg-live .wg-live__status {
+  display: grid;
+  gap: var(--wg-space-3);
+  justify-items: start;
+  min-width: 0;
+}
+
+.wg-live .wg-live__status-title {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.wg-live .wg-live__status-detail,
+.wg-live .wg-live__error-code {
+  margin: 0;
+}
+
+/* Mode selector: two channel-strip toggles in a bay. */
+.wg-live .wg-live__mode-selector {
+  display: block;
+  padding: var(--wg-space-4);
+}
+
+/* A floated legend is laid out as an ordinary block (not drawn on the fieldset border). */
+.wg-live .wg-live__mode-selector > .wg-live__mode-legend {
+  float: left;
+  width: 100%;
+  margin-bottom: var(--wg-space-3);
+}
+
+.wg-live .wg-live__mode-selector > .wg-live__mode-options {
+  clear: both;
+}
+
+.wg-live .wg-live__mode-selector > .wg-live__mode-help {
+  display: block;
+  margin-top: var(--wg-space-3);
+}
+
+.wg-live .wg-live__mode-legend {
+  margin: 0 0 var(--wg-space-3);
+  padding: 0;
+  color: var(--wg-text-muted);
+  font-size: var(--wg-font-size-small);
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.4;
+}
+
+.wg-live .wg-live__mode-help {
+  font-size: var(--wg-font-size-small);
+  line-height: 1.4;
+}
+
+.wg-live .wg-live__mode-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wg-space-3);
+}
+
+.wg-live .wg-live__mode {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.wg-live .wg-live__mode-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.wg-live .wg-live__mode-card {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  grid-template-rows: auto auto auto 1fr;
+  column-gap: var(--wg-space-3);
+  row-gap: var(--wg-space-2);
+  align-content: start;
+  width: 100%;
+  padding: var(--wg-space-4) var(--wg-space-4) var(--wg-space-3);
+  border-radius: var(--wg-radius);
+  background: var(--wg-chassis);
+  box-shadow:
+    0 0 0 1px #000,
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: background-color var(--wg-transition);
+}
+
+.wg-live .wg-live__mode-card > * {
+  grid-column: 2;
+}
+
+.wg-live .wg-live__mode-card > .wg-live__lamp {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+}
+
+.wg-live .wg-live__mode-title {
+  font-size: 18px;
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.35;
+}
+
+.wg-live .wg-live__mode-desc {
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.wg-live .wg-live__mode-helper {
+  color: var(--wg-text-muted);
+  font-size: var(--wg-font-size-small);
+  line-height: 1.5;
+}
+
+/* The foot is the key: it raises when the mode is free and presses in when it is selected. */
+.wg-live .wg-live__mode-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wg-space-3);
+  grid-column: 1 / -1;
+  align-self: end;
+  min-height: var(--wg-touch-secondary);
+  margin-top: var(--wg-space-2);
+  padding: 0 var(--wg-space-4);
+  border-radius: var(--wg-radius);
+  background: var(--wg-key);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 2px 0 var(--wg-key-edge);
+  transition: background-color var(--wg-transition);
+}
+
+.wg-live .wg-live__mode-action {
+  font-size: 16px;
+  font-weight: var(--wg-font-weight-strong);
+}
+
+.wg-live .wg-live__mode-marker,
+.wg-live .wg-live__mode-unavailable {
+  color: var(--wg-accent);
+  font-size: 15px;
+  font-weight: var(--wg-font-weight-strong);
+}
+
+.wg-live .wg-live__mode-unavailable {
+  color: var(--wg-text-muted);
+}
+
+.wg-live .wg-live__mode-input:hover:not(:disabled) + .wg-live__mode-card .wg-live__mode-foot {
+  background: var(--wg-key-hover);
+}
+
+.wg-live .wg-live__mode-input:checked + .wg-live__mode-card .wg-live__mode-foot {
+  background: #0b0b0c;
+  box-shadow:
+    inset 0 2px 3px rgba(0, 0, 0, 0.8),
+    0 1px 0 rgba(255, 255, 255, 0.07);
+  transform: translateY(1px);
+}
+
+.wg-live .wg-live__mode-input:checked + .wg-live__mode-card {
+  background: #222226;
+}
+
+.wg-live .wg-live__mode-input:focus-visible + .wg-live__mode-card {
+  outline: var(--wg-focus-ring);
+  outline-offset: var(--wg-focus-offset);
+}
+
+.wg-live .wg-live__mode-input:disabled + .wg-live__mode-card {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Transport + monitor bays. */
+.wg-live .wg-live__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wg-space-2);
+  min-width: 0;
+}
+
+.wg-live .wg-live__controls > .wg-live__mode-selector {
+  flex: 1 1 100%;
+}
+
+.wg-live .wg-live__controls-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: center;
+  gap: var(--wg-space-3) var(--wg-space-5);
+  padding: var(--wg-space-4);
+}
+
+.wg-live .wg-live__player-view[data-status='idle'] .wg-live__controls-main,
+.wg-live .wg-live__player-view[data-status='selecting'] .wg-live__controls-main {
+  flex-grow: 0;
+}
+
+.wg-live .wg-live__controls-main > .wg-live__caption,
+.wg-live .wg-live__controls-main > .wg-live__start-reason {
+  flex: 0 0 100%;
+  margin: 0;
+}
+
+.wg-live .wg-live__play {
+  min-width: 176px;
+  min-height: 52px;
+  padding-inline: var(--wg-space-6);
+  font-size: 17px;
+}
+
+.wg-live .wg-live__play::before {
+  content: '';
+  display: block;
+  flex: none;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 7px 0 7px 12px;
+  border-color: transparent transparent transparent currentColor;
+}
+
+.wg-live .wg-live__player-view[data-status='playing'] .wg-live__play::before,
+.wg-live .wg-live__player-view[data-status='reconnecting'] .wg-live__play::before {
+  width: 12px;
+  height: 14px;
+  border-width: 0 4px;
+  border-color: currentColor;
+}
+
+.wg-live .wg-live__play:disabled {
+  background: var(--wg-key);
+  color: var(--wg-text-muted);
+}
+
+.wg-live .wg-live__start-reason {
+  color: var(--wg-text-muted);
+}
+
+.wg-live .wg-live__transport {
+  display: flex;
+  flex: 1 1 280px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wg-space-3) var(--wg-space-5);
+  min-width: 0;
+}
+
+/* Mute: a key with its own lamp. Lit while muted (aria-pressed="true"). */
+.wg-live .wg-live__mute::before {
+  content: '';
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--wg-lamp-off);
+  box-shadow: inset 0 0 0 1px var(--wg-lamp-ring);
+}
+
+.wg-live .wg-live__mute[aria-pressed='true']::before {
+  background: var(--wg-accent);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.28);
+}
+
+/* Volume: a fader. No fill, no value invented; the cap position is the value. */
+.wg-live .wg-live__volume {
+  display: flex;
+  flex: 1 1 200px;
+  align-items: center;
+  gap: var(--wg-space-3);
+  min-width: 160px;
+}
+
+.wg-live .wg-live__volume-label {
+  color: var(--wg-text-muted);
+  font-size: var(--wg-font-size-small);
+  font-weight: var(--wg-font-weight-strong);
+}
+
+.wg-live .wg-live__volume-input {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--wg-touch-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.wg-live .wg-live__volume-input::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: #060607;
+  box-shadow:
+    inset 0 1px 2px #000,
+    0 1px 0 rgba(255, 255, 255, 0.09);
+}
+
+.wg-live .wg-live__volume-input::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: #060607;
+  box-shadow:
+    inset 0 1px 2px #000,
+    0 1px 0 rgba(255, 255, 255, 0.09);
+}
+
+.wg-live .wg-live__volume-input::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 30px;
+  margin-top: -12px;
+  border: 0;
+  border-radius: 2px;
+  background:
+    linear-gradient(var(--wg-text), var(--wg-text)) center / 2px 60% no-repeat,
+    #3c3c42;
+  box-shadow:
+    0 0 0 1px #000,
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 2px 0 #000;
+}
+
+.wg-live .wg-live__volume-input::-moz-range-thumb {
+  width: 18px;
+  height: 30px;
+  border: 0;
+  border-radius: 2px;
+  background:
+    linear-gradient(var(--wg-text), var(--wg-text)) center / 2px 60% no-repeat,
+    #3c3c42;
+  box-shadow:
+    0 0 0 1px #000,
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 2px 0 #000;
+}
+
+.wg-live .wg-live__volume-input:focus-visible {
+  outline-offset: 0;
+}
+
+/* Monitor bay: the current mode with its lamp, and the switch key. */
+.wg-live .wg-live__modebar {
+  display: grid;
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start;
+  align-items: center;
+  gap: var(--wg-space-2) var(--wg-space-4);
+  padding: var(--wg-space-4);
+}
+
+.wg-live .wg-live__modebar > .wg-live__caption {
+  grid-column: 1 / -1;
+}
+
+.wg-live .wg-live__mode-info {
+  display: grid;
+  gap: var(--wg-space-1);
+  min-width: 0;
+}
+
+.wg-live .wg-live__mode-label {
+  display: flex;
+  align-items: center;
+  gap: var(--wg-space-3);
+  font-size: 18px;
+  font-weight: var(--wg-font-weight-strong);
+  line-height: 1.4;
+}
+
+.wg-live .wg-live__mode-note {
+  max-width: 34em;
+}
+
+/* ------------------------------------------------------------------ player: info column (a flat unit) */
+.wg-live .wg-live__aside {
+  display: grid;
+  gap: var(--wg-space-4);
+  min-width: 0;
+  padding: var(--wg-space-5);
+  border-radius: var(--wg-radius);
+  background: var(--wg-chassis);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.wg-live .wg-live__info-heading {
+  margin-bottom: var(--wg-space-3);
+}
+
+.wg-live .wg-live__info-body {
+  display: grid;
+  gap: var(--wg-space-3);
+}
+
+.wg-live .wg-live__info-text {
+  font-size: 16px;
+}
+
+.wg-live .wg-live__info-when {
+  display: grid;
+  gap: 2px;
+  font-size: 16px;
+}
+
+.wg-live .wg-live__info-when time {
+  white-space: normal;
+  word-break: keep-all;
+}
+
+.wg-live .wg-live__programme {
+  display: grid;
+  gap: var(--wg-space-2);
+  padding-top: var(--wg-space-2);
+}
+
+.wg-live .wg-live__programme-list {
+  counter-reset: cue;
+  display: grid;
+  gap: 2px;
+}
+
+/* Cue-sheet numbering: 01 02 03. Static order, never "now playing" (spec 5.3). */
+.wg-live .wg-live__programme-list li {
+  counter-increment: cue;
+  display: grid;
+  grid-template-columns: 2.2em minmax(0, 1fr);
+  align-items: baseline;
+  padding: var(--wg-space-2) var(--wg-space-3);
+  border-radius: var(--wg-radius);
+  background: var(--wg-plate);
+  font-size: 16px;
+}
+
+.wg-live .wg-live__programme-list li::before {
+  content: counter(cue, decimal-leading-zero);
+  color: var(--wg-text-muted);
+  font-size: var(--wg-font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.wg-live .wg-live__help-link {
+  font-size: 16px;
+}
+
+/* ------------------------------------------------------------------ dialog (not shown in the static mockups) */
+.wg-live .wg-live__dialog {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ responsive */
+@media (max-width: 543px) {
+  .wg-live .wg-live__actions--stack {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .wg-live .wg-live__actions--stack > .wg-live__btn {
+    width: 100%;
+  }
+
+  .wg-live .wg-live__actions--stack > .wg-live__btn--ghost {
+    justify-content: flex-start;
+    padding-inline: 0;
+  }
+
+  /* Primary on its own row; the secondary key and the login link share the next one. */
+  .wg-live .wg-live__event-card-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--wg-space-2);
+  }
+
+  .wg-live .wg-live__event-card-actions > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .wg-live .wg-live__event-card-actions .wg-live__btn--ghost {
+    width: auto;
+    justify-content: center;
+    padding-inline: var(--wg-space-3);
+  }
+
+  .wg-live .wg-live__player {
+    padding: var(--wg-space-2);
+  }
+
+  .wg-live .wg-live__stage {
+    grid-template-columns: 112px minmax(0, 1fr);
+    gap: var(--wg-space-3);
+    padding: var(--wg-space-3);
+    align-items: start;
+  }
+
+  .wg-live .wg-live__status {
+    display: contents;
+  }
+
+  .wg-live .wg-live__status-title {
+    grid-column: 2;
+    font-size: 19px;
+  }
+
+  .wg-live .wg-live__demo-notice {
+    grid-column: 1 / -1;
+  }
+
+  .wg-live .wg-live__play {
+    width: 100%;
+  }
+
+  .wg-live .wg-live__controls-main,
+  .wg-live .wg-live__modebar,
+  .wg-live .wg-live__mode-selector {
+    padding: var(--wg-space-3);
+  }
+
+  .wg-live .wg-live__modebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wg-live .wg-live__switch {
+    width: 100%;
+  }
+
+  .wg-live .wg-live__aside {
+    padding: var(--wg-space-4);
+  }
+
+  .wg-live .wg-live__field,
+  .wg-live .wg-live__event-card-performers,
+  .wg-live .wg-live__event-card-when,
+  .wg-live .wg-live__event-card-modes {
+    grid-template-columns: 4.6em minmax(0, 1fr);
+  }
+
+}
+
+@media (min-width: 544px) and (max-width: 767px) {
+  .wg-live .wg-live__stage {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .wg-live .wg-live__event-card--featured {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+
+  .wg-live .wg-live__event-card--featured .wg-live__event-card-media {
+    align-self: center;
+    padding: var(--wg-space-4);
+  }
+
+  .wg-live .wg-live__event-card--featured .wg-live__event-card-body {
+    padding: var(--wg-space-6) var(--wg-space-6) var(--wg-space-6) var(--wg-space-3);
+  }
+
+  .wg-live .wg-live__guide-modes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--wg-space-7);
+  }
+
+  .wg-live .wg-live__stage {
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: var(--wg-space-5);
+    padding: var(--wg-space-5);
+  }
+
+  .wg-live .wg-live__mode-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wg-live .wg-live__player {
+    padding: var(--wg-space-3);
+  }
+}
+
+/* Schedule strips become a booking board: date | session | status | actions. */
+@media (min-width: 1024px) {
+  .wg-live .wg-live__event-list .wg-live__event-card-body {
+    grid-template-columns: 190px minmax(0, 1fr) 112px 184px;
+    grid-template-areas:
+      'when title status actions'
+      'when performers status actions'
+      'count modes status actions'
+      'details details details details';
+    column-gap: var(--wg-space-5);
+    row-gap: var(--wg-space-1);
+    align-items: start;
+    padding: var(--wg-space-5);
+  }
+
+  .wg-live .wg-live__event-list .wg-live__event-card-when {
+    grid-area: when;
+    display: block;
+    font-size: 17px;
+    font-weight: var(--wg-font-weight-strong);
+    line-height: 1.5;
+  }
+
+  .wg-live .wg-live__event-list .wg-live__event-card-when .wg-live__event-card-label {
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .wg-live .wg-live__event-list .wg-live__when-date,
+  .wg-live .wg-live__event-list .wg-live__when-time {
+    display: block;
+  }
+
+  .wg-live .wg-live__event-list .wg-live__when-time {
+    color: var(--wg-text-muted);
+    font-size: 15px;
+    font-weight: var(--wg-font-weight-body);
+  }
+
+  .wg-live .wg-live__event-list .wg-live__event-card-countdown {
+    grid-area: count;
+  }
+
+  .wg-live .wg-live__event-list .wg-live__event-card-title {
+    grid-area: title;
+  }
+
+  .wg-live .wg-live__event-list .wg-live__event-card-performers {
+    grid-area: performers;
+  }
+
+  .wg-live .wg-live__event-list .wg-live__event-card-modes {
+    grid-area: modes;
+    margin-top: var(--wg-space-2);
+  }
+
+  .wg-live .wg-live__event-list .wg-live__event-card-meta {
+    grid-area: status;
+    padding-top: 2px;
+  }
+
+  .wg-live .wg-live__event-list .wg-live__event-card-actions {
+    grid-area: actions;
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-content: stretch;
+    gap: var(--wg-space-2);
+    margin-top: 0;
+  }
+
+  .wg-live .wg-live__event-list .wg-live__event-card-actions > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .wg-live .wg-live__event-list .wg-live__event-card-actions .wg-live__btn--ghost {
+    justify-self: center;
+    padding-inline: var(--wg-space-2);
+  }
+
+  .wg-live .wg-live__event-list .wg-live__event-details {
+    grid-area: details;
+  }
+
+  .wg-live .wg-live__player-view {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: var(--wg-space-5) var(--wg-space-6);
+  }
+
+  .wg-live .wg-live__player-head {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wg-live *,
+  .wg-live *::before,
+  .wg-live *::after {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .wg-live .wg-live__btn,
+  .wg-live .wg-live__mode-card,
+  .wg-live .wg-live__mode-foot,
+  .wg-live .wg-live__player {
+    border: 1px solid ButtonText;
+  }
+
+  .wg-live .wg-live__lamp[data-lit='true'] {
+    forced-color-adjust: none;
+  }
+}

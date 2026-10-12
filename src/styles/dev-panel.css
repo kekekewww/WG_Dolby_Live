@@ -1,68 +1,100 @@
 /*
- * dev-panel.css - the dev/demo state panel (spec 5.6, plan D17). Only rendered when the server
- * enabled dev tools. It is an in-flow, collapsible block at the end of the view, so it can never
- * cover the player controls. The generous bottom margin keeps it clear of a fixed bottom banner
+ * dev-panel.css - the dev/demo state panel (spec 5.6, plan D17), HYBRID.
+ *
+ * Only rendered when the server enabled dev tools (never on production). Quiet and clearly labelled:
+ * a small Mist summary line (its text says 開發用 and 正式站不顯示), a plain dark panel when open, no
+ * dashed border and no yellow. It is an in-flow, collapsible block at the end of the view, so it can
+ * never cover the player controls. The generous bottom margin keeps it clear of a fixed bottom banner
  * (cookie notice, site chat button) and the iOS home indicator.
  */
 .wg-live .wg-live__dev {
   min-width: 0;
-  margin-block: var(--wg-space-4) calc(96px + var(--wg-safe-bottom));
+  margin-block: 64px calc(96px + var(--wg-safe-bottom, 0px));
   padding: 0;
-  border: 2px dashed var(--wg-accent);
-  border-radius: var(--wg-card-radius);
-  background: var(--wg-card-surface);
-  color: var(--wg-text);
+  border: 0;
+  border-radius: 3px;
+  background: var(--wg-panel, rgba(17, 17, 17, 0.72));
+  color: var(--wg-paper, #f0f5fa);
+  font-size: 15px;
 }
 
 .wg-live .wg-live__dev-summary {
   display: flex;
   align-items: center;
-  min-height: var(--wg-touch-secondary);
-  padding: var(--wg-space-2) var(--wg-space-4);
-  font-weight: var(--wg-font-weight-strong);
+  min-height: 44px;
+  padding: 4px 16px;
+  color: var(--wg-mist, #ccd3da);
+  font-family: var(--wg-font-ui, Karla, 'Noto Sans TC', sans-serif);
+  font-size: 15px;
+  font-weight: 500;
   cursor: pointer;
+}
+
+.wg-live .wg-live__dev[open] > .wg-live__dev-summary {
+  color: var(--wg-paper, #f0f5fa);
+}
+
+.wg-live .wg-live__dev-summary:focus-visible {
+  outline: 2px solid var(--wg-paper, #f0f5fa);
+  outline-offset: 3px;
 }
 
 .wg-live .wg-live__dev-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--wg-space-4);
-  padding: var(--wg-space-2) var(--wg-space-4) var(--wg-space-4);
+  gap: 16px;
+  padding: 4px 16px 20px;
 }
 
 .wg-live .wg-live__dev-intro,
 .wg-live .wg-live__dev-simulated {
   margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
+.wg-live .wg-live__dev-intro {
+  color: var(--wg-mist, #ccd3da);
+}
+
+/* The simulated-state notice must not be missed, but yellow is reserved: weight and an underline carry it. */
 .wg-live .wg-live__dev-simulated {
-  font-weight: var(--wg-font-weight-strong);
-  color: var(--wg-accent);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .wg-live .wg-live__dev-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--wg-space-1);
+  gap: 4px;
 }
 
 .wg-live .wg-live__dev-label {
-  font-size: var(--wg-font-size-small);
-  font-weight: var(--wg-font-weight-strong);
+  color: var(--wg-mist, #ccd3da);
+  font-size: 14px;
+  font-weight: 400;
 }
 
+/* A control, so it may have an edge. */
 .wg-live .wg-live__dev-select {
   box-sizing: border-box;
   width: 100%;
   max-width: 360px;
-  min-height: var(--wg-touch-secondary);
-  padding: var(--wg-space-1) var(--wg-space-3);
-  border: 1px solid var(--wg-border);
-  border-radius: var(--wg-button-radius);
-  background: var(--wg-player-surface);
-  color: var(--wg-player-text);
+  min-height: 44px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 3px;
+  background: #1b1b1b;
+  box-shadow: inset 0 0 0 1px rgba(240, 245, 250, 0.4);
+  color: var(--wg-paper, #f0f5fa);
   font: inherit;
   font-size: 16px;
+}
+
+.wg-live .wg-live__dev-select:focus-visible {
+  outline: 2px solid var(--wg-paper, #f0f5fa);
+  outline-offset: 3px;
 }
 
 .wg-live .wg-live__dev-reset {

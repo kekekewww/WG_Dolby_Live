@@ -24,7 +24,7 @@ function setText(node: HTMLElement, text: string): void {
 function linkOr(
   href: string | null,
   text: string,
-  className = 'wg-live__btn wg-live__btn--ghost',
+  className = 'wg-live__btn',
 ): HTMLAnchorElement | null {
   const safe = safeUrl(href);
   if (safe === null) return null;
@@ -36,7 +36,13 @@ function linkOr(
 /* ------------------------------------------------------------------ */
 
 export interface ModeLabel {
+  /** `.wg-live__mode-info`: only the label text, so the control bar stays one row. */
   el: HTMLElement;
+  /**
+   * The「模式標示只代表…」note. It is NOT inside `el`: the view places it in the status block under the
+   * stage (HYBRID: the bar holds the label and the switch only). Hidden together with the label.
+   */
+  note: HTMLElement;
   update(state: AppState): void;
 }
 
@@ -44,9 +50,10 @@ export interface ModeLabel {
 export function createModeLabel(): ModeLabel {
   const text = h('p', { className: 'wg-live__mode-label', hidden: true });
   const note = h('p', { className: 'wg-live__mode-note wg-live__small wg-live__muted', text: statusCopy.modeLabelNote, hidden: true });
-  const el = h('div', { className: 'wg-live__mode-info' }, text, note);
+  const el = h('div', { className: 'wg-live__mode-info' }, text);
   return {
     el,
+    note,
     update(state): void {
       const label = selectModeLabel(state);
       text.hidden = label === null;
@@ -69,6 +76,8 @@ export interface StatusPanelOptions {
   onSwitchMode(trigger: HTMLElement): void;
   /** The「查看活動資訊」action: the view moves focus to the info section. */
   onViewEvent(): void;
+  /** Optional extra note shown under the demo notice (the mode-label note, moved here by the view). */
+  note?: HTMLElement;
 }
 
 export interface StatusPanel {
@@ -103,11 +112,12 @@ export function createStatusPanel(options: StatusPanelOptions): StatusPanel {
   });
   const code = h('p', { className: 'wg-live__error-code wg-live__small wg-live__muted', hidden: true });
 
-  const retry = button('wg-live__btn--secondary', statusCopy.action.retry);
-  const reload = button('wg-live__btn--secondary', '');
-  const fallback = button('wg-live__btn--secondary', statusCopy.action.fallbackBinaural);
-  const switchMode = button('wg-live__btn--secondary', statusCopy.action.switchMode);
-  const viewEvent = button('wg-live__btn--ghost', statusCopy.action.viewEvent);
+  // Quiet text buttons; update() gives the first visible recovery action the single yellow primary look.
+  const retry = button('wg-live__status-retry', statusCopy.action.retry);
+  const reload = button('wg-live__status-reload', '');
+  const fallback = button('wg-live__status-fallback', statusCopy.action.fallbackBinaural);
+  const switchMode = button('wg-live__status-switch', statusCopy.action.switchMode);
+  const viewEvent = button('wg-live__status-view', statusCopy.action.viewEvent);
   const backToEvents = linkOr(links.events, statusCopy.action.backToEvents);
   const contact = linkOr(links.contact, statusCopy.action.contact);
   const help = linkOr(links.help, statusCopy.action.help);
@@ -133,6 +143,7 @@ export function createStatusPanel(options: StatusPanelOptions): StatusPanel {
     heading,
     detail,
     demoNotice,
+    options.note ?? null,
     actions,
     code,
   );
@@ -195,12 +206,23 @@ export function createStatusPanel(options: StatusPanelOptions): StatusPanel {
 
     // Gate links (plan 6.2): ended -> events, cancelled -> contact, scheduled -> help.
     const showEvents = wanted.has('back_to_events') || gate.kind === 'ended';
-    if (backToEvents) backToEvents.hidden = !showEvents;
+    if (backToEvents) {
+      backToEvents.hidden = !showEvents;
+      // An ended event has no Start button, so the way back is the view's one primary.
+      backToEvents.classList.toggle('wg-live__btn--primary', gate.kind === 'ended');
+    }
     if (contact) contact.hidden = gate.kind !== 'cancelled' && gate.kind !== 'disabled';
     if (help) help.hidden = gate.kind !== 'scheduled';
     if (home) home.hidden = gate.kind !== 'disabled';
 
     actions.hidden = Array.from(actions.children).every((child) => (child as HTMLElement).hidden);
+
+    // One yellow primary per view (HYBRID): after a failure the first recovery action is the way back, because
+    // the Start button is hidden then. While Start is shown, every status action stays a quiet text button.
+    const startHidden = state.player.status === 'failed';
+    const recovery = [retry, reload, fallback, switchMode];
+    const lead = startHidden ? (recovery.find((btn) => !btn.hidden) ?? null) : null;
+    for (const btn of recovery) btn.classList.toggle('wg-live__btn--primary', btn === lead);
 
     if (!fallback.hidden && state.player.error) {
       prefetch('binaural', `fb:${state.player.error.publicCode}:${state.player.error.mode ?? ''}`);
@@ -251,6 +273,8 @@ export function createUnavailablePanel(
       : [linkOr(links.events, statusCopy.action.backToEvents), linkOr(links.help, statusCopy.action.help)];
   for (const link of linkEls) if (link) link.hidden = false;
   const visible = linkEls.filter((l): l is HTMLAnchorElement => l !== null);
+  // Nothing else on this screen: the first way out is the one primary, the second stays a quiet link.
+  visible[0]?.classList.add('wg-live__btn--primary');
 
   const el = h(
     'section',

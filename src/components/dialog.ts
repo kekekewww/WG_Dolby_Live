@@ -55,7 +55,7 @@ export function createSwitchDialog(options: SwitchDialogOptions): SwitchDialog {
     text: statusCopy.action.confirmSwitch,
   });
   const cancel = h('button', {
-    className: 'wg-live__btn wg-live__btn--secondary wg-live__dialog-cancel',
+    className: 'wg-live__btn wg-live__dialog-cancel',
     type: 'button',
     text: statusCopy.action.cancel,
   });

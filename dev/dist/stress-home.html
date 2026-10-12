@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>首頁 | 開發測試頁（dist homepage, stress）</title>
+    <link rel="stylesheet" href="/dev/stress.css" />
+    <!--WG_LIVE_DIST:featured-css-->
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="site-logo" href="/dev/stub.html?page=home">FAKE SITE LOGO</a>
+      <nav class="site-nav" aria-label="示範網站主選單">
+        <ul>
+          <li><a href="/dev/dist/stress-home.html" aria-current="page">首頁</a></li>
+          <li><a href="/dev/dist/stress.html?view=events">Live</a></li>
+          <li><a href="/dev/dist/stress.html?view=help">Listening Guide</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main class="site-main">
+      <p class="site-note">dist 首頁壓力測試：只載入 wg-live-featured.css（&lt;link&gt;），不載入 wg-live.js，外殼帶有刻意過度的全域樣式。精選卡片在 WordPress 由 PHP 輸出；這裡只放一個 scoped 容器，用來確認首頁只需要這份 CSS，且它不會改動首頁外殼。</p>
+      <h1>示範網站首頁</h1>
+      <p>這是示範網站的一般段落文字，使用了刻意誇張的全域 p 樣式。</p>
+
+      <!--WG_LIVE_DIST:featured-card-->
+
+      <p>容器之後的一般段落。</p>
+    </main>
+
+    <footer class="site-footer">
+      <p>FAKE SITE FOOTER &copy; dev harness | <a href="/dev/stub.html?page=contact">Contact</a></p>
+    </footer>
+  </body>
+</html>

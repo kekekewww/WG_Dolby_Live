@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mockup C | Programme（播放頁，播放中）</title>
+    <!--WG_SITE_MOCK:head assets=live-->
+    <link rel="stylesheet" href="/src/styles/theme-bridge.css" />
+    <link rel="stylesheet" href="/src/styles/base.css" />
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="/src/styles/accessibility.css" />
+  </head>
+  <body class="wgm">
+    <!--WG_SITE_MOCK:header current=live-->
+
+    <main class="wgm-main" id="content">
+      <div class="wgm-container">
+        <div class="wgm-container__inner">
+          <div class="wgm-widget wgm-widget--shortcode">
+            <div class="wg-live">
+              <section class="wg-live__player-view" data-event="demo-live-binaural-atmos" data-media-kind="audio" data-status="playing" data-gate="open">
+                <header class="wg-live__player-head">
+                  <div class="wg-live__player-sub">
+                    <span class="wg-live__badge wg-live__badge--live wg-live__player-status-badge">演出中</span>
+                  </div>
+                  <div class="wg-live__player-hero">
+                    <time class="wg-live__date wg-live__date--player wg-live__date--live" datetime="2026-10-12T06:29:00Z">
+                      <span class="wg-live__visually-hidden">2026年10月12日（一）14:29 台北時間</span>
+                      <span class="wg-live__date-month" aria-hidden="true">2026年10月</span>
+                      <span class="wg-live__date-day" aria-hidden="true">12</span>
+                      <span class="wg-live__date-when" aria-hidden="true">週一 14:29</span>
+                      <span class="wg-live__date-zone" aria-hidden="true">台北時間</span>
+                    </time>
+                    <div class="wg-live__player-heading">
+                      <h2 class="wg-live__player-title wg-live__heading">
+                        <span class="wg-live__player-title-text">【介面示範】錄音室現場音樂會 Live</span>
+                        <span class="wg-live__badge wg-live__badge--demo">介面示範</span>
+                      </h2>
+                      <p class="wg-live__player-meta"><span class="wg-live__player-meta-label">演出者：</span>示範樂手 A、示範樂手 B</p>
+                    </div>
+                  </div>
+                </header>
+
+                <div class="wg-live__player" role="group" aria-label="音樂會播放器">
+                  <div class="wg-live__stage wg-live__stage--audio" data-media-kind="audio">
+                    <audio class="wg-live__media wg-live__media--audio" preload="none"></audio>
+                    <div class="wg-live__frame-slot" hidden></div>
+                  </div>
+                  <div class="wg-live__controls">
+                    <div class="wg-live__ticket-face">
+                      <div class="wg-live__modebar" role="group" aria-label="目前聆聽模式">
+                        <div class="wg-live__mode-info">
+                          <p class="wg-live__mode-label" id="mode-label">目前播放：Binaural</p>
+                          <p class="wg-live__mode-note wg-live__small wg-live__muted">模式標示只代表所選的音訊版本，不代表已確認裝置的輸出方式。</p>
+                        </div>
+                        <button class="wg-live__btn wg-live__btn--secondary wg-live__switch" type="button">切換模式</button>
+                      </div>
+                    </div>
+                    <div class="wg-live__ticket-stub">
+                      <div class="wg-live__controls-main">
+                        <button class="wg-live__btn wg-live__btn--primary wg-live__play" type="button" data-action="toggle" aria-keyshortcuts="Space K">暫停</button>
+                        <div class="wg-live__transport" role="group" aria-label="播放控制">
+                          <button class="wg-live__btn wg-live__btn--secondary wg-live__mute" type="button" aria-pressed="false">靜音</button>
+                          <div class="wg-live__volume">
+                            <label class="wg-live__volume-label" for="vol">音量</label>
+                            <input class="wg-live__volume-input" id="vol" type="range" min="0" max="100" step="5" value="80" aria-valuetext="80%" />
+                          </div>
+                        </div>
+                      </div>
+                      <div class="wg-live__status" data-tone="neutral">
+                        <h3 class="wg-live__status-title wg-live__heading wg-live__heading--h3" tabindex="-1">播放中</h3>
+                        <p class="wg-live__demo-notice">操作示範音訊，非 Binaural／Atmos 驗證素材</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="wg-live__aside">
+                  <section class="wg-live__info" aria-labelledby="h-info">
+                    <h3 class="wg-live__info-heading wg-live__heading" id="h-info" tabindex="-1">活動資訊</h3>
+                    <div class="wg-live__info-body">
+                      <p class="wg-live__info-text">這是介面示範活動，用來確認播放流程與版面。</p>
+                      <p class="wg-live__info-text">內容不是實際演出，也不是真實售票活動。</p>
+                      <section class="wg-live__programme" aria-labelledby="h-programme">
+                        <h4 class="wg-live__programme-heading wg-live__heading" id="h-programme">節目單</h4>
+                        <ol class="wg-live__programme-list">
+                          <li>示範曲目 一</li>
+                          <li>示範曲目 二</li>
+                          <li>示範曲目 三</li>
+                        </ol>
+                        <p class="wg-live__programme-note wg-live__small wg-live__muted">節目單為預定內容，不代表目前正在播放的曲目。</p>
+                      </section>
+                    </div>
+                  </section>
+                  <p class="wg-live__help-link"><a class="wg-live__btn wg-live__btn--ghost" href="/dev/help.html">聆聽說明</a></p>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!--WG_SITE_MOCK:footer-->
+    <script>
+      /* Mock-only: pause and mute toggles. */
+      var play = document.querySelector('.wg-live__play');
+      play.addEventListener('click', function () {
+        var paused = play.textContent === '暫停';
+        play.textContent = paused ? '繼續播放' : '暫停';
+        document.querySelector('.wg-live__status-title').textContent = paused ? '已暫停' : '播放中';
+      });
+      var mute = document.querySelector('.wg-live__mute');
+      mute.addEventListener('click', function () {
+        var on = mute.getAttribute('aria-pressed') !== 'true';
+        mute.setAttribute('aria-pressed', String(on));
+        mute.textContent = on ? '取消靜音' : '靜音';
+      });
+    </script>
+  </body>
+</html>

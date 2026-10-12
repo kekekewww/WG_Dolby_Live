@@ -85,6 +85,11 @@ export default defineConfig(
     languageOptions: { sourceType: 'script', globals: { ...globals.browser, wp: 'readonly', jQuery: 'readonly' } },
   },
   {
+    // The site-chrome mock's client script (dev only): plain browser JavaScript, no build step.
+    files: ['dev/site-mock.js'],
+    languageOptions: { sourceType: 'script', globals: { ...globals.browser } },
+  },
+  {
     files: ['tests/unit/**/*.ts', 'tests/setup/**/*.ts'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },

@@ -2,7 +2,7 @@
  * base.css - scoped primitives shared by all views.
  *
  * Everything lives under .wg-live / .wg-live-featured. The host page is hostile on purpose
- * (see dev/site-chrome.css: global button/a/h1-h4/p/img/audio/dialog/table rules, content-box,
+ * (see dev/stress.css: global button/a/h1-h4/p/img/audio/dialog/table rules, content-box,
  * justified text), so the root sets every property our components rely on, and element resets
  * use :where() (zero specificity above the scope class) so any component class beats them.
  * Our own primitives use ".wg-live .wg-live__x" (two classes) to also beat theme/Elementor kit
@@ -164,6 +164,7 @@
 
 .wg-live :where(a):hover {
   color: var(--wg-link-hover);
+  text-decoration-thickness: 2px;
 }
 
 .wg-live :where(strong, b) {
@@ -175,11 +176,16 @@
 }
 
 /* ---- text helpers ---- */
+/* CJK: "balance" splits words in the middle (錄音 / 室); "pretty" only avoids a one-character last line. */
+.wg-live :where(h1, h2, h3, h4, h5, h6, p, summary) {
+  text-wrap: pretty;
+}
+
 .wg-live .wg-live__heading {
-  margin: 0 0 var(--wg-space-3);
+  margin: 0 0 var(--wg-space-4);
   color: var(--wg-text);
   font-family: var(--wg-font-heading);
-  font-size: var(--wg-font-size-h2);
+  font-size: var(--wg-font-size-section);
   font-weight: var(--wg-font-weight-strong);
   line-height: var(--wg-line-height-heading);
   letter-spacing: normal;
@@ -187,7 +193,7 @@
 }
 
 .wg-live .wg-live__heading--h3 {
-  font-size: var(--wg-font-size-h3);
+  font-size: var(--wg-font-size-section);
 }
 
 .wg-live .wg-live__heading--h4 {
@@ -200,7 +206,8 @@
 
 .wg-live .wg-live__small {
   font-size: var(--wg-font-size-small);
-  line-height: 1.5;
+  font-weight: var(--wg-font-weight-text);
+  line-height: 1.6;
 }
 
 /* ---- screen-reader only text and the live region ---- */
@@ -218,7 +225,32 @@
   white-space: nowrap;
 }
 
-/* ---- buttons (primary 48px, secondary/ghost 44px targets) ---- */
+/* ---- link: the host's text colour, underlined; hover thickens the underline (yellow text is unreadable on a light host) ---- */
+.wg-live .wg-live__link,
+.wg-live .wg-live__guide-link,
+.wg-live .wg-live__faq-more,
+.wg-live .wg-live__help-back {
+  display: inline-block;
+  padding: 10px 0;
+  color: var(--wg-link);
+  font-family: var(--wg-font-ui);
+  font-size: var(--wg-font-size-ui);
+  font-weight: var(--wg-font-weight-strong);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 5px;
+  transition: color var(--wg-transition);
+}
+
+.wg-live .wg-live__link:hover,
+.wg-live .wg-live__guide-link:hover,
+.wg-live .wg-live__faq-more:hover,
+.wg-live .wg-live__help-back:hover {
+  color: var(--wg-link-hover);
+  text-decoration-thickness: 2px;
+}
+
+/* ---- buttons: Text (default, 44px target) and Primary (the only filled button, 48px) ---- */
 .wg-live .wg-live__btn {
   all: unset;
   box-sizing: border-box;
@@ -228,19 +260,21 @@
   gap: var(--wg-space-2);
   min-width: var(--wg-touch-secondary);
   min-height: var(--wg-touch-secondary);
-  padding: var(--wg-space-2) var(--wg-space-5);
-  border: 1px solid transparent;
+  padding: 0 2px;
+  border: 0;
   border-radius: var(--wg-button-radius);
-  background: transparent;
-  color: var(--wg-text);
-  font-family: var(--wg-font-body);
-  font-size: 16px;
+  background: none;
+  color: inherit;
+  font-family: var(--wg-font-ui);
+  font-size: var(--wg-font-size-ui);
   font-style: normal;
   font-weight: var(--wg-font-weight-strong);
-  line-height: 1.3;
+  line-height: 1.2;
   letter-spacing: normal;
   text-align: center;
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 5px;
   text-transform: none;
   white-space: normal;
   cursor: pointer;
@@ -248,77 +282,78 @@
   -webkit-tap-highlight-color: transparent;
   transition:
     color var(--wg-transition),
-    background-color var(--wg-transition),
-    border-color var(--wg-transition);
+    background-color var(--wg-transition);
+}
+
+.wg-live .wg-live__btn:hover {
+  background: none;
+  color: var(--wg-link-hover);
+  text-decoration-thickness: 2px;
+}
+
+/* Secondary and ghost are the same quiet text button; the names stay for the existing markup. */
+.wg-live .wg-live__btn--secondary,
+.wg-live .wg-live__btn--ghost {
+  color: inherit;
 }
 
 .wg-live .wg-live__btn--primary {
   min-height: var(--wg-touch-primary);
   min-width: var(--wg-touch-primary);
-  border-color: var(--wg-accent);
+  padding: 0 32px;
   background: var(--wg-accent);
   color: var(--wg-on-accent);
+  text-decoration: none;
 }
 
 .wg-live .wg-live__btn--primary:hover {
-  border-color: var(--wg-accent-strong);
-  background: var(--wg-accent-strong);
+  background: var(--wg-accent-hover);
   color: var(--wg-on-accent);
 }
 
-.wg-live .wg-live__btn--secondary {
-  border-color: var(--wg-text);
-  background: transparent;
-  color: var(--wg-text);
-}
-
-.wg-live .wg-live__btn--secondary:hover {
-  border-color: var(--wg-accent);
-  color: var(--wg-accent);
-}
-
-.wg-live .wg-live__btn--ghost {
-  padding-inline: var(--wg-space-3);
-  color: var(--wg-link);
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.2em;
-}
-
-.wg-live .wg-live__btn--ghost:hover {
-  color: var(--wg-link-hover);
-}
 
 .wg-live .wg-live__btn--block {
   display: flex;
   width: 100%;
 }
 
-/* Disabled looks different without colour alone: dashed border, muted text, no hover. */
+/* Disabled is faded and not-allowed; the label still says what it is (aria-disabled keeps it focusable). */
 .wg-live .wg-live__btn:disabled,
 .wg-live .wg-live__btn[aria-disabled='true'] {
-  border-style: dashed;
-  border-color: var(--wg-border);
-  background: transparent;
-  color: var(--wg-text-muted);
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
-.wg-live .wg-live__btn--ghost:disabled,
-.wg-live .wg-live__btn--ghost[aria-disabled='true'] {
-  border-color: transparent;
-  text-decoration: none;
+.wg-live .wg-live__btn:disabled:hover,
+.wg-live .wg-live__btn[aria-disabled='true']:hover {
+  background: none;
+  color: inherit;
+  text-decoration-thickness: 1px;
 }
 
-/* ---- keyboard focus (visible on the dark site background) ---- */
-.wg-live :focus-visible {
+.wg-live .wg-live__btn--primary:disabled:hover,
+.wg-live .wg-live__btn--primary[aria-disabled='true']:hover {
+  background: var(--wg-accent);
+  color: var(--wg-on-accent);
+}
+
+/* ---- keyboard focus: one ring everywhere (the surrounding text colour, 2px, 3px away; the 1px dotted ring of the site is too faint on the photo) ---- */
+.wg-live :focus-visible,
+.wg-live .wg-live__btn:focus-visible,
+.wg-live .wg-live__link:focus-visible,
+.wg-live .wg-live__guide-link:focus-visible,
+.wg-live .wg-live__faq-more:focus-visible,
+.wg-live .wg-live__help-back:focus-visible,
+.wg-live .wg-live__faq-question:focus-visible {
   outline: var(--wg-focus-ring);
   outline-offset: var(--wg-focus-offset);
 }
 
-.wg-live .wg-live__btn:focus-visible {
-  outline: var(--wg-focus-ring);
-  outline-offset: var(--wg-focus-offset);
+/* The yellow button is an own surface: its ring is two-tone (light inside, dark outside) so it shows on dark and light hosts. */
+.wg-live .wg-live__btn--primary:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px #fff;
 }
 
 /* Programmatic focus targets (headings with tabindex="-1") get no ring on click, only on keyboard focus. */
@@ -326,62 +361,66 @@
   outline: none;
 }
 
-/* ---- badge: always text, never colour alone ---- */
+/* ---- badges: always text, never colour alone ---- */
 .wg-live .wg-live__badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--wg-space-1);
-  min-height: 24px;
-  padding: 2px var(--wg-space-3);
-  border: 1px solid currentColor;
-  border-radius: var(--wg-button-radius);
-  background: transparent;
-  color: var(--wg-text);
-  font-size: var(--wg-font-size-small);
+  gap: var(--wg-space-2);
+  color: inherit;
+  font-family: var(--wg-font-ui);
+  font-size: 16px;
   font-weight: var(--wg-font-weight-strong);
-  line-height: 1.3;
+  line-height: 1.4;
   letter-spacing: normal;
   text-transform: none;
   white-space: nowrap;
 }
 
-.wg-live .wg-live__badge--demo {
-  border-style: dashed;
-  color: var(--wg-accent);
+/* Status: a dot and the word. The dot is hollow, filled green only while live; the word carries the meaning. */
+.wg-live .wg-live__badge[data-status]::before {
+  content: '';
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px currentColor;
 }
 
-.wg-live .wg-live__badge--live {
-  border-color: var(--wg-accent);
-  background: var(--wg-accent);
-  color: var(--wg-on-accent);
-}
-
-.wg-live .wg-live__badge--info {
-  color: var(--wg-info);
-}
-
-.wg-live .wg-live__badge--success {
-  color: var(--wg-success);
-}
-
-.wg-live .wg-live__badge--warning {
-  color: var(--wg-warning);
-}
-
-.wg-live .wg-live__badge--error {
-  color: var(--wg-danger);
+.wg-live .wg-live__badge--live::before {
+  background: var(--wg-success); /* the ring stays, so the dot shows on a light host too */
 }
 
 .wg-live .wg-live__badge--muted {
   color: var(--wg-text-muted);
 }
 
-/* ---- action rows ---- */
+.wg-live .wg-live__badge--error {
+  color: var(--wg-danger-text);
+}
+
+/* Demo badge: a quiet flat tag, kept visible everywhere (CLAUDE.md). */
+.wg-live .wg-live__badge--demo {
+  padding: 1px 10px;
+  border-radius: var(--wg-button-radius);
+  background: var(--wg-veil-selected);
+  color: inherit;
+  font-size: var(--wg-font-size-small);
+  font-weight: var(--wg-font-weight-text);
+}
+
+.wg-live .wg-live__meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+/* ---- action rows (text buttons sit on one baseline with room between them) ---- */
 .wg-live .wg-live__actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--wg-space-3);
+  gap: var(--wg-space-1) 28px;
 }
 
 /* ---- mount + skeleton: fixed heights keep layout shift near zero ---- */
@@ -394,8 +433,7 @@
   display: block;
   width: 100%;
   min-height: 320px;
-  border-radius: var(--wg-card-radius);
-  background: var(--wg-card-surface);
+  background: var(--wg-veil);
   animation: wg-live-skeleton-pulse 1.6s ease-in-out infinite;
 }
 
@@ -424,9 +462,8 @@
 /* ---- boot / mount failure ---- */
 .wg-live .wg-live__boot-error {
   padding: var(--wg-space-5);
-  border: 1px solid var(--wg-border);
-  border-radius: var(--wg-card-radius);
-  background: var(--wg-card-surface);
+  border-radius: var(--wg-button-radius);
+  background: var(--wg-veil);
 }
 
 .wg-live .wg-live__boot-error-title {

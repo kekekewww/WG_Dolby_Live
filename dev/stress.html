@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stress 壓力測試 | 開發測試頁（stress）</title>
+    <link rel="stylesheet" href="/dev/stress.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="site-logo" href="/dev/stub.html?page=home">FAKE SITE LOGO</a>
+      <nav class="site-nav" aria-label="示範網站主選單">
+        <ul>
+          <li><a href="/dev/stub.html?page=home">首頁</a></li>
+          <li><a href="/dev/stress.html?view=events">Live</a></li>
+          <li><a href="/dev/stress.html?view=player&amp;wg_event=demo-live-binaural-atmos">Listen</a></li>
+          <li><a href="/dev/stress.html?view=help">Listening Guide</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main class="site-main">
+      <p class="site-note">開發壓力測試頁：下方網站外殼帶有刻意過度的全域樣式（dev/stress.css），用來檢查 wg-live 的 scoped CSS 不會被汙染，也不會汙染外部。?view=events|player|help 選擇頁面內容；其他變體：?harness=disabled、?harness=plain、?harness=nodev、?featured=&lt;slug&gt;、?heading=h1。</p>
+      <h1>示範網站頁面標題</h1>
+      <p>這是示範網站的一般段落文字，使用了刻意誇張的全域 p 樣式。</p>
+      <button type="button">全域按鈕（紅色）</button>
+
+      <div class="wg-live wg-live--{{stress-view}}" data-wg-live-view="{{stress-view}}" id="wg-live-1">
+        <script type="application/json" class="wg-live__config">__WG_LIVE_CONFIG:{{stress-view}}__</script>
+        <noscript>
+          <p>需要啟用 JavaScript 才能顯示線上音樂會。<a href="/dev/index.html">活動列表</a>｜<a href="/dev/help.html">收聽說明</a>｜<a href="/dev/stub.html?page=contact">聯絡我們</a></p>
+        </noscript>
+        <div class="wg-live__sr-status" role="status" aria-atomic="true"></div>
+        <div class="wg-live__mount" aria-busy="true"><div class="wg-live__skeleton wg-live__skeleton--{{stress-view}}"></div></div>
+      </div>
+
+      <p>容器之後的一般段落。</p>
+      <a href="/dev/stub.html?page=store">全域連結範例</a>
+    </main>
+
+    <footer class="site-footer">
+      <p>FAKE SITE FOOTER &copy; dev harness | <a href="/dev/stub.html?page=contact">Contact</a></p>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

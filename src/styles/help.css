@@ -1,22 +1,23 @@
 /*
- * help.css - the help view (plan 6.11). The view header, FAQ list and notice boxes are shared with
- * the events view and live in events.css.
+ * help.css - the help view (plan 6.11). The view header, FAQ rows, panels and notices are shared
+ * with the events view and live in events.css.
  *
- * Two-class selectors throughout (see events.css). The compatibility table is a real <table>
- * from 1024px up. Below that each row becomes a stacked block with visible cell labels, so there
- * is no horizontal scrolling at 360px (spec 7.1); the table roles are set explicitly in the markup,
- * so assistive technology keeps the table semantics when display is changed. The test result is
- * always text in a badge, never colour alone (spec 7.2).
+ * Same system as the events page (docs/design/HYBRID.md): type scale and space, no boxes, no
+ * rules. Two-class selectors throughout (see events.css). The compatibility table is a real
+ * <table> from 1024px up. Below that each row becomes a stacked block with visible cell labels,
+ * so there is no horizontal scrolling at 360px (spec 7.1); the table roles are set explicitly in
+ * the markup, so assistive technology keeps the table semantics when display is changed. The
+ * test result is always text in a badge, never colour alone (spec 7.2).
  */
 
 .wg-live .wg-live__help-section {
   display: block;
   min-width: 0;
-  margin: 0 0 var(--wg-block-gap);
+  margin: var(--wg-section-gap) 0 0;
 }
 
 .wg-live .wg-live__help-section > .wg-live__heading {
-  margin-bottom: var(--wg-heading-gap);
+  margin-bottom: 20px;
 }
 
 .wg-live .wg-live__help-text {
@@ -39,12 +40,12 @@
   margin: var(--wg-space-4) 0 0;
 }
 
-/* ---- 1. modes ---- */
+/* ---- 1. modes: two plain columns, like the listening guide ---- */
 .wg-live .wg-live__help-modes {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
-  gap: 20px;
-  margin: 0 0 var(--wg-space-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 48px 64px;
+  margin: 32px 0 var(--wg-space-5);
   padding: 0;
   list-style: none;
 }
@@ -53,14 +54,11 @@
   display: block;
   min-width: 0;
   margin: 0;
-  padding: var(--wg-space-5);
-  border: 1px solid var(--wg-border);
-  border-radius: var(--wg-card-radius);
-  background: var(--wg-card-surface);
+  padding: 0;
 }
 
 .wg-live .wg-live__help-mode-name {
-  margin: 0 0 var(--wg-space-2);
+  margin: 0 0 10px;
   color: var(--wg-text);
   font-size: var(--wg-font-size-h4);
   font-weight: var(--wg-font-weight-strong);
@@ -71,28 +69,45 @@
   margin-bottom: 0;
 }
 
-/* ---- 4. steps ---- */
+/* ---- 4. steps: large Karla numerals, no list markers ---- */
 .wg-live .wg-live__help-steps {
   max-width: 44em;
   margin: 0;
-  padding: 0 0 0 1.5em;
-  list-style: decimal;
+  padding: 0;
+  list-style: none;
+  counter-reset: wg-live-step;
 }
 
 .wg-live .wg-live__help-step {
-  margin: 0 0 var(--wg-space-2);
-  padding: 0 0 0 var(--wg-space-1);
+  position: relative;
+  min-height: 44px;
+  margin: 0 0 var(--wg-space-3);
+  padding: 0 0 0 52px;
   color: var(--wg-text);
   font-size: var(--wg-font-size-body);
   line-height: var(--wg-line-height-body);
-  list-style: decimal;
+  list-style: none;
+  counter-increment: wg-live-step;
+}
+
+.wg-live .wg-live__help-step::before {
+  content: counter(wg-live-step, decimal-leading-zero);
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--wg-text-muted);
+  font-family: var(--wg-font-ui);
+  font-size: 20px;
+  font-weight: var(--wg-font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.7;
 }
 
 /* ---- 3. compatibility table: stacked blocks by default ---- */
 .wg-live .wg-live__compat-wrap {
   display: block;
   min-width: 0;
-  margin: 0 0 var(--wg-space-4);
+  margin: 28px 0 var(--wg-space-4);
 }
 
 .wg-live .wg-live__compat-table {
@@ -108,11 +123,11 @@
 
 .wg-live .wg-live__compat-caption {
   display: block;
-  margin: 0 0 var(--wg-space-3);
+  margin: 0 0 var(--wg-space-4);
   padding: 0;
   color: var(--wg-text-muted);
   font-size: var(--wg-font-size-small);
-  font-weight: var(--wg-font-weight-strong);
+  font-weight: var(--wg-font-weight-text);
   text-align: start;
 }
 
@@ -136,11 +151,8 @@
 
 .wg-live .wg-live__compat-row {
   display: block;
-  margin: 0 0 var(--wg-space-4);
-  padding: var(--wg-space-3) var(--wg-space-4);
-  border: 1px solid var(--wg-border);
-  border-radius: var(--wg-card-radius);
-  background: var(--wg-card-surface);
+  margin: 0 0 40px;
+  padding: 0;
 }
 
 .wg-live .wg-live__compat-device,
@@ -150,7 +162,7 @@
   gap: var(--wg-space-3);
   align-items: baseline;
   margin: 0;
-  padding: var(--wg-space-2) 0;
+  padding: var(--wg-space-1) 0;
   border: 0;
   color: var(--wg-text);
   font-size: var(--wg-font-size-body);
@@ -160,18 +172,15 @@
 }
 
 .wg-live .wg-live__compat-device {
+  font-family: var(--wg-font-ui);
+  font-size: var(--wg-font-size-h4);
   font-weight: var(--wg-font-weight-strong);
-}
-
-.wg-live .wg-live__compat-cell + .wg-live__compat-cell,
-.wg-live .wg-live__compat-device + .wg-live__compat-cell {
-  border-top: 1px solid var(--wg-border);
 }
 
 .wg-live .wg-live__compat-cell-label {
   color: var(--wg-text-muted);
   font-size: var(--wg-font-size-small);
-  font-weight: var(--wg-font-weight-body);
+  font-weight: var(--wg-font-weight-text);
 }
 
 .wg-live .wg-live__compat-status {
@@ -179,7 +188,7 @@
   white-space: normal;
 }
 
-/* ---- 3. compatibility table: real table on wide screens ---- */
+/* ---- 3. compatibility table: a real table on wide screens ---- */
 @media (min-width: 1024px) {
   .wg-live .wg-live__compat-table {
     display: table;
@@ -215,33 +224,31 @@
   .wg-live .wg-live__compat-device,
   .wg-live .wg-live__compat-cell {
     display: table-cell;
-    padding: var(--wg-space-3);
+    padding: 20px 20px 20px 0;
     border: 0;
-    border-bottom: 1px solid var(--wg-border);
-    overflow-wrap: break-word; /* anywhere would shrink the columns until short words break (Chrom/e) */
+    overflow-wrap: break-word; /* anywhere would shrink the columns until short words break (Chrome) */
     vertical-align: top;
   }
 
   .wg-live .wg-live__compat-head {
+    padding-top: 0;
+    padding-bottom: 12px;
     color: var(--wg-text-muted);
+    font-family: var(--wg-font-ui);
     font-size: var(--wg-font-size-small);
-    font-weight: var(--wg-font-weight-strong);
+    font-weight: var(--wg-font-weight-text);
     text-align: start;
     white-space: normal;
+  }
+
+  .wg-live .wg-live__compat-device {
+    font-size: var(--wg-font-size-body);
   }
 
   .wg-live .wg-live__compat-row {
     display: table-row;
     margin: 0;
     padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-  }
-
-  .wg-live .wg-live__compat-cell + .wg-live__compat-cell,
-  .wg-live .wg-live__compat-device + .wg-live__compat-cell {
-    border-top: 0;
   }
 
   .wg-live .wg-live__compat-cell-label {
@@ -253,7 +260,7 @@
 .wg-live .wg-live__keys {
   display: block;
   max-width: 44em;
-  margin: 0;
+  margin: 24px 0 0;
   padding: 0;
 }
 
@@ -263,8 +270,7 @@
   gap: var(--wg-space-3);
   align-items: baseline;
   margin: 0;
-  padding: var(--wg-space-3) 0;
-  border-bottom: 1px solid var(--wg-border);
+  padding: var(--wg-space-2) 0;
 }
 
 .wg-live .wg-live__keys-keys {
@@ -283,18 +289,36 @@
   line-height: var(--wg-line-height-body);
 }
 
+/* A keycap is a flat tag, like the demo badge. */
 .wg-live .wg-live__kbd {
   display: inline-block;
   min-width: 2em;
-  padding: 2px var(--wg-space-2);
-  border: 1px solid var(--wg-border);
+  padding: 2px var(--wg-space-3);
   border-radius: var(--wg-button-radius);
-  background: var(--wg-card-surface);
+  background: var(--wg-veil-selected);
   color: var(--wg-text);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: var(--wg-font-size-small);
+  font-family: var(--wg-font-ui);
+  font-size: 16px;
+  font-weight: var(--wg-font-weight-strong);
   line-height: 1.5;
   text-align: center;
+}
+
+/* ---- 8. contact ---- */
+.wg-live .wg-live__help-section--contact .wg-live__actions {
+  margin-top: 24px;
+}
+
+@media (max-width: 767px) {
+  .wg-live .wg-live__help-modes {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+    margin-top: 24px;
+  }
+
+  .wg-live .wg-live__help-section > .wg-live__heading {
+    margin-bottom: 16px;
+  }
 }
 
 @media (max-width: 543px) {
@@ -303,22 +327,13 @@
     gap: var(--wg-space-2);
   }
 
-  .wg-live .wg-live__help-mode,
-  .wg-live .wg-live__compat-row {
-    padding: var(--wg-space-4);
-  }
-
   .wg-live .wg-live__compat-device,
   .wg-live .wg-live__compat-cell {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--wg-space-1);
   }
-}
 
-@media (forced-colors: active) {
-  .wg-live .wg-live__help-mode,
-  .wg-live .wg-live__compat-row,
-  .wg-live .wg-live__kbd {
-    border-color: CanvasText;
+  .wg-live .wg-live__help-step {
+    padding-left: 44px;
   }
 }

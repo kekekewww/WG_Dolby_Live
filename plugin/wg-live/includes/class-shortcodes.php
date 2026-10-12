@@ -44,6 +44,8 @@ final class Shortcodes {
 	const LINK_CONTACT       = '聯絡我們';
 	const LINK_HOME          = '回首頁';
 	const TIME_ZONE_TAIPEI   = '台北時間';
+	const POSTER_BRAND       = 'WG Studio Live';
+	const POSTER_DEMO_NOTE   = '操作示範，非正式演出';
 
 	/**
 	 * Event status labels (statusCopy.eventStatus).
@@ -289,9 +291,12 @@ final class Shortcodes {
 		$model['title']           = $event['title'];
 		$model['is_demo']         = $event['isDemo'];
 		$model['demo_badge']      = self::DEMO_BADGE;
+		$model['poster_brand']    = self::POSTER_BRAND;
+		$model['poster_note']     = self::POSTER_DEMO_NOTE;
 		$model['status']          = $status;
 		$model['status_label']    = self::STATUS_LABELS[ $status ];
 		$model['time']            = self::format_time( $event['startsAt'], $event['displayTimezone'] );
+		$model['tile']            = self::tile_parts( $event['startsAt'], $event['displayTimezone'] );
 		$model['machine_time']    = $event['startsAt'];
 		$model['text']            = self::excerpt( $event['description'], 80 );
 		$model['poster']          = $event['poster'];
@@ -367,6 +372,34 @@ final class Shortcodes {
 			'time' => $time,
 			'zone' => $label,
 			'full' => $date . $time . ' ' . $label,
+		);
+	}
+
+	/**
+	 * Parts of the decorative date tile (month and year, day, weekday and time, zone), in the
+	 * event's own zone. Mirrors src/components/date-tile.ts. Null when the start time is invalid;
+	 * the card then shows the plain <time> text only.
+	 *
+	 * @param string $iso  ISO 8601 UTC.
+	 * @param string $zone IANA zone.
+	 * @return array{month:string,day:string,when:string,zone:string}|null
+	 */
+	public static function tile_parts( $iso, $zone ) {
+		$zone = Public_Data::is_known_zone( $zone ) ? $zone : Public_Data::DEFAULT_ZONE;
+		$tz   = new \DateTimeZone( $zone );
+		$ts   = strtotime( (string) $iso );
+		if ( false === $ts ) {
+			return null;
+		}
+
+		$weekday = self::WEEKDAYS[ (int) wp_date( 'w', $ts, $tz ) ];
+		$label   = ( 'Asia/Taipei' === $zone ) ? self::TIME_ZONE_TAIPEI : (string) wp_date( 'T', $ts, $tz );
+
+		return array(
+			'month' => wp_date( 'Y', $ts, $tz ) . '年' . wp_date( 'n', $ts, $tz ) . '月',
+			'day'   => wp_date( 'd', $ts, $tz ),
+			'when'  => '週' . $weekday . ' ' . wp_date( 'H:i', $ts, $tz ),
+			'zone'  => $label,
 		);
 	}
 

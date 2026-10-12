@@ -11,7 +11,7 @@
 //  - the mock of GET wg-live/v1/{events, events/:slug, playback} (M1-PLAN section 5 and 5.1)
 //  - /demo/* file serving (Range support)
 
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { basename, extname, resolve } from 'node:path';
 
 /** @typedef {import('../src/types.ts').BootConfig} BootConfig */
@@ -56,6 +56,16 @@ const POSTER = {
   sizes: null,
 };
 
+/** A 1:1 poster: cards crop it to 16:9 with object-fit: cover (HYBRID.md placeholder posters). */
+const POSTER_SQUARE = {
+  url: '/demo/poster-demo-square.svg',
+  width: 1200,
+  height: 1200,
+  alt: '介面示範用海報（非實際活動，1:1）',
+  srcset: null,
+  sizes: null,
+};
+
 /**
  * Harness events. Start times are relative to `now`. The first three are demo events; the fourth
  * (`pending-source-live`) is a NON-demo event whose source is not configured, to exercise the
@@ -94,14 +104,14 @@ export function harnessEvents(now = Date.now()) {
     startsAt: iso(now + 3 * DAY),
     displayTimezone: 'Asia/Taipei',
     status: 'scheduled',
-    posterUrl: POSTER.url,
+    posterUrl: POSTER_SQUARE.url,
     mediaKind: 'audio',
     availableModes: ['binaural', 'atmos'],
     programme: ['示範曲目 四', '示範曲目 五'],
     productUrl: null,
     replayAvailable: false,
     isDemo: true,
-    poster: POSTER,
+    poster: POSTER_SQUARE,
     sourceKind: 'demo',
   };
   /** @type {PublicEvent} */
@@ -182,13 +192,17 @@ const COMPAT_ROWS = [
  *   ?harness=nodev      devTools: false (what production sends)
  *   ?featured=<slug>    BootConfig.featuredEventSlug      ?heading=h1|h2    BootConfig.heading
  *   ?fixed=<slug>       BootConfig.fixedEventSlug (the shortcode `event` attribute)
+ *   ?view=events|player|help   only on the stress pages (dev/stress.html): which view the page hosts
  * `harness` may hold several comma-separated values.
  * @typedef {{
  *   disabled: boolean, plain: boolean, devTools: boolean,
  *   featured: string | null, heading: 'h1' | 'h2', fixed: string | null,
- *   pageBase: '/dev/' | '/dev/dist/',
+ *   pageBase: '/dev/' | '/dev/dist/', stressView: LiveView,
  * }} HarnessOptions
  */
+
+/** `?view=` of the stress pages: name used in the URL -> LiveView. */
+const STRESS_VIEWS = new Map(/** @type {[string, LiveView][]} */ ([['events', 'events'], ['player', 'player'], ['help', 'help']]));
 
 /**
  * @param {string} search e.g. "?harness=disabled,plain&featured=demo-scheduled"
@@ -207,6 +221,7 @@ export function parseHarnessOptions(search, defaults = {}) {
     heading: params.get('heading') === 'h1' ? 'h1' : 'h2',
     fixed: slug(params.get('fixed')),
     pageBase: defaults.pageBase ?? '/dev/',
+    stressView: STRESS_VIEWS.get(params.get('view') ?? '') ?? 'events',
   };
 }
 
@@ -241,6 +256,7 @@ export const DEFAULT_OPTIONS = {
   heading: 'h2',
   fixed: null,
   pageBase: '/dev/',
+  stressView: 'events',
 };
 
 /**
@@ -299,7 +315,47 @@ export const CONFIG_TOKEN = /__WG_LIVE_CONFIG:(events|player|help)__/g;
  * @param {Partial<HarnessOptions>} [options]
  */
 export function injectConfig(html, now = Date.now(), options = {}) {
-  return html.replace(CONFIG_TOKEN, (_m, /** @type {LiveView} */ view) => encodeConfig(buildBootConfig(view, now, options)));
+  // The stress pages host one view, chosen with ?view= (default events).
+  const stressView = options.stressView ?? DEFAULT_OPTIONS.stressView;
+  const page = html.replaceAll('{{stress-view}}', stressView);
+  return page.replace(CONFIG_TOKEN, (_m, /** @type {LiveView} */ view) => encodeConfig(buildBootConfig(view, now, options)));
+}
+
+/* ------------------------------------------------------------------ */
+/* Realistic site chrome (dev/site-mock.html)                          */
+/* ------------------------------------------------------------------ */
+
+const SITE_MOCK_FILE = resolve(ROOT, 'dev/site-mock.html');
+const SITE_MOCK_TOKEN = /<!--WG_SITE_MOCK:(head|header|footer)((?:\s+[a-z]+=[a-z-]+)*)\s*-->/g;
+
+/**
+ * The three snippets of dev/site-mock.html, keyed by name (read on every call: edits show on reload).
+ * @returns {Map<string, string>}
+ */
+function readSiteMockSnippets() {
+  const source = readFileSync(SITE_MOCK_FILE, 'utf8');
+  const out = new Map();
+  for (const m of source.matchAll(/<!--wgm:begin (\w+)-->([\s\S]*?)<!--wgm:end \1-->/g)) out.set(String(m[1]), String(m[2]).trim());
+  return out;
+}
+
+/**
+ * Replace <!--WG_SITE_MOCK:head|header|footer [current=<key>]--> with the realistic site chrome.
+ * {{base}} becomes the page base ("/dev/" or "/dev/dist/"); {{aria:KEY}} becomes aria-current="page" for the
+ * page named by current=KEY, else nothing; {{assets}} becomes data-assets="live" for assets=live. Pages without a token are returned untouched.
+ * @param {string} html
+ * @param {'/dev/' | '/dev/dist/'} [pageBase]
+ */
+export function injectSiteMock(html, pageBase = '/dev/') {
+  if (!html.includes('<!--WG_SITE_MOCK:')) return html;
+  const snippets = readSiteMockSnippets();
+  return html.replace(SITE_MOCK_TOKEN, (_m, /** @type {string} */ name, /** @type {string} */ attrs) => {
+    const current = /current=([a-z-]+)/.exec(attrs)?.[1] ?? '';
+    return (snippets.get(name) ?? '')
+      .replaceAll('{{base}}', pageBase)
+      .replaceAll('{{assets}}', /assets=live/.test(attrs) ? ' data-assets="live"' : '')
+      .replace(/\{\{aria:([a-z-]+)\}\}/g, (_a, /** @type {string} */ key) => (key === current ? 'aria-current="page"' : ''));
+  });
 }
 
 /* ------------------------------------------------------------------ */

@@ -5,14 +5,20 @@
  * minute so the countdown text changes in place without rebuilding the DOM (focus and the expanded
  * state survive). The countdown is plain text, never a live region (plan 6.10).
  *
- * Accessible name: the article is labelled by its title heading, and the 「介面示範」 badge sits
- * inside that heading, so demo status is part of the name (plan 6.10).
+ * Accessible name: the article is labelled by its title heading and, for demo events, by the
+ * 「介面示範」 badge in the meta row, so demo status is part of the name (plan 6.10).
+ *
+ * Visual system (docs/design/HYBRID.md): the media block always exists. It holds the poster, or the
+ * on-brand placeholder composition when there is none (never an empty block), and the decorative
+ * date tile. Because the tile shows the date, the <time> line stays in the DOM for screen readers
+ * and is visually hidden.
  */
 import { h, uid } from '../dom';
 import { DEMO_EVENT_BADGE, DEMO_MEDIA_NOTICE, eventsCopy, statusCopy } from '../i18n/copy';
 import { selectPrimaryCta } from '../state/model';
 import type { BootConfig, EventStatus, PosterImage, PublicEvent } from '../types';
 import { countdownText, formatEventDateTime } from '../util/time';
+import { createDateTile } from './date-tile';
 
 export type CardHeadingTag = 'h2' | 'h3' | 'h4';
 
@@ -61,7 +67,8 @@ function posterOf(event: PublicEvent): PosterImage | null {
   return null;
 }
 
-function buildPoster(event: PublicEvent, featured: boolean): HTMLElement | null {
+/** The poster image, or null when there is none (or its URL was rejected by safeUrl). */
+function buildPosterImage(event: PublicEvent, featured: boolean): HTMLElement | null {
   const poster = posterOf(event);
   if (!poster) return null;
   const img = h('img', {
@@ -79,9 +86,35 @@ function buildPoster(event: PublicEvent, featured: boolean): HTMLElement | null 
       fetchpriority: featured ? 'high' : null,
     },
   });
-  // A rejected URL (safeUrl) leaves no src: skip the empty box.
-  if (!img.hasAttribute('src')) return null;
-  return h('div', { className: 'wg-live__event-card-media' }, img);
+  // A rejected URL (safeUrl) leaves no src: show the placeholder instead.
+  return img.hasAttribute('src') ? img : null;
+}
+
+/** Same composition as the demo poster SVG: dark field, thin yellow bar, the brand line. Decorative. */
+function buildPosterPlaceholder(event: PublicEvent): HTMLElement {
+  const copy = eventsCopy.posterPlaceholder;
+  const demo = event.isDemo;
+  return h(
+    'div',
+    { className: 'wg-live__poster-placeholder', attrs: { 'aria-hidden': 'true' } },
+    h('span', { className: 'wg-live__poster-placeholder-bar' }),
+    h('span', {
+      className: 'wg-live__poster-placeholder-title',
+      text: demo ? `${copy.demo} · ${copy.brand}` : copy.brand,
+    }),
+    demo ? h('span', { className: 'wg-live__poster-placeholder-note', text: copy.demoNote }) : null,
+  );
+}
+
+function buildMedia(event: PublicEvent, featured: boolean, tile: HTMLElement | null): { el: HTMLElement; hasImage: boolean } {
+  const img = buildPosterImage(event, featured);
+  const media = h(
+    'div',
+    { className: 'wg-live__event-card-media' },
+    h('div', { className: 'wg-live__event-card-poster' }, img ?? buildPosterPlaceholder(event)),
+    tile,
+  );
+  return { el: media, hasImage: img !== null };
 }
 
 function buildModes(event: PublicEvent): HTMLElement {
@@ -157,17 +190,20 @@ export function createEventCard(opts: EventCardOptions): EventCardInstance {
   const titleId = uid('wg-live-event-title');
   const panelId = uid('wg-live-event-details');
   const when = formatEventDateTime(event.startsAt, event.displayTimezone);
-  const poster = buildPoster(event, featured);
+  const tile = when.machine !== '' ? createDateTile(event.startsAt, event.displayTimezone, event.status, featured ? 'lg' : 'sm') : null;
+  const media = buildMedia(event, featured, tile);
   const ended = event.status === 'ended' || event.status === 'cancelled';
 
-  /* ---- title (+ demo badge inside the accessible name) ---- */
+  /* ---- title; the demo badge sits in the meta row and joins the accessible name of the card ---- */
   const title = h(
     headingTag,
     { className: 'wg-live__event-card-title', attrs: { id: titleId } },
     h('span', { className: 'wg-live__event-card-title-text', text: event.title }),
-    event.isDemo ? ' ' : null,
-    event.isDemo ? h('span', { className: 'wg-live__badge wg-live__badge--demo', text: DEMO_EVENT_BADGE }) : null,
   );
+  const badgeId = uid('wg-live-event-badge');
+  const demoBadge = event.isDemo
+    ? h('span', { className: 'wg-live__badge wg-live__badge--demo', attrs: { id: badgeId }, text: DEMO_EVENT_BADGE })
+    : null;
 
   const statusBadge = h('span', {
     className: `wg-live__badge wg-live__badge--${BADGE_TONE[event.status]} wg-live__event-card-status`,
@@ -187,7 +223,8 @@ export function createEventCard(opts: EventCardOptions): EventCardInstance {
 
   const whenEl = h(
     'p',
-    { className: 'wg-live__event-card-when' },
+    // The tile shows the date; the <time> text stays for screen readers (and as the only date when there is no tile).
+    { className: tile ? 'wg-live__event-card-when wg-live__visually-hidden' : 'wg-live__event-card-when' },
     when.machine !== ''
       ? h('time', { attrs: { datetime: when.machine }, text: when.full })
       : h('span', { text: when.full }),
@@ -285,7 +322,7 @@ export function createEventCard(opts: EventCardOptions): EventCardInstance {
   const body = h(
     'div',
     { className: 'wg-live__event-card-body' },
-    h('div', { className: 'wg-live__event-card-meta' }, statusBadge),
+    h('div', { className: 'wg-live__meta-row wg-live__event-card-meta' }, statusBadge, demoBadge),
     title,
     performers,
     whenEl,
@@ -301,15 +338,16 @@ export function createEventCard(opts: EventCardOptions): EventCardInstance {
       className: [
         'wg-live__event-card',
         featured ? 'wg-live__event-card--featured' : '',
-        poster ? 'wg-live__event-card--has-media' : '',
+        media.hasImage ? 'wg-live__event-card--has-media' : '',
+        tile ? 'wg-live__event-card--has-tile' : '',
         ended ? 'wg-live__event-card--over' : '',
       ]
         .filter(Boolean)
         .join(' '),
-      attrs: { 'aria-labelledby': titleId },
+      attrs: { 'aria-labelledby': event.isDemo ? `${titleId} ${badgeId}` : titleId },
       dataset: { eventSlug: event.slug, eventStatus: event.status },
     },
-    poster,
+    media.el,
     body,
   );
 

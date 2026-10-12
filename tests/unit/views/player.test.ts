@@ -245,7 +245,8 @@ describe('layout and content', () => {
     const m = mountView({ state: playingState() });
     const view = q(m, '.wg-live__player-view');
     const order = Array.from(view.children).map((c) => c.className.split(' ')[0]);
-    expect(order).toEqual(['wg-live__player-head', 'wg-live__player', 'wg-live__aside', 'wg-live__dialog']);
+    // The title area lives inside the player group (HYBRID): from 768px CSS `order` puts the stage first.
+    expect(order).toEqual(['wg-live__player', 'wg-live__aside', 'wg-live__dialog']);
     expect(Array.from(q(m, '.wg-live__aside').children).map((c) => c.className.split(' ')[0])).toEqual([
       'wg-live__info',
       'wg-live__help-link',
@@ -253,16 +254,24 @@ describe('layout and content', () => {
 
     const head = q(m, '.wg-live__player-head');
     expect(Array.from(head.children).map((c) => c.className.split(' ')[0])).toEqual([
+      'wg-live__meta-row',
       'wg-live__player-title',
-      'wg-live__player-sub',
+      'wg-live__player-meta',
       'wg-live__status',
       'wg-live__entitlement',
     ]);
+    // The mode-label note moved into the status block (the bar stays one row).
+    expect(q(m, '.wg-live__status .wg-live__mode-note')).toBeTruthy();
+    expect(maybe(m, '.wg-live__modebar .wg-live__mode-note')).toBeNull();
 
     const player = q(m, '.wg-live__player');
     expect(player.getAttribute('role')).toBe('group');
     expect(player.getAttribute('aria-label')).toBeTruthy();
-    expect(Array.from(player.children).map((c) => c.className.split(' ')[0])).toEqual(['wg-live__stage', 'wg-live__controls']);
+    expect(Array.from(player.children).map((c) => c.className.split(' ')[0])).toEqual([
+      'wg-live__player-head',
+      'wg-live__stage',
+      'wg-live__controls',
+    ]);
     const slot = q(m, '.wg-live__controls');
     expect(Array.from(slot.children).map((c) => c.className.split(' ')[0])).toEqual([
       'wg-live__mode-selector',
@@ -271,12 +280,25 @@ describe('layout and content', () => {
     ]);
   });
 
-  it('puts the event title in the view heading, with the 介面示範 badge inside it for demo events', () => {
+  it('puts the event title in the view heading; the 介面示範 badge sits in the meta row but stays in the heading name', () => {
     const m = mountView();
     const title = q(m, '.wg-live__player-title');
     expect(title.tagName).toBe('H2');
     expect(title.textContent).toContain('【介面示範】錄音室現場音樂會 Live');
-    expect(title.querySelector('.wg-live__badge--demo')?.textContent).toBe('介面示範');
+    expect(title.querySelector('.wg-live__badge--demo')).toBeNull();
+    const badge = q(m, '.wg-live__meta-row .wg-live__badge--demo');
+    expect(badge.textContent).toBe('介面示範');
+    const names = (title.getAttribute('aria-labelledby') ?? '').split(' ').map((id) => document.getElementById(id)?.textContent);
+    expect(names).toEqual(['【介面示範】錄音室現場音樂會 Live', '介面示範']);
+  });
+
+  it('renders performers and date as two meta items (no " · " text node) and the programme as an ordered list', () => {
+    const m = mountView();
+    const items = Array.from(m.mount.querySelectorAll('.wg-live__player-meta-item'));
+    expect(items).toHaveLength(2);
+    expect(q(m, '.wg-live__player-meta').textContent).not.toContain('·');
+    expect(q(m, '.wg-live__programme-list').tagName).toBe('OL');
+    expect(q(m, '.wg-live__info-body > .wg-live__info-main .wg-live__info-text')).toBeTruthy();
   });
 
   it('has no demo badge for a non-demo event', () => {

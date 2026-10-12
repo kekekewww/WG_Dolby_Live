@@ -7,8 +7,10 @@
  * the open dialog keep their identity. Disabled mode and an unknown event render a message and the
  * way out, without creating a controller or sending a request.
  *
- * Mobile order (spec 5.3): title + status, stage, main controls, current mode, switch,
- * programme / info, help link. On wide screens the same DOM becomes stage + info columns.
+ * DOM order = spec 5.3 mobile order: title + status, stage, main controls, current mode, switch,
+ * programme / info, help link. The title area lives INSIDE `.wg-live__player` (HYBRID, A porting note 1)
+ * so that from 768px CSS `order` can put the stage first, then the one control bar (once playback is
+ * engaged), then the title and status; below 768px the DOM order is also the visual order.
  */
 import { createStageArt, createPlayerShell } from '../components/player-shell';
 import { createModeSelector } from '../components/mode-selector';
@@ -115,13 +117,24 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
   const unregister = pageRegistry.register(controller);
 
   /* ---- title area ---- */
+  // The demo badge sits in the meta row above the title; the heading's accessible name still includes it.
+  const titleTextId = uid('wg-live-title');
+  const demoBadgeId = uid('wg-live-demo-badge');
   const demoBadge = event.isDemo
-    ? h('span', { className: 'wg-live__badge wg-live__badge--demo', text: DEMO_EVENT_BADGE })
+    ? h('span', { className: 'wg-live__badge wg-live__badge--demo', id: demoBadgeId, text: DEMO_EVENT_BADGE })
     : null;
-  const titleText = h('span', { className: 'wg-live__player-title-text', text: event.title });
-  const title = h(boot.heading, { className: 'wg-live__player-title wg-live__heading' }, titleText, demoBadge ? ' ' : null, demoBadge);
+  const titleText = h('span', { className: 'wg-live__player-title-text', id: titleTextId, text: event.title });
+  const title = h(
+    boot.heading,
+    {
+      className: 'wg-live__player-title wg-live__heading',
+      attrs: demoBadge ? { 'aria-labelledby': `${titleTextId} ${demoBadgeId}` } : {},
+    },
+    titleText,
+  );
   const meta = h('p', { className: 'wg-live__player-meta' });
   const statusBadge = h('span', { className: 'wg-live__badge wg-live__player-status-badge' });
+  const metaRow = h('div', { className: 'wg-live__meta-row' }, statusBadge, demoBadge);
 
   /* ---- panels ---- */
   const info = h('section', { className: 'wg-live__info' });
@@ -178,8 +191,10 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     openSwitchDialog(trigger);
   }
 
+  const modeLabel = createModeLabel();
   const statusPanel = createStatusPanel({
     controller,
+    note: modeLabel.note,
     headingTag: sectionTag,
     links: boot.links,
     event,
@@ -200,9 +215,8 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     stage: shell.stage,
     media: shell.host.media,
   });
-  const modeLabel = createModeLabel();
   const switchButton = h('button', {
-    className: 'wg-live__btn wg-live__btn--secondary wg-live__switch',
+    className: 'wg-live__btn wg-live__switch',
     type: 'button',
     text: statusCopy.action.switchMode,
     hidden: true,
@@ -217,24 +231,26 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
 
   const helpHref = safeUrl(boot.links.help);
   const helpLink = helpHref
-    ? h('p', { className: 'wg-live__help-link' }, h('a', { href: helpHref, text: playerCopy.helpLink }))
+    ? h('p', { className: 'wg-live__help-link' }, h('a', { className: 'wg-live__link', href: helpHref, text: playerCopy.helpLink }))
     : null;
 
   const head = h(
     'header',
     { className: 'wg-live__player-head' },
+    metaRow,
     title,
-    h('div', { className: 'wg-live__player-sub' }, statusBadge, meta),
+    meta,
     statusPanel.el,
     entitlementPanel.el,
   );
+  // Title + status first (spec 5.3), inside the player group; CSS decides the wide-screen order.
+  shell.el.prepend(head);
 
   const devPanel = controller.dev ? createDevPanel(controller.dev) : null;
 
   const view = h(
     'section',
     { className: 'wg-live__player-view', dataset: { event: event.slug, mediaKind: event.mediaKind } },
-    head,
     shell.el,
     // Info and the help link stay together (spec 5.3 order) and share the second column on wide screens.
     h('div', { className: 'wg-live__aside' }, info, helpLink),
@@ -269,20 +285,31 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
 
     const when = formatEventDateTime(data.startsAt, data.displayTimezone);
     const performers = data.performers.filter((name) => name.trim() !== '');
-    const nodes: Array<Node | string> = [];
+    // Two items side by side (CSS gap) instead of a ' · ' text node (A porting note 2).
+    const nodes: HTMLElement[] = [];
     if (performers.length > 0) {
-      nodes.push(playerCopy.header.performers(performers.join(playerCopy.header.performersJoiner)));
+      nodes.push(
+        h('span', {
+          className: 'wg-live__player-meta-item',
+          text: playerCopy.header.performers(performers.join(playerCopy.header.performersJoiner)),
+        }),
+      );
     }
     if (when.machine !== '') {
-      if (nodes.length > 0) nodes.push(' · ');
-      nodes.push(h('time', { attrs: { datetime: when.machine }, text: when.full }));
+      nodes.push(
+        h(
+          'span',
+          { className: 'wg-live__player-meta-item' },
+          h('time', { attrs: { datetime: when.machine }, text: when.full }),
+        ),
+      );
     }
     meta.replaceChildren(...nodes);
     meta.hidden = nodes.length === 0;
 
-    const body: Node[] = [...paragraphs(data.description)];
+    const main: Node[] = [...paragraphs(data.description)];
     if (when.machine !== '') {
-      body.push(
+      main.push(
         h(
           'p',
           { className: 'wg-live__info-when' },
@@ -291,6 +318,8 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
         ),
       );
     }
+    // Description and date share one column; the programme is the second (HYBRID / A porting note 5).
+    const body: Node[] = main.length > 0 ? [h('div', { className: 'wg-live__info-main' }, ...main)] : [];
     const programme = data.programme.filter((item) => item.trim() !== '');
     if (programme.length > 0) {
       const programmeHeadingId = `${infoHeadingId}-programme`;
@@ -299,7 +328,9 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
           'section',
           { className: 'wg-live__programme', attrs: { 'aria-labelledby': programmeHeadingId } },
           h(subTag, { className: 'wg-live__programme-heading wg-live__heading wg-live__heading--h4', id: programmeHeadingId, text: playerCopy.info.programmeHeading }),
-          h('ul', { className: 'wg-live__programme-list' }, ...programme.map((item) => h('li', { text: item }))),
+          // A real sequence: an ordered list whose numerals (01, 02...) CSS draws (list-style is none, so the
+          // role keeps the list semantics in Safari).
+          h('ol', { className: 'wg-live__programme-list', attrs: { role: 'list' } }, ...programme.map((item) => h('li', { text: item }))),
           h('p', { className: 'wg-live__programme-note wg-live__small wg-live__muted', text: playerCopy.info.programmeNote }),
         ),
       );

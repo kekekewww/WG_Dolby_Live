@@ -1,14 +1,21 @@
 /*
  * featured.css - the homepage card rendered by templates/featured.php (plan D2, 6.10).
  *
+ * Visual system: docs/design/HYBRID.md. The card sits directly on the site's photographic
+ * background: poster, decorative date tile, status, title, one yellow call to action. No box.
+ *
+ * Inherit-first (spec 3.5): the title, description, status and links sit on the host background and use
+ * the host's text colour (the token fallbacks are currentColor too). Own surfaces keep explicit colours:
+ * the poster, its placeholder, the date tile and the yellow button.
+ *
  * This is the only stylesheet the homepage loads (wg-live-featured.css). The build (src/featured.ts)
  * bundles theme-bridge.css in front of it so the --wg-* tokens exist, and every token is still read
- * with a measured fallback, var(--wg-x, <value>), as a second line of defence. The admin
- * overrides that PHP appends after this file (".wg-live,.wg-live-featured{--wg-accent:...}") still
- * win because they set the same custom properties on the same element.
+ * with a fallback, var(--wg-x, <value>), as a second line of defence. The admin overrides that PHP
+ * appends after this file (".wg-live,.wg-live-featured{--wg-accent:...}") still win because they set
+ * the same custom properties on the same element.
  *
  * Everything lives under .wg-live-featured. The host page is hostile on purpose (see
- * dev/site-chrome.css), so element resets use :where() (no extra specificity) and component rules
+ * dev/stress.css), so element resets use :where() (no extra specificity) and component rules
  * use two classes. Targets: CTA >= 48px, text >= 16px, auxiliary text >= 14px.
  */
 
@@ -28,12 +35,12 @@
   min-width: 0;
   margin: 0 auto;
   padding: 0;
-  color: var(--wg-text, #f0f5fa);
-  font-family: var(--wg-font-body, 'Noto Sans TC', Karla, 'PingFang TC', 'Microsoft JhengHei', sans-serif);
+  color: var(--wg-text, currentColor);
+  font-family: var(--wg-font-body, 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', Karla, sans-serif);
   font-size: var(--wg-font-size-body, 17px);
   font-style: normal;
-  font-weight: var(--wg-font-weight-body, 400);
-  line-height: var(--wg-line-height-body, 1.65);
+  font-weight: var(--wg-font-weight-body, 300);
+  line-height: var(--wg-line-height-body, 1.7);
   letter-spacing: normal;
   text-align: start;
   text-indent: 0;
@@ -48,13 +55,14 @@
   margin: 0;
   padding: 0;
   color: inherit;
-  font-family: var(--wg-font-heading, 'Noto Sans TC', Karla, 'PingFang TC', 'Microsoft JhengHei', sans-serif);
+  font-family: var(--wg-font-heading, 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', Karla, sans-serif);
   font-style: normal;
   font-weight: var(--wg-font-weight-strong, 500);
   line-height: var(--wg-line-height-heading, 1.3);
   letter-spacing: normal;
   text-align: start;
   text-transform: none;
+  text-wrap: pretty;
 }
 
 .wg-live-featured :where(p, div) {
@@ -73,132 +81,296 @@
 }
 
 .wg-live-featured :where(a) {
-  color: var(--wg-link, #f0d62b);
+  color: var(--wg-link, currentColor);
   text-decoration: underline;
   text-decoration-thickness: 1px;
-  text-underline-offset: 0.2em;
+  text-underline-offset: 5px;
 }
 
-/* ---- keyboard focus ---- */
+/* ---- keyboard focus: one ring (the surrounding text colour, 2px, 3px away) ---- */
 .wg-live-featured :focus-visible {
-  outline: 2px solid var(--wg-accent, #f0d62b);
-  outline-offset: 2px;
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
 }
 
-/* ---- the card ---- */
+/* The yellow button is an own surface: a two-tone ring (light inside, dark outside) shows on dark and light hosts. */
+.wg-live-featured .wg-live-featured__cta:focus-visible,
+.wg-live-featured.wg-live-featured--empty .wg-live-featured__link:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* ---- the card (state: event) ---- */
 .wg-live-featured.wg-live-featured--event {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  align-items: stretch;
-  overflow: hidden;
-  border: 1px solid var(--wg-border, rgba(208, 213, 219, 0.5));
-  border-radius: var(--wg-card-radius, 6px);
-  background: var(--wg-card-surface, rgba(17, 17, 17, 0.75));
+  gap: 24px;
+  align-items: center;
 }
 
 .wg-live-featured .wg-live-featured__media {
+  position: relative;
   display: block;
   min-width: 0;
-  background: var(--wg-player-surface, #111);
+}
+
+/* The poster slot is always 16:9, so a missing poster never leaves an empty block. */
+.wg-live-featured .wg-live-featured__poster-frame {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--wg-night, #111);
+  container-type: inline-size;
 }
 
 .wg-live-featured .wg-live-featured__poster {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
 }
 
+.wg-live-featured.wg-live-featured--ended .wg-live-featured__poster,
+.wg-live-featured.wg-live-featured--cancelled .wg-live-featured__poster {
+  filter: grayscale(0.85) brightness(0.8);
+}
+
+/* Poster placeholder: the demo poster composition (dark field, thin yellow bar, brand line). Decorative. */
+.wg-live-featured .wg-live-featured__placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 0 7.5cqw 10.5cqw 0;
+  background: linear-gradient(135deg, var(--wg-night, #111), #2b2b2b);
+  color: var(--wg-paper, #f0f5fa);
+  text-align: end;
+}
+
+.wg-live-featured .wg-live-featured__placeholder-bar {
+  display: block;
+  width: 6cqw;
+  min-width: 48px;
+  height: max(3px, 0.4cqw);
+  margin-bottom: 1.6cqw;
+  background: var(--wg-accent, #f0d62b);
+}
+
+.wg-live-featured .wg-live-featured__placeholder-title {
+  display: block;
+  font-size: 14px;
+  font-size: max(14px, 4.25cqw);
+  font-weight: var(--wg-font-weight-strong, 500);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.wg-live-featured .wg-live-featured__placeholder-note {
+  display: block;
+  margin-top: 0.4cqw;
+  color: var(--wg-mist, #ccd3da);
+  font-size: 14px;
+  font-size: max(14px, 2.1cqw);
+  font-weight: var(--wg-font-weight-text, 400);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* ---- date tile (decorative: the <time> text stays for screen readers) ---- */
+.wg-live-featured .wg-live-featured__tile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-areas:
+    'month'
+    'day'
+    'when'
+    'zone';
+  justify-items: start;
+  align-content: start;
+  width: max-content;
+  min-width: 96px;
+  padding: 10px 12px;
+  color: var(--wg-paper, #f0f5fa);
+  font-family: var(--wg-font-ui, Karla, 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.wg-live-featured .wg-live-featured__tile--live {
+  background: var(--wg-accent, #f0d62b);
+  color: var(--wg-on-accent, #000);
+}
+
+.wg-live-featured .wg-live-featured__tile--scheduled {
+  background: var(--wg-panel-hover, rgba(17, 17, 17, 0.82));
+  box-shadow: inset 0 0 0 2px var(--wg-paper, #f0f5fa);
+}
+
+.wg-live-featured .wg-live-featured__tile--over {
+  background: var(--wg-panel-hover, rgba(17, 17, 17, 0.82));
+  box-shadow: inset 0 0 0 1px var(--wg-mist, #ccd3da);
+  color: var(--wg-mist, #ccd3da);
+}
+
+.wg-live-featured .wg-live-featured__tile-month {
+  grid-area: month;
+  font-size: 14px;
+  font-weight: var(--wg-font-weight-text, 400);
+  line-height: 1.3;
+}
+
+.wg-live-featured .wg-live-featured__tile-day {
+  grid-area: day;
+  margin: 2px 0 6px;
+  font-size: 56px;
+  font-weight: var(--wg-font-weight-strong, 500);
+  font-synthesis: none;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+}
+
+.wg-live-featured .wg-live-featured__tile-when {
+  grid-area: when;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--wg-font-weight-strong, 500);
+  line-height: 1.4;
+}
+
+.wg-live-featured .wg-live-featured__tile-zone {
+  grid-area: zone;
+  font-size: 14px;
+  font-weight: var(--wg-font-weight-text, 400);
+  line-height: 1.4;
+}
+
+/* ---- body ---- */
 .wg-live-featured .wg-live-featured__body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  gap: var(--wg-space-3, 12px);
   min-width: 0;
-  padding: var(--wg-space-5, 24px) var(--wg-gutter, 20px);
-}
-
-.wg-live-featured .wg-live-featured__title {
-  margin: 0;
-  color: var(--wg-text, #f0f5fa);
-  font-size: 24px;
-  font-weight: var(--wg-font-weight-strong, 500);
-  line-height: var(--wg-line-height-heading, 1.3);
 }
 
 .wg-live-featured .wg-live-featured__meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--wg-space-2, 8px) var(--wg-space-3, 12px);
+  gap: 8px 16px;
   margin: 0;
-  color: var(--wg-text, #f0f5fa);
+  color: var(--wg-text, currentColor);
+}
+
+.wg-live-featured .wg-live-featured__title {
+  margin: 14px 0 0;
+  color: var(--wg-text, currentColor);
+  font-size: 26px;
+  font-weight: var(--wg-font-weight-strong, 500);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.wg-live-featured .wg-live-featured__when {
+  margin: 8px 0 0;
+  color: var(--wg-text, currentColor);
+  font-family: var(--wg-font-ui, Karla, 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif);
+  font-weight: var(--wg-font-weight-text, 400);
 }
 
 .wg-live-featured .wg-live-featured__time {
-  margin: 0;
-  color: var(--wg-text, #f0f5fa);
-  font-size: var(--wg-font-size-body, 17px);
+  white-space: normal;
+  word-break: keep-all;
 }
 
 .wg-live-featured .wg-live-featured__text {
-  margin: 0;
-  color: var(--wg-text-muted, #c0c8d0);
+  margin: 12px 0 0;
+  max-width: 36em;
+  color: var(--wg-text-muted, currentColor);
 }
 
 .wg-live-featured .wg-live-featured__note {
-  margin: 0;
-  color: var(--wg-text-muted, #c0c8d0);
-  font-size: var(--wg-font-size-small, 14px);
-  line-height: 1.5;
+  margin: 8px 0 0;
+  color: var(--wg-text-muted, currentColor);
+  font-size: var(--wg-font-size-small, 15px);
+  font-weight: var(--wg-font-weight-text, 400);
+  line-height: 1.6;
+}
+
+/* Visible text is the tile; this keeps the full date for screen readers. */
+.wg-live-featured .wg-live-featured__visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* ---- badges: always text, never colour alone ---- */
 .wg-live-featured .wg-live-featured__badge {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
+  gap: 8px;
   margin: 0;
-  padding: 2px var(--wg-space-3, 12px);
-  border: 1px solid currentColor;
-  border-radius: var(--wg-button-radius, 3px);
-  background: transparent;
-  color: var(--wg-text, #f0f5fa);
-  font-size: var(--wg-font-size-small, 14px);
+  color: inherit;
+  font-family: var(--wg-font-ui, Karla, 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif);
+  font-size: 16px;
   font-weight: var(--wg-font-weight-strong, 500);
-  line-height: 1.3;
+  line-height: 1.4;
   letter-spacing: normal;
   text-transform: none;
   white-space: nowrap;
-  vertical-align: middle;
 }
 
+/* Status: a dot and the word. The dot is hollow, filled green only while live. */
+.wg-live-featured .wg-live-featured__badge--status::before {
+  content: '';
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+
+.wg-live-featured.wg-live-featured--live .wg-live-featured__badge--status::before {
+  background: var(--wg-success, #7ddc9a); /* the ring stays, so the dot shows on a light host too */
+}
+
+.wg-live-featured.wg-live-featured--cancelled .wg-live-featured__badge--status {
+  color: var(--wg-danger-text, currentColor);
+}
+
+.wg-live-featured.wg-live-featured--ended .wg-live-featured__badge--status {
+  color: var(--wg-text-muted, currentColor);
+}
+
+/* The demo badge is a quiet flat tag. */
 .wg-live-featured .wg-live-featured__badge--demo {
-  margin-inline-start: var(--wg-space-2, 8px);
-  border-style: dashed;
-  color: var(--wg-accent, #f0d62b);
+  padding: 1px 10px;
+  border-radius: var(--wg-button-radius, 3px);
+  background: var(--wg-veil-selected, rgba(128, 128, 128, 0.24));
+  font-size: var(--wg-font-size-small, 15px);
+  font-weight: var(--wg-font-weight-text, 400);
 }
 
-.wg-live-featured--live .wg-live-featured__badge--status {
-  border-color: var(--wg-accent, #f0d62b);
-  background: var(--wg-accent, #f0d62b);
-  color: var(--wg-on-accent, #000);
-}
-
-.wg-live-featured--cancelled .wg-live-featured__badge--status {
-  color: var(--wg-danger, #ff8a80);
-}
-
-.wg-live-featured--ended .wg-live-featured__badge--status {
-  color: var(--wg-text-muted, #c0c8d0);
-}
-
-/* ---- call to action ---- */
+/* ---- call to action: the one yellow button ---- */
 .wg-live-featured .wg-live-featured__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--wg-space-3, 12px);
-  margin: var(--wg-space-2, 8px) 0 0;
+  margin: 28px 0 0;
 }
 
 .wg-live-featured .wg-live-featured__cta {
@@ -207,78 +379,148 @@
   justify-content: center;
   min-width: var(--wg-touch-primary, 48px);
   min-height: var(--wg-touch-primary, 48px);
-  padding: var(--wg-space-2, 8px) var(--wg-space-5, 24px);
-  border: 1px solid var(--wg-accent, #f0d62b);
+  padding: 0 32px;
+  border: 0;
   border-radius: var(--wg-button-radius, 3px);
   background: var(--wg-accent, #f0d62b);
   color: var(--wg-on-accent, #000);
-  font-family: inherit;
-  font-size: 16px;
+  font-family: var(--wg-font-ui, Karla, 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif);
+  font-size: 17px;
   font-weight: var(--wg-font-weight-strong, 500);
-  line-height: 1.3;
+  line-height: 1.2;
   letter-spacing: normal;
   text-align: center;
   text-decoration: none;
   text-transform: none;
   transition:
     color var(--wg-transition, 200ms linear),
-    background-color var(--wg-transition, 200ms linear),
-    border-color var(--wg-transition, 200ms linear);
+    background-color var(--wg-transition, 200ms linear);
 }
 
 .wg-live-featured .wg-live-featured__cta:hover {
-  border-color: var(--wg-accent-strong, #c2a903);
-  background: var(--wg-accent-strong, #c2a903);
+  background: var(--wg-accent-hover, #c2a903);
   color: var(--wg-on-accent, #000);
 }
 
-/* ---- empty / disabled state ---- */
+/*
+ * ---- empty / disabled state (spec 16.2) ----
+ * No featured event: 「線上音樂會資訊即將公布」 and a link to Live. Disabled: the text only. It is a small, deliberate
+ * section, not a stray line: the sentence is set as a heading-sized line with room around it, and the link to Live
+ * sits under it as the one yellow action (48px target), like the event card's CTA. No box, no rule.
+ */
 .wg-live-featured.wg-live-featured--empty {
   display: block;
-  padding: var(--wg-space-5, 24px) var(--wg-gutter, 20px);
-  border: 1px solid var(--wg-border, rgba(208, 213, 219, 0.5));
-  border-radius: var(--wg-card-radius, 6px);
-  background: var(--wg-card-surface, rgba(17, 17, 17, 0.75));
+  padding: 32px 0 40px;
+}
+
+.wg-live-featured.wg-live-featured--empty .wg-live-featured__text {
+  max-width: 24em;
+  margin: 0;
+  color: var(--wg-text, currentColor);
+  font-family: var(--wg-font-heading, 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', Karla, sans-serif);
+  font-size: 26px;
+  font-weight: var(--wg-font-weight-strong, 500);
+  line-height: 1.4;
+  text-wrap: pretty;
 }
 
 .wg-live-featured .wg-live-featured__link {
   display: inline-flex;
   align-items: center;
   min-height: var(--wg-touch-secondary, 44px);
-  color: var(--wg-link, #f0d62b);
-  font-size: 16px;
+  color: var(--wg-link, currentColor);
+  font-family: var(--wg-font-ui, Karla, 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif);
+  font-size: 17px;
+  font-weight: var(--wg-font-weight-strong, 500);
+  transition: color var(--wg-transition, 200ms linear);
 }
 
-/* ---- two columns from tablet width ---- */
+.wg-live-featured .wg-live-featured__link:hover {
+  color: var(--wg-link-hover, currentColor);
+  text-decoration-thickness: 2px;
+}
+
+/* In the empty state the link to Live is the section's one action, so it is the one yellow button (48px target). */
+.wg-live-featured.wg-live-featured--empty .wg-live-featured__link {
+  justify-content: center;
+  min-width: var(--wg-touch-primary, 48px);
+  min-height: var(--wg-touch-primary, 48px);
+  padding: 0 32px;
+  border-radius: var(--wg-button-radius, 3px);
+  background: var(--wg-accent, #f0d62b);
+  color: var(--wg-on-accent, #000);
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.wg-live-featured.wg-live-featured--empty .wg-live-featured__link:hover {
+  background: var(--wg-accent-hover, #c2a903);
+  color: var(--wg-on-accent, #000);
+}
+
+.wg-live-featured.wg-live-featured--empty .wg-live-featured__actions {
+  margin-top: 16px;
+}
+
+/* ---- two columns from tablet width: the poster carries the card ---- */
 @media (min-width: 768px) {
   .wg-live-featured.wg-live-featured--event {
-    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-    align-items: center;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: 0 48px;
   }
 
-  .wg-live-featured .wg-live-featured__body {
-    padding: var(--wg-space-6, 32px);
+  .wg-live-featured .wg-live-featured__tile {
+    min-width: 128px;
+    padding: 14px 16px;
+  }
+
+  .wg-live-featured .wg-live-featured__tile-day {
+    margin: 4px 0 10px;
+    font-size: 80px;
+    letter-spacing: -0.03em;
+  }
+
+  .wg-live-featured .wg-live-featured__tile-month,
+  .wg-live-featured .wg-live-featured__tile-when {
+    font-size: 15px;
   }
 
   .wg-live-featured .wg-live-featured__title {
-    font-size: 28px;
+    font-size: 34px;
+  }
+
+  .wg-live-featured.wg-live-featured--empty {
+    padding: 48px 0 56px;
+  }
+
+  .wg-live-featured.wg-live-featured--empty .wg-live-featured__text {
+    font-size: 30px;
   }
 }
 
 /* ---- user preferences ---- */
 @media (prefers-reduced-motion: reduce) {
-  .wg-live-featured .wg-live-featured__cta {
+  .wg-live-featured .wg-live-featured__cta,
+  .wg-live-featured .wg-live-featured__link {
     transition: none;
   }
 }
 
 @media (forced-colors: active) {
-  .wg-live-featured.wg-live-featured--event,
-  .wg-live-featured.wg-live-featured--empty {
-    border-color: CanvasText;
+  .wg-live-featured .wg-live-featured__cta,
+  .wg-live-featured.wg-live-featured--empty .wg-live-featured__link {
+    border: 1px solid ButtonText;
   }
 
-  .wg-live-featured .wg-live-featured__cta {
-    border-color: ButtonText;
+  .wg-live-featured .wg-live-featured__tile,
+  .wg-live-featured .wg-live-featured__placeholder {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    forced-color-adjust: auto;
+  }
+
+  .wg-live-featured .wg-live-featured__badge--demo {
+    border: 1px solid CanvasText;
   }
 }

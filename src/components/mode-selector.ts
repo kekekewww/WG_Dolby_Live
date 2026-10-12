@@ -107,7 +107,7 @@ export function createModeSelector(options: ModeSelectorOptions): ModeSelector {
   });
 
   const helpLink = options.helpHref
-    ? h('a', { className: 'wg-live__mode-help', href: options.helpHref, text: playerCopy.modeSelector.helpLink })
+    ? h('a', { className: 'wg-live__link wg-live__mode-help', href: options.helpHref, text: playerCopy.modeSelector.helpLink })
     : null;
 
   const el = h(

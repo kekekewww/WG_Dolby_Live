@@ -1,6 +1,6 @@
 /**
  * Computed-style probes for the CSS isolation specs (dev harness and built bundle).
- * The harness page wears the hostile global rules of dev/site-chrome.css; every probe asserts that
+ * The stress pages wear the hostile global rules of dev/stress.css; every probe asserts that
  * none of them reaches an element inside `.wg-live`.
  */
 import type { Page } from '@playwright/test';

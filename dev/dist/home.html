@@ -4,35 +4,23 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>首頁 | 開發測試頁（dist homepage）</title>
-    <link rel="stylesheet" href="/dev/site-chrome.css" />
+    <!--WG_SITE_MOCK:head-->
     <!--WG_LIVE_DIST:featured-css-->
   </head>
-  <body>
-    <header class="site-header">
-      <a class="site-logo" href="/dev/stub.html?page=home">FAKE SITE LOGO</a>
-      <nav class="site-nav" aria-label="示範網站主選單">
-        <ul>
-          <li><a href="/dev/dist/home.html" aria-current="page">首頁</a></li>
-          <li><a href="/dev/dist/index.html">Live</a></li>
-          <li><a href="/dev/dist/help.html">Listening Guide</a></li>
-        </ul>
-      </nav>
-    </header>
+  <body class="wgm">
+    <!--WG_SITE_MOCK:header current=home-->
 
-    <main class="site-main">
-      <p class="site-note">dist 首頁：只載入 wg-live-featured.css（&lt;link&gt;），不載入 wg-live.js。精選卡片在 WordPress 由 PHP 輸出；這裡只放一個 scoped 容器，用來確認首頁只需要這份 CSS 並且沒有 JavaScript。</p>
-      <h1>示範網站首頁</h1>
-      <p>這是示範網站的一般段落文字，使用了刻意誇張的全域 p 樣式。</p>
-
-      <div class="wg-live-featured" id="wg-live-featured-harness" data-harness="featured-css-only">
-        <p>線上音樂會資訊即將公布</p>
+    <main class="wgm-main" id="content">
+      <div class="wgm-container">
+        <div class="wgm-container__inner">
+          <!-- dist 首頁：只載入 wg-live-featured.css（<link>），不載入外掛的 JavaScript。精選卡片在 WordPress 由 PHP 輸出；這裡由 dev/featured-card.mjs 輸出與 templates/featured.php 相同的標記：預設是精選活動卡片，?featured=none 是「即將公布」空狀態，?harness=disabled 只有文字，?featured=<slug> 換活動。 -->
+          <div class="wgm-widget wgm-widget--shortcode">
+            <!--WG_LIVE_DIST:featured-card-->
+          </div>
+        </div>
       </div>
-
-      <p>容器之後的一般段落。</p>
     </main>
 
-    <footer class="site-footer">
-      <p>FAKE SITE FOOTER &copy; dev harness | <a href="/dev/stub.html?page=contact">Contact</a></p>
-    </footer>
+    <!--WG_SITE_MOCK:footer-->
   </body>
 </html>

@@ -60,7 +60,7 @@ export function createDevPanel(dev: DevControls): DevPanel {
     ...FAULTS.map((f) => ({ value: f, label: copy.fault[f] })),
   ]);
   const reset = h('button', {
-    className: 'wg-live__btn wg-live__btn--secondary wg-live__dev-reset',
+    className: 'wg-live__btn wg-live__dev-reset',
     type: 'button',
     text: copy.reset,
   });

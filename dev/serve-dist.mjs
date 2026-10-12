@@ -16,7 +16,8 @@ import { readFileSync, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { injectConfig, matchRestUrl, MIME, parseHarnessOptions, ROOT, sendFile, sendRest, serveDemoFile } from './core.mjs';
+import { harnessEvents, harnessLinks, injectConfig, injectSiteMock, matchRestUrl, MIME, parseHarnessOptions, ROOT, sendFile, sendRest, serveDemoFile } from './core.mjs';
+import { renderFeaturedCard } from './featured-card.mjs';
 
 export const DEFAULT_PORT = 5175;
 const DIST_DIR = join(ROOT, 'plugin', 'wg-live', 'assets', 'dist');
@@ -28,11 +29,14 @@ const PAGE_ALIASES = /** @type {Record<string, string>} */ ({
   '/listen.html': '/dev/dist/listen.html',
   '/help.html': '/dev/dist/help.html',
   '/home.html': '/dev/dist/home.html',
+  '/stress.html': '/dev/dist/stress.html',
 });
 
 /** Files outside dev/dist the pages need. */
 const STATIC_DEV_FILES = /** @type {Record<string, string>} */ ({
-  '/dev/site-chrome.css': join(ROOT, 'dev', 'site-chrome.css'),
+  '/dev/site-mock.css': join(ROOT, 'dev', 'site-mock.css'),
+  '/dev/site-mock.js': join(ROOT, 'dev', 'site-mock.js'),
+  '/dev/stress.css': join(ROOT, 'dev', 'stress.css'),
   '/dev/stub.html': join(ROOT, 'dev', 'stub.html'),
 });
 
@@ -74,6 +78,25 @@ export function distTags(info) {
   };
 }
 
+/** The homepage card shown when ?featured= is absent: the live demo event (the one a real homepage would feature). */
+export const DEFAULT_FEATURED_SLUG = 'demo-live-binaural-atmos';
+
+/**
+ * The card templates/featured.php would print for this request:
+ *   ?harness=disabled        text only (the plugin is disabled)
+ *   ?featured=none           the empty state: fallback text and a link to Live
+ *   ?featured=<slug>         that event's card (default demo-live-binaural-atmos); an unknown slug is the empty state
+ * @param {URL} url
+ * @param {import('./core.mjs').HarnessOptions} options
+ */
+export function featuredCardFor(url, options) {
+  const links = harnessLinks('/dev/dist/');
+  if (options.disabled) return renderFeaturedCard({ state: 'disabled', links });
+  const slug = url.searchParams.has('featured') ? options.featured : DEFAULT_FEATURED_SLUG;
+  const event = slug === null ? undefined : harnessEvents().find((e) => e.slug === slug);
+  return event ? renderFeaturedCard({ state: 'event', event, links }) : renderFeaturedCard({ state: 'empty', links });
+}
+
 /**
  * @param {string} html
  * @param {URL} url
@@ -81,11 +104,13 @@ export function distTags(info) {
  */
 function renderPage(html, url, info) {
   const tags = distTags(info);
+  const options = parseHarnessOptions(url.search, { pageBase: '/dev/dist/' });
   const withTags = html
     .replace('<!--WG_LIVE_DIST:css-->', () => tags.css)
     .replace('<!--WG_LIVE_DIST:featured-css-->', () => tags.featuredCss)
+    .replace('<!--WG_LIVE_DIST:featured-card-->', () => featuredCardFor(url, options))
     .replace('<!--WG_LIVE_DIST:js-->', () => tags.js);
-  return injectConfig(withTags, Date.now(), parseHarnessOptions(url.search, { pageBase: '/dev/dist/' }));
+  return injectSiteMock(injectConfig(withTags, Date.now(), options), '/dev/dist/');
 }
 
 /**
@@ -132,13 +157,13 @@ export function createDistServer() {
         if (extname(file) === '.html') {
           res.setHeader('Content-Type', MIME['.html'] ?? 'text/html');
           res.setHeader('Cache-Control', 'no-store');
-          res.end(readFileSync(file, 'utf8'));
+          res.end(injectSiteMock(readFileSync(file, 'utf8'), '/dev/dist/'));
           return;
         }
         return sendFile(req, res, file);
       }
 
-      const page = /^\/dev\/dist\/([a-z]+)\.html$/.exec(path);
+      const page = /^\/dev\/dist\/([a-z-]+)\.html$/.exec(path);
       if (page) {
         const file = join(PAGES_DIR, `${page[1]}.html`);
         if (!existsSync(file) || !statSync(file).isFile()) return sendText(res, 404, 'Not found');

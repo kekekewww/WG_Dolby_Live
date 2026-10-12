@@ -1,164 +1,102 @@
 /*
- * player.css - the player view (spec 5.3, plan 3.3 / 6.x).
+ * player.css - the player view, HYBRID (docs/design/HYBRID.md = A · Gallery + C · Programme numerals).
  *
- * Layout is mobile first and follows the DOM order the spec asks for: title + status, stage, main
- * controls, current mode + switch, programme / info, help link. From 768px the same DOM becomes two
- * columns (stage + controls | info). Every selector is two classes (".wg-live .wg-live__x") so theme
- * and Elementor kit rules cannot win by specificity. Targets: 48px primary, 44px secondary. Nothing
- * here animates the stage with playback: no visualizer, no pulsing (spec 7.3).
+ * Idea: the stage (poster) is the hero and sits unframed on the site's photo. Title and status are
+ * plain type around it, status messages are one inline line (never an alert box), and there is ONE dark
+ * control bar. Yellow appears on exactly two things: the view's one primary button and the chosen
+ * listening mode (plus the programme numerals, the one bold C element).
  *
- * The stage and controls are a dark functional surface (--wg-player-surface / --wg-player-text),
- * independent of the page background. Inside it the text tokens are re-pointed at the player colours,
- * so the shared primitives (.wg-live__btn, links, muted text) stay readable if an admin override
- * changes the surface.
+ * DOM order is the spec 5.3 mobile order: title + status (inside .wg-live__player), stage, controls
+ * (selector + Start, or the bar), then the aside (info, programme, help). From 768px flex `order` puts
+ * the stage first: stage, [bar when playback is engaged], title + status, [selector + Start otherwise].
+ *
+ * Every selector is two classes (".wg-live .wg-live__x") so theme and Elementor kit rules cannot win by
+ * specificity. Targets: 48px primary, 44px quiet buttons. No box, border or hairline except controls
+ * (radio panels, slider, focus ring). Nothing animates with playback (spec 7.3).
+ *
+ * INHERIT-FIRST (spec 3.5): text on the host background uses the host's colour (no colour is set on the
+ * view root, headings, status, meta or programme; currentColor drives rings, veils and the radio dot).
+ * Only the plugin's OWN surfaces carry explicit colours: the stage / cover, the dark control bar (engaged
+ * states), the date tile and the dialog. Inside the bar the colour is set to Paper, so everything in it
+ * (quiet buttons, labels, slider) follows.
+ *
+ * Tokens come from theme-bridge.css / base.css (shared contract). Each is aliased once below with a
+ * fallback, so this file also renders if a token is missing:
+ *   --wg-paper --wg-mist --wg-night --wg-accent --wg-accent-hover --wg-on-accent --wg-success
+ *   --wg-danger --wg-panel --wg-font-ui --wg-font-body
+ *   --wg-veil* --wg-hairline --wg-track --wg-text-muted --wg-danger-text --wg-accent-text (host-derived)
  */
-
-/* ---- [hidden] must win over the display values set below ---- */
-.wg-live .wg-live__player-view [hidden] {
-  display: none !important;
+.wg-live .wg-live__player-view {
+  --pl-paper: var(--wg-paper, #f0f5fa);
+  --pl-mist: var(--wg-mist, #ccd3da);
+  --pl-night: var(--wg-night, #111);
+  --pl-accent: var(--wg-accent, #f0d62b);
+  --pl-accent-hover: var(--wg-accent-hover, #c2a903);
+  --pl-on-accent: var(--wg-on-accent, #000);
+  --pl-success: var(--wg-success, #7ddc9a);
+  --pl-danger: var(--wg-danger, #ff8a80);
+  --pl-bar: var(--wg-panel, rgba(17, 17, 17, 0.72));
+  --pl-ui: var(--wg-font-ui, Karla, 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif);
+  --pl-body: var(--wg-font-body, 'Noto Sans TC', Karla, 'PingFang TC', 'Microsoft JhengHei', sans-serif);
+  /* Veils follow the host text colour (6-11% of it), so a mode panel reads on a dark photo AND on a light section. */
+  --pl-veil: var(--wg-veil, rgba(128, 128, 128, 0.14));
+  --pl-veil-hover: var(--wg-veil-hover, rgba(128, 128, 128, 0.2));
+  --pl-veil-selected: var(--wg-veil-selected, rgba(128, 128, 128, 0.24));
+  --pl-muted: var(--wg-text-muted, currentColor);
+  --pl-danger-text: var(--wg-danger-text, currentColor);
+  --pl-accent-text: var(--wg-accent-text, var(--wg-accent, #f0d62b));
+  --pl-hairline: var(--wg-hairline, rgba(128, 128, 128, 0.55));
+  --pl-track: var(--wg-track, rgba(128, 128, 128, 0.6));
+  --pl-section-gap: 96px;
+  /* Audio cover edge: 280-336px beside the title on wide screens, at most 36vw (max 160px) on a phone. */
+  --pl-cover: clamp(280px, 24vw, 336px);
+  display: block;
+  min-width: 0;
+  color: inherit;
 }
 
-/* ---- view grid ---- */
-.wg-live .wg-live__player-view {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--wg-space-5);
-  align-items: start;
-  min-width: 0;
+/* [hidden] must win over the display values set below. */
+.wg-live .wg-live__player-view [hidden] {
+  display: none !important;
 }
 
 .wg-live .wg-live__player-view--unavailable {
   display: block;
 }
 
-/* ---- title area ---- */
-.wg-live .wg-live__player-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--wg-space-3);
-  min-width: 0;
+/* CJK: "balance" splits words mid-way, "pretty" only avoids a one-character last line. */
+.wg-live .wg-live__player-view p,
+.wg-live .wg-live__player-view .wg-live__heading,
+.wg-live .wg-live__player-view .wg-live__status-title,
+.wg-live .wg-live__player-view .wg-live__mode-title,
+.wg-live .wg-live__player-view .wg-live__mode-desc,
+.wg-live .wg-live__player-view .wg-live__mode-helper {
+  text-wrap: pretty;
 }
 
-.wg-live .wg-live__player-title {
-  margin: 0;
-  font-size: var(--wg-font-size-h2);
-  overflow-wrap: anywhere;
-}
-
-.wg-live .wg-live__player-title .wg-live__badge {
-  vertical-align: middle;
-}
-
-.wg-live .wg-live__player-sub {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--wg-space-2) var(--wg-space-3);
-}
-
-.wg-live .wg-live__player-meta {
-  min-width: 0;
-  margin: 0;
-  overflow-wrap: anywhere;
-  color: var(--wg-text-muted);
-  font-size: 16px;
-}
-
-/*
- * base.css keeps <time> on one line, but the full date and zone label is wider than the one-third
- * aside column on tablets (768-880px) and wider than a 320px column. keep-all stops a break inside
- * 台北時間: the line may only wrap at the spaces and brackets. Scoped to the two player spots.
- */
-.wg-live .wg-live__player-meta time,
-.wg-live .wg-live__info-when time {
-  white-space: normal;
-  word-break: keep-all;
-}
-
-/* ---- status + entitlement panels ---- */
-.wg-live .wg-live__status,
-.wg-live .wg-live__entitlement {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--wg-space-2);
-  min-width: 0;
-  padding: var(--wg-space-4) var(--wg-space-5);
-  border: 1px solid var(--wg-border);
-  border-inline-start-width: 4px;
-  border-radius: var(--wg-card-radius);
-  background: var(--wg-card-surface);
-}
-
-.wg-live .wg-live__status[data-tone='info'] {
-  border-inline-start-color: var(--wg-info);
-}
-
-.wg-live .wg-live__status[data-tone='warning'] {
-  border-inline-start-color: var(--wg-warning);
-}
-
-.wg-live .wg-live__status[data-tone='error'] {
-  border-inline-start-color: var(--wg-danger);
-  border-inline-start-style: double;
-}
-
-.wg-live .wg-live__entitlement {
-  border-inline-start-color: var(--wg-warning);
-  border-inline-start-style: dashed;
-}
-
-.wg-live .wg-live__status-title {
-  margin: 0;
-  font-size: var(--wg-font-size-h3);
-  overflow-wrap: anywhere;
-}
-
-.wg-live .wg-live__status-detail,
-.wg-live .wg-live__entitlement-message,
-.wg-live .wg-live__demo-notice,
-.wg-live .wg-live__error-code,
-.wg-live .wg-live__entitlement-note {
-  margin: 0;
-}
-
-.wg-live .wg-live__entitlement-message {
-  font-weight: var(--wg-font-weight-strong);
-}
-
-.wg-live .wg-live__demo-notice {
-  justify-self: start;
-  padding: var(--wg-space-1) var(--wg-space-3);
-  border: 1px dashed var(--wg-accent);
-  border-radius: var(--wg-button-radius);
-  color: var(--wg-accent);
-  font-size: var(--wg-font-size-small);
-  font-weight: var(--wg-font-weight-strong);
-}
-
-.wg-live .wg-live__status-actions {
-  margin-top: var(--wg-space-2);
-}
-
-/* ---- player group: stage + controls ---- */
+/* The group: title + status, stage, controls. No border, surface or clipping: the poster is unframed. */
 .wg-live .wg-live__player {
-  --wg-text: var(--wg-player-text);
-  --wg-link: var(--wg-player-text);
-  --wg-link-hover: var(--wg-accent);
-  --wg-border: rgba(240, 245, 250, 0.35);
-  display: block;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--wg-border);
-  border-radius: var(--wg-card-radius);
-  background: var(--wg-player-surface);
-  color: var(--wg-player-text);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
+/* ------------------------------------------------------------------ stage (the hero) */
 .wg-live .wg-live__stage {
   position: relative;
   min-width: 0;
-  background: var(--wg-player-surface);
-  color: var(--wg-player-text);
+  overflow: hidden;
+  background: var(--pl-night);
+  color: var(--pl-paper);
+}
+
+/* Audio: a compact cover, the poster cropped to a square (spec 5.3: no forced 16:9 blank for audio-only). */
+.wg-live .wg-live__stage--audio {
+  aspect-ratio: 1 / 1;
 }
 
 .wg-live .wg-live__stage--video {
@@ -188,9 +126,10 @@
   inset: 0;
 }
 
-/* Audio stage: cover art and text, no forced 16:9 blank (spec 5.3). */
 .wg-live .wg-live__stage-art {
   display: block;
+  width: 100%;
+  height: 100%;
   margin: 0;
   padding: 0;
 }
@@ -198,94 +137,254 @@
 .wg-live .wg-live__stage-img {
   display: block;
   width: 100%;
-  height: auto;
-  max-height: min(60vh, 340px);
+  height: 100%;
+  max-width: none;
   border: 0;
   object-fit: cover;
 }
 
-.wg-live .wg-live__stage-img--unsized {
-  aspect-ratio: 16 / 9;
-}
-
+/* No poster: the same composition as the demo posters - a flat dark field, a short yellow rule, the title. */
 .wg-live .wg-live__stage-art--text {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  place-items: center;
-  min-height: 140px;
-  padding: var(--wg-space-6) var(--wg-space-5);
-  text-align: center;
+  align-content: center;
+  justify-items: start;
+  gap: 16px;
+  padding: 24px;
+  background: #1c1c1c;
+}
+
+.wg-live .wg-live__stage-art--text::before {
+  content: '';
+  width: 48px;
+  height: 2px;
+  background: var(--pl-accent);
 }
 
 .wg-live .wg-live__stage-title {
   margin: 0;
-  color: var(--wg-player-text);
-  font-size: var(--wg-font-size-h3);
-  font-weight: var(--wg-font-weight-strong);
+  color: var(--pl-paper);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------------ title + status */
+.wg-live .wg-live__player-head {
+  min-width: 0;
+  padding: 0 0 24px;
+}
+
+.wg-live .wg-live__meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.wg-live .wg-live__meta-row .wg-live__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: var(--pl-ui);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* Status: a dot and the word. Hollow dot; filled green only while live; the word carries the meaning. */
+.wg-live .wg-live__player-status-badge::before {
+  content: '';
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+
+.wg-live .wg-live__player-status-badge.wg-live__badge--live::before {
+  background: var(--pl-success); /* the ring stays, so the dot shows on a light host too */
+}
+
+.wg-live .wg-live__meta-row .wg-live__badge--error {
+  color: var(--pl-danger-text);
+}
+
+/* Demo badge: a quiet flat tag, visible in every state (CLAUDE.md). */
+.wg-live .wg-live__meta-row .wg-live__badge--demo {
+  padding: 1px 10px;
+  border-radius: 3px;
+  background: var(--pl-veil-selected);
+  color: inherit;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.wg-live .wg-live__player-title {
+  margin: 14px 0 0;
+  color: inherit;
+  font-family: var(--pl-body);
+  font-size: 34px;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.wg-live .wg-live__player-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 32px;
+  min-width: 0;
+  margin: 10px 0 0;
+  color: inherit;
+  font-family: var(--pl-ui);
+  font-size: 17px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * base.css keeps <time> on one line, but the full date and zone label can be wider than a 320px column.
+ * keep-all stops a break inside 台北時間: the line may only wrap at the spaces and brackets.
+ */
+.wg-live .wg-live__player-meta time,
+.wg-live .wg-live__info-when time {
+  white-space: normal;
+  word-break: keep-all;
+}
+
+/* Status: one inline line, not a box. The tone changes the colour of the title only; the words say it. */
+.wg-live .wg-live__player-head .wg-live__status {
+  display: block;
+  min-width: 0;
+  margin: 28px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.wg-live .wg-live__status-title {
+  margin: 0;
+  color: inherit;
+  font-family: var(--pl-body);
+  font-size: 20px;
+  font-weight: 500;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
-/* ---- controls ---- */
-.wg-live .wg-live__controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--wg-space-4);
-  padding: var(--wg-space-4);
-  border-top: 1px solid var(--wg-border);
-  background: var(--wg-player-surface-raised);
+.wg-live .wg-live__status[data-tone='error'] .wg-live__status-title {
+  color: var(--pl-danger-text);
 }
 
-.wg-live .wg-live__controls-main {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--wg-space-3);
-  min-width: 0;
+.wg-live .wg-live__status-detail {
+  margin: 4px 0 0;
 }
 
-.wg-live .wg-live__play {
-  width: 100%;
+.wg-live .wg-live__demo-notice {
+  margin: 6px 0 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.6;
 }
 
-.wg-live .wg-live__start-reason {
-  margin: 0;
+.wg-live .wg-live__mode-note {
+  margin: 4px 0 0;
 }
 
-.wg-live .wg-live__transport {
+.wg-live .wg-live__error-code {
+  margin: 8px 0 0;
+}
+
+/* Recovery actions: quiet text buttons in a row; after a failure the first one is the single primary. */
+.wg-live .wg-live__status-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--wg-space-3);
+  gap: 4px 28px;
+  margin: 12px 0 0;
 }
 
-.wg-live .wg-live__mute[aria-pressed='true'] {
-  border-style: double;
-  border-width: 3px;
+/* Entitlement: inline text and one action, never a card. */
+.wg-live .wg-live__entitlement {
+  display: block;
+  min-width: 0;
+  margin: 20px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
-.wg-live .wg-live__volume {
-  display: inline-flex;
+.wg-live .wg-live__entitlement-message {
+  margin: 0;
+  color: inherit;
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.wg-live .wg-live__entitlement .wg-live__actions {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--wg-space-2);
-  min-height: var(--wg-touch-secondary);
+  gap: 8px 28px;
+  margin: 12px 0 0;
 }
 
-.wg-live .wg-live__volume-label {
-  font-size: 16px;
+.wg-live .wg-live__entitlement-note {
+  margin: 8px 0 0;
 }
 
-.wg-live .wg-live__volume-input {
-  width: 140px;
-  min-height: var(--wg-touch-secondary);
+/* States without a controller (disabled mode, event not found). */
+.wg-live .wg-live__status--unavailable {
+  display: block;
+  max-width: 40em;
   margin: 0;
   padding: 0;
-  background: transparent;
-  cursor: pointer;
+  border: 0;
+  background: none;
 }
 
-/* ---- mode selector (spec 5.2) ---- */
+.wg-live .wg-live__status--unavailable .wg-live__status-title {
+  font-size: 26px;
+}
+
+.wg-live .wg-live__status--unavailable .wg-live__status-detail {
+  margin-top: 8px;
+}
+
+.wg-live .wg-live__status--unavailable .wg-live__status-actions {
+  margin-top: 20px;
+}
+
+/* ------------------------------------------------------------------ controls (before the start) */
+.wg-live .wg-live__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px 32px;
+  min-width: 0;
+  margin: 0;
+  padding: 32px 0 0;
+  border: 0;
+  background: none;
+}
+
 .wg-live .wg-live__mode-selector {
   display: block;
+  flex: 1 0 100%;
   min-width: 0;
   margin: 0;
   padding: 0;
@@ -293,27 +392,28 @@
 }
 
 .wg-live .wg-live__mode-legend {
-  margin: 0 0 var(--wg-space-3);
+  margin: 0 0 20px;
   padding: 0;
-  font-size: var(--wg-font-size-h4);
-  font-weight: var(--wg-font-weight-strong);
-  line-height: 1.4;
+  color: inherit;
+  font-family: var(--pl-body);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .wg-live .wg-live__mode-options {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--wg-space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
 }
 
 .wg-live .wg-live__mode {
   position: relative;
-  display: block;
+  display: flex;
   min-width: 0;
 }
 
-/* The real radio sits invisibly over the whole card so a tap anywhere selects it and keyboard
-   focus is a real focus. */
+/* The radio stays a real input: transparent, stretched over the whole panel so the pointer target is the full card. */
 .wg-live .wg-live__mode-input {
   position: absolute;
   inset: 0;
@@ -333,59 +433,90 @@
 
 .wg-live .wg-live__mode-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--wg-space-2);
+  flex: 1;
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 20px;
   align-content: start;
-  height: 100%;
-  min-height: var(--wg-touch-primary);
-  padding: var(--wg-space-4);
-  border: 1px solid var(--wg-border);
-  border-radius: var(--wg-card-radius);
-  background: transparent;
-  color: var(--wg-text);
+  min-width: 0;
+  min-height: 96px;
+  padding: 28px 32px 24px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--pl-veil);
+  color: inherit;
   cursor: pointer;
   transition:
-    border-color var(--wg-transition),
-    background-color var(--wg-transition);
+    background-color 200ms linear,
+    box-shadow 200ms linear;
 }
 
-.wg-live .wg-live__mode-input:hover:not(:disabled) + .wg-live__mode-card {
-  border-color: var(--wg-accent);
+.wg-live .wg-live__mode-card:hover {
+  background: var(--pl-veil-hover);
 }
 
-/* Selected: accent border + inner ring + a visible「已選取」marker (never colour alone). */
-.wg-live .wg-live__mode-input:checked + .wg-live__mode-card {
-  border-color: var(--wg-accent);
-  background: rgba(240, 214, 43, 0.1);
-  box-shadow: inset 0 0 0 2px var(--wg-accent);
+/* The radio dot: a ring; filled yellow when chosen. */
+.wg-live .wg-live__mode-card::before {
+  content: '';
+  grid-column: 1;
+  grid-row: 1 / span 4;
+  width: 22px;
+  height: 22px;
+  margin-top: 6px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px currentColor;
+  transition:
+    box-shadow 200ms linear,
+    background-color 200ms linear;
+}
+
+.wg-live .wg-live__mode-card > * {
+  grid-column: 2;
+}
+
+/* Selected: yellow edge + filled dot + the words 「已選取」 (never colour alone). */
+.wg-live .wg-live__mode[data-selected='true'] .wg-live__mode-card {
+  background: var(--pl-veil-selected);
+  box-shadow: inset 0 0 0 2px var(--pl-accent);
+}
+
+.wg-live .wg-live__mode[data-selected='true'] .wg-live__mode-card::before {
+  background: radial-gradient(circle, var(--pl-accent) 0 6px, transparent 6.5px);
+  box-shadow: inset 0 0 0 2px currentColor;
 }
 
 .wg-live .wg-live__mode-input:focus-visible + .wg-live__mode-card {
-  outline: var(--wg-focus-ring);
-  outline-offset: var(--wg-focus-offset);
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
 }
 
-.wg-live .wg-live__mode-input:disabled + .wg-live__mode-card {
-  border-style: dashed;
-  color: var(--wg-text-muted);
+/* A mode the event does not offer yet: no fill, no hover, 即將開放 in the foot. */
+.wg-live .wg-live__mode[data-available='false'] .wg-live__mode-card,
+.wg-live .wg-live__mode[data-available='false'] .wg-live__mode-card:hover {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--pl-hairline);
+  color: var(--pl-muted);
   cursor: not-allowed;
 }
 
 .wg-live .wg-live__mode-title {
-  font-size: var(--wg-font-size-h4);
-  font-weight: var(--wg-font-weight-strong);
+  font-family: var(--pl-body);
+  font-size: 22px;
+  font-weight: 500;
   line-height: 1.4;
 }
 
-.wg-live .wg-live__mode-desc,
-.wg-live .wg-live__mode-helper {
-  font-size: 16px;
-  line-height: 1.55;
+.wg-live .wg-live__mode-desc {
+  margin-top: 10px;
+  font-size: 17px;
+  line-height: 1.7;
 }
 
 .wg-live .wg-live__mode-helper {
-  color: var(--wg-text-muted);
-  font-size: var(--wg-font-size-small);
+  margin-top: 8px;
+  color: var(--pl-muted);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.6;
 }
 
 .wg-live .wg-live__mode-foot {
@@ -393,48 +524,150 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--wg-space-2);
-  margin-top: var(--wg-space-2);
+  gap: 4px 16px;
+  margin-top: 20px;
+  font-family: var(--pl-ui);
+  font-size: 16px;
+  font-weight: 500;
 }
 
 .wg-live .wg-live__mode-action {
-  font-weight: var(--wg-font-weight-strong);
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
-}
-
-.wg-live .wg-live__mode-marker,
-.wg-live .wg-live__mode-unavailable {
-  padding: 2px var(--wg-space-3);
-  border-radius: var(--wg-button-radius);
-  font-size: var(--wg-font-size-small);
-  font-weight: var(--wg-font-weight-bold);
-  line-height: 1.4;
+  text-decoration: none;
 }
 
 .wg-live .wg-live__mode-marker {
-  background: var(--wg-accent);
-  color: var(--wg-on-accent);
+  padding: 0;
+  background: none;
+  color: inherit;
+  font-size: 16px;
+  font-weight: 500;
 }
 
 .wg-live .wg-live__mode-unavailable {
-  border: 1px dashed currentColor;
+  padding: 0;
+  border: 0;
+  color: var(--pl-muted);
+  font-size: 16px;
 }
 
 .wg-live .wg-live__mode-help {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--wg-touch-secondary);
-  margin-top: var(--wg-space-2);
+  margin-top: 8px;
 }
 
-/* ---- current mode + switch ---- */
-.wg-live .wg-live__modebar {
+/* The start / pause group and the current-mode label. */
+.wg-live .wg-live__controls-main {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 28px;
+  min-width: 0;
+}
+
+.wg-live .wg-live__play {
+  min-width: 160px;
+}
+
+/* Start while it cannot start: a muted veil, so the next step (login, buy, retry) is the one yellow button. */
+.wg-live .wg-live__play[aria-disabled='true'][data-action='start'],
+.wg-live .wg-live__play[aria-disabled='true'][data-action='start']:hover {
+  background: var(--pl-veil-selected);
+  color: var(--pl-muted);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+/* Connecting / switching: still the yellow button, only dimmed. */
+.wg-live .wg-live__play[aria-disabled='true'][data-action='busy'] {
+  opacity: 0.8;
+}
+
+.wg-live .wg-live__start-reason {
+  max-width: 28em;
+  margin: 0;
+}
+
+.wg-live .wg-live__transport {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--wg-space-3);
+  gap: 4px 28px;
+}
+
+/* Pressed mute: a ring around the label as well as aria-pressed (shape, not colour). */
+.wg-live .wg-live__mute[aria-pressed='true'] {
+  padding-inline: 12px;
+  box-shadow: inset 0 0 0 2px currentColor;
+  text-decoration: none;
+}
+
+.wg-live .wg-live__volume {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 44px;
+}
+
+.wg-live .wg-live__volume-label {
+  color: var(--pl-muted);
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.wg-live .wg-live__volume-input {
+  width: 168px;
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.wg-live .wg-live__volume-input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--pl-track);
+}
+
+.wg-live .wg-live__volume-input::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -7px;
+  border: 0;
+  border-radius: 50%;
+  background: currentColor;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.wg-live .wg-live__volume-input::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--pl-track);
+}
+
+.wg-live .wg-live__volume-input::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.wg-live .wg-live__volume-input:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+.wg-live .wg-live__modebar {
+  display: flex;
+  flex: 1 1 260px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 24px;
   min-width: 0;
 }
 
@@ -444,133 +677,483 @@
 
 .wg-live .wg-live__mode-label {
   margin: 0;
-  font-weight: var(--wg-font-weight-strong);
+  color: inherit;
+  font-family: var(--pl-ui);
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
-.wg-live .wg-live__mode-note {
-  margin: var(--wg-space-1) 0 0;
+/* ------------------------------------------------------------------ the one control bar (engaged states) */
+.wg-live
+  .wg-live__player-view:is(
+    [data-status='loading'],
+    [data-status='playing'],
+    [data-status='paused'],
+    [data-status='switching'],
+    [data-status='reconnecting']
+  )
+  .wg-live__controls {
+  flex-wrap: nowrap;
+  gap: 16px 40px;
+  min-height: 80px;
+  padding: 16px 28px;
+  background: var(--pl-bar);
+  color: var(--pl-paper); /* own dark surface: its content is Paper whatever the host colour is */
 }
 
-/* ---- info + programme ---- */
+.wg-live
+  .wg-live__player-view:is(
+    [data-status='loading'],
+    [data-status='playing'],
+    [data-status='paused'],
+    [data-status='switching'],
+    [data-status='reconnecting']
+  )
+  .wg-live__controls-main {
+  flex-wrap: nowrap;
+  gap: 8px 32px;
+}
+
+.wg-live
+  .wg-live__player-view:is(
+    [data-status='loading'],
+    [data-status='playing'],
+    [data-status='paused'],
+    [data-status='switching'],
+    [data-status='reconnecting']
+  )
+  .wg-live__modebar {
+  flex: 1;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+/* ------------------------------------------------------------------ info + numbered programme */
 .wg-live .wg-live__aside {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--wg-space-4);
   min-width: 0;
+  margin-top: var(--pl-section-gap);
 }
 
 .wg-live .wg-live__info {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--wg-space-3);
+  display: block;
   min-width: 0;
 }
 
 .wg-live .wg-live__info-heading {
   margin: 0;
+  font-size: 26px;
+  font-weight: 500;
 }
 
 .wg-live .wg-live__info-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--wg-space-3);
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 0 64px;
+  margin-top: 32px;
 }
 
-.wg-live .wg-live__info-text,
-.wg-live .wg-live__info-when,
-.wg-live .wg-live__programme-note {
+.wg-live .wg-live__info-main {
+  min-width: 0;
+}
+
+.wg-live .wg-live__info-text {
   margin: 0;
 }
 
+.wg-live .wg-live__info-text + .wg-live__info-text {
+  margin-top: 12px;
+}
+
+.wg-live .wg-live__info-when {
+  margin: 20px 0 0;
+  font-family: var(--pl-ui);
+  font-weight: 400;
+}
+
+.wg-live .wg-live__info-when strong {
+  color: var(--pl-muted);
+  font-weight: 400;
+}
+
 .wg-live .wg-live__programme {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--wg-space-2);
+  grid-column: 2;
+  min-width: 0;
 }
 
 .wg-live .wg-live__programme-heading {
   margin: 0;
+  font-size: 22px;
+  font-weight: 500;
 }
 
+/* A real sequence, so the numerals are the one bold element: Karla figures in yellow (HYBRID, from C). */
 .wg-live .wg-live__programme-list {
-  margin: 0;
-  padding-inline-start: var(--wg-space-5);
-  list-style: decimal;
+  display: grid;
+  gap: 20px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: wg-live-track;
 }
 
-.wg-live .wg-live__programme-list li {
-  margin: 0 0 var(--wg-space-1);
+.wg-live .wg-live__programme-list > li {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: baseline;
+  margin: 0;
   padding: 0;
-  list-style: decimal;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.4;
+  counter-increment: wg-live-track;
+  overflow-wrap: anywhere;
+}
+
+.wg-live .wg-live__programme-list > li::before {
+  content: counter(wg-live-track, decimal-leading-zero);
+  color: var(--pl-accent-text);
+  font-family: var(--pl-ui);
+  font-size: 36px;
+  font-weight: 400;
+  font-synthesis: none;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.wg-live .wg-live__programme-note {
+  max-width: 34em;
+  margin: 20px 0 0;
 }
 
 .wg-live .wg-live__help-link {
-  margin: 0;
+  margin: 28px 0 0;
 }
 
-/* ---- breakpoints (spec 7.1 candidates) ---- */
-@media (min-width: 544px) {
-  .wg-live .wg-live__play {
-    width: auto;
-    min-width: 220px;
-    justify-self: start;
-  }
+/*
+ * ------------------------------------------------------------------ audio: compact cover + text (spec 5.3)
+ * Audio-only has no picture, so a 16:9 slab is wasted space. The poster becomes a square cover beside the
+ * title / status; the mode panels and the one yellow Start (or, once playing, the one dark bar) follow
+ * directly below. Video keeps the 16:9 stage. The <audio> element stays inside .wg-live__stage.
+ *
+ * Phone: the title area dissolves into the grid (display: contents) so the cover sits at the right of the
+ * status line + title, and the performers / date, the status message and the controls run full width.
+ * DOM order (title + status, stage, controls) is unchanged and is the reading order.
+ */
+.wg-live .wg-live__player-view[data-media-kind='audio'] .wg-live__player {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--pl-cover);
+  grid-template-rows: auto;
+  align-items: start;
+  column-gap: 16px;
 }
 
+.wg-live .wg-live__player-view[data-media-kind='audio'] .wg-live__player-head {
+  display: contents;
+}
+
+.wg-live .wg-live__player-view[data-media-kind='audio'] .wg-live__stage {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 100%;
+}
+
+.wg-live .wg-live__player-view[data-media-kind='audio'] .wg-live__meta-row {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+}
+
+.wg-live .wg-live__player-view[data-media-kind='audio'] .wg-live__player-title {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: start;
+}
+
+.wg-live .wg-live__player-view[data-media-kind='audio'] .wg-live__player-meta {
+  grid-column: 1 / -1;
+  grid-row: 3;
+}
+
+.wg-live .wg-live__player-view[data-media-kind='audio'] .wg-live__player-head .wg-live__status {
+  grid-column: 1 / -1;
+  grid-row: 4;
+}
+
+.wg-live .wg-live__player-view[data-media-kind='audio'] .wg-live__player-head .wg-live__entitlement {
+  grid-column: 1 / -1;
+  grid-row: 5;
+}
+
+.wg-live .wg-live__player-view[data-media-kind='audio'] .wg-live__controls {
+  grid-column: 1 / -1;
+  grid-row: 6;
+  margin-top: 24px;
+}
+
+/* ------------------------------------------------------------------ 768px and up: stage first */
 @media (min-width: 768px) {
-  .wg-live .wg-live__player-view {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-    column-gap: var(--wg-space-6);
+  .wg-live .wg-live__stage {
+    order: 0;
   }
 
   .wg-live .wg-live__player-head {
-    grid-column: 1 / -1;
-  }
-
-  .wg-live .wg-live__player {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .wg-live .wg-live__aside {
-    grid-column: 2;
-    grid-row: 2;
-  }
-
-  .wg-live .wg-live__dialog--inline,
-  .wg-live .wg-live__dev {
-    grid-column: 1 / -1;
-  }
-
-  .wg-live .wg-live__mode-options {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    order: 2;
+    padding: 32px 0 0;
   }
 
   .wg-live .wg-live__controls {
-    padding: var(--wg-space-5);
+    order: 3;
+    padding-top: 48px;
+  }
+
+  /* Engaged: the bar is attached to the stage, above the title. */
+  .wg-live
+    .wg-live__player-view:is(
+      [data-status='loading'],
+      [data-status='playing'],
+      [data-status='paused'],
+      [data-status='switching'],
+      [data-status='reconnecting']
+    )
+    .wg-live__controls {
+    order: 1;
+  }
+
+  /* Audio: cover at the left, title + status at its right, the controls full width underneath. */
+  .wg-live .wg-live__player-view[data-media-kind='audio'] .wg-live__player {
+    grid-template-columns: var(--pl-cover) minmax(0, 1fr);
+    column-gap: clamp(32px, 4vw, 56px);
+  }
+
+  .wg-live .wg-live__player-view[data-media-kind='audio'] .wg-live__player-head {
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    padding: 0;
+  }
+
+  .wg-live .wg-live__player-view[data-media-kind='audio'] .wg-live__stage {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .wg-live .wg-live__player-view[data-media-kind='audio'] .wg-live__controls {
+    grid-row: 2;
+    margin-top: 0;
+  }
+
+  /* Engaged: the one dark bar sits right under the cover + title row. */
+  .wg-live
+    .wg-live__player-view[data-media-kind='audio']:is(
+      [data-status='loading'],
+      [data-status='playing'],
+      [data-status='paused'],
+      [data-status='switching'],
+      [data-status='reconnecting']
+    )
+    .wg-live__controls {
+    margin-top: 32px;
   }
 }
 
-/* ---- forced colours: keep selection and focus visible without our colours ---- */
+/* Tablet. */
+@media (max-width: 1023px) {
+  .wg-live .wg-live__player-view {
+    --pl-section-gap: 80px;
+  }
+}
+
+/* Phone. */
+@media (max-width: 767px) {
+  .wg-live .wg-live__player-view {
+    --pl-section-gap: 64px;
+    --pl-cover: min(36vw, 160px);
+  }
+
+  .wg-live .wg-live__stage-title {
+    font-size: 16px;
+    -webkit-line-clamp: 5;
+  }
+
+  .wg-live .wg-live__stage-art--text {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .wg-live .wg-live__player-title {
+    font-size: 26px;
+  }
+
+  .wg-live .wg-live__mode-legend,
+  .wg-live .wg-live__info-heading {
+    font-size: 22px;
+  }
+
+  .wg-live .wg-live__mode-title,
+  .wg-live .wg-live__programme-heading {
+    font-size: 20px;
+  }
+
+  .wg-live .wg-live__player-meta {
+    gap: 0 24px;
+  }
+
+  .wg-live .wg-live__player-head {
+    padding-bottom: 24px;
+  }
+
+  .wg-live .wg-live__player-head .wg-live__status {
+    margin-top: 20px;
+  }
+
+  .wg-live .wg-live__controls {
+    padding-top: 8px;
+  }
+
+  .wg-live .wg-live__mode-options {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .wg-live .wg-live__mode-card {
+    column-gap: 16px;
+    padding: 24px 20px 20px;
+  }
+
+  .wg-live .wg-live__controls-main {
+    flex: 1 0 100%;
+  }
+
+  .wg-live .wg-live__controls-main .wg-live__play {
+    flex: 1 0 100%;
+    min-height: 52px;
+  }
+
+  .wg-live .wg-live__modebar {
+    flex: 1 0 100%;
+  }
+
+  /* The bar becomes three rows inside one surface: Start/Pause, mute + volume, current mode + switch. */
+  .wg-live
+    .wg-live__player-view:is(
+      [data-status='loading'],
+      [data-status='playing'],
+      [data-status='paused'],
+      [data-status='switching'],
+      [data-status='reconnecting']
+    )
+    .wg-live__controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 16px 20px 12px;
+  }
+
+  .wg-live
+    .wg-live__player-view:is(
+      [data-status='loading'],
+      [data-status='playing'],
+      [data-status='paused'],
+      [data-status='switching'],
+      [data-status='reconnecting']
+    )
+    .wg-live__controls-main {
+    flex: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .wg-live
+    .wg-live__player-view:is(
+      [data-status='loading'],
+      [data-status='playing'],
+      [data-status='paused'],
+      [data-status='switching'],
+      [data-status='reconnecting']
+    )
+    .wg-live__modebar {
+    flex: none;
+    justify-content: space-between;
+  }
+
+  .wg-live .wg-live__transport {
+    justify-content: space-between;
+    gap: 4px 20px;
+  }
+
+  .wg-live .wg-live__volume {
+    flex: 1;
+  }
+
+  .wg-live .wg-live__volume-input {
+    flex: 1;
+    width: auto;
+    min-width: 80px;
+  }
+
+  .wg-live .wg-live__info-body {
+    grid-template-columns: minmax(0, 1fr);
+    margin-top: 24px;
+  }
+
+  .wg-live .wg-live__programme {
+    grid-column: 1;
+    margin-top: 40px;
+  }
+
+  .wg-live .wg-live__programme-list > li {
+    grid-template-columns: 52px minmax(0, 1fr);
+    font-size: 20px;
+  }
+
+  .wg-live .wg-live__programme-list > li::before {
+    font-size: 28px;
+  }
+
+  .wg-live .wg-live__status-actions {
+    gap: 0 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wg-live .wg-live__mode-card,
+  .wg-live .wg-live__mode-card::before {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------------------ forced colours */
 @media (forced-colors: active) {
-  .wg-live .wg-live__mode-input:checked + .wg-live__mode-card {
-    border-color: Highlight;
-    outline: 2px solid Highlight;
+  .wg-live .wg-live__mode-card {
+    border: 1px solid ButtonText;
+  }
+
+  .wg-live .wg-live__mode[data-selected='true'] .wg-live__mode-card {
+    border: 2px solid Highlight;
   }
 
   .wg-live .wg-live__mode-input:focus-visible + .wg-live__mode-card {
     outline: 3px solid Highlight;
   }
 
+  .wg-live .wg-live__mode-card::before {
+    border: 2px solid ButtonText;
+    background: none;
+  }
+
+  .wg-live .wg-live__mode[data-selected='true'] .wg-live__mode-card::before {
+    border-color: Highlight;
+    background: Highlight;
+  }
+
   .wg-live .wg-live__mode-marker {
-    border: 1px solid ButtonText;
-    background: ButtonFace;
     color: ButtonText;
   }
 
-  .wg-live .wg-live__status,
-  .wg-live .wg-live__entitlement,
-  .wg-live .wg-live__player {
-    border-color: CanvasText;
+  .wg-live .wg-live__stage {
+    border: 1px solid CanvasText;
   }
 }

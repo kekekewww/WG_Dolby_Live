@@ -185,7 +185,7 @@ function buildKeyboard(levels: Levels): HTMLElement {
 function buildContact(levels: Levels, boot: BootConfig): HTMLElement {
   const copy = helpCopy.contact;
   const note = paragraphs(boot.help.supportNote);
-  const contact = safeLink(boot.links.contact, copy.link, 'wg-live__btn wg-live__btn--secondary');
+  const contact = safeLink(boot.links.contact, copy.link, 'wg-live__btn wg-live__btn--primary');
   const children: Array<Node | null> = [...note];
   if (contact) children.push(h('div', { className: 'wg-live__actions wg-live__actions--stack' }, contact));
   if (note.length === 0 && !contact) {
@@ -219,7 +219,7 @@ function buildFaq(levels: Levels, boot: BootConfig): HTMLElement | null {
 
 export function mountHelpView(mount: HTMLElement, boot: BootConfig): ViewInstance {
   const levels: Levels = boot.heading === 'h1' ? { section: 'h2', sub: 'h3' } : { section: 'h3', sub: 'h4' };
-  const back = safeLink(boot.links.events, helpCopy.backToEvents, 'wg-live__help-back');
+  const back = safeLink(boot.links.events, helpCopy.backToEvents, 'wg-live__help-back wg-live__link');
 
   const root = h(
     'div',
@@ -245,7 +245,7 @@ export function mountHelpView(mount: HTMLElement, boot: BootConfig): ViewInstanc
       'no-sound',
       helpCopy.noSound.heading,
       h('p', { className: 'wg-live__help-text wg-live__muted', text: helpCopy.noSound.lead }),
-      h('ol', { className: 'wg-live__help-steps' }, ...helpCopy.noSound.steps.map((text) => h('li', { className: 'wg-live__help-step', text }))),
+      h('ol', { className: 'wg-live__help-steps', attrs: { role: 'list' } }, ...helpCopy.noSound.steps.map((text) => h('li', { className: 'wg-live__help-step', text }))),
     ),
     section(
       levels,

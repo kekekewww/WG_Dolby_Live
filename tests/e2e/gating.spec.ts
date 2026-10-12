@@ -24,7 +24,9 @@ test.describe('F02 direct player link', () => {
   test('renders the event: title with demo badge, status, performers, time, info and programme', async ({ page }) => {
     const p = await gotoPlayer(page);
     await expect(p.title).toContainText('【介面示範】錄音室現場音樂會 Live');
-    await expect(p.title.locator('.wg-live__badge--demo')).toHaveText('介面示範');
+    // The badge sits in the meta row above the title; the heading's accessible name still includes it.
+    await expect(p.root.locator('.wg-live__meta-row .wg-live__badge--demo')).toHaveText('介面示範');
+    await expect(p.title).toHaveAccessibleName(/錄音室現場音樂會 Live.*介面示範/);
     await expect(p.statusBadge).toHaveText('演出中');
     await expect(p.root.locator('.wg-live__player-meta')).toContainText('演出者：示範樂手 A、示範樂手 B');
     await expect(p.root.locator('.wg-live__player-meta time')).toHaveText(/台北時間/);

@@ -35,6 +35,13 @@ describe('entitlement panel (plan 6.2 table)', () => {
     expect(actions[0]?.getAttribute('href')).not.toContain('redirect');
   });
 
+  it('the call to action is the one primary; the contact link stays quiet', () => {
+    const guest = visibleActions(build(makeState({ entitlement: 'guest' })).panel.el);
+    expect(guest[0]?.className).toContain('wg-live__btn--primary');
+    const unavailable = visibleActions(build(makeState({ entitlement: 'unavailable' })).panel.el);
+    expect(unavailable.filter((a) => a.className.includes('wg-live__btn--primary')).map((a) => a.textContent)).toEqual(['重試']);
+  });
+
   it('guest: no login link when the account page is not configured', () => {
     const { panel } = build(makeState({ entitlement: 'guest' }), { ...LINKS, account: null });
     expect(panel.el.hidden).toBe(false);

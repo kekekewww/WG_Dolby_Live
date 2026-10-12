@@ -299,6 +299,74 @@ if ( ! function_exists( 'wg_live_seed_log' ) ) {
 	}
 
 	/**
+	 * Make the dev site look like the real (dark) site: Astra's global colour palette and the settings that read it.
+	 *
+	 * Astra's default is a light theme, on which the plugin's inherited text colour is dark. The live site is dark
+	 * (background #111111 under its photo, text #f0f5fa, links and brand #f0d62b), so the dev site gets the same values
+	 * to review the real look. Dev only (setup mode inside the environment guard of wg_live_seed_run), idempotent
+	 * (only the keys below are written, and only when they differ), and it never touches a site that is not on Astra.
+	 * Palette slots follow Astra: 0 accent, 1 accent hover, 2 headings, 3 text, 4 page background, 5 content background,
+	 * 6 border, 7 and 8 extras. See docs/design/site-mock.md for the matching harness page (dev/site-mock.css).
+	 *
+	 * @return void
+	 */
+	function wg_live_seed_astra_palette() {
+		if ( get_option( 'stylesheet' ) !== 'astra' ) {
+			wg_live_seed_log( '  astra palette: Astra is not the active theme, left unchanged' );
+			return;
+		}
+		$palette = array( '#f0d62b', '#c2a903', '#f0f5fa', '#f0f5fa', '#111111', '#111111', '#2b2b2b', '#3a3a3a', '#000000' );
+		$solid   = static function ( $slot ) {
+			$bg = array(
+				'background-color'      => 'var(--ast-global-color-' . $slot . ')',
+				'background-image'      => '',
+				'background-repeat'     => 'repeat',
+				'background-position'   => 'center center',
+				'background-size'       => 'auto',
+				'background-attachment' => 'scroll',
+				'background-type'       => 'color',
+				'background-media'      => '',
+				'overlay-type'          => '',
+				'overlay-color'         => '',
+				'overlay-opacity'       => '',
+				'overlay-gradient'      => '',
+			);
+			return array(
+				'desktop' => $bg,
+				'tablet'  => $bg,
+				'mobile'  => $bg,
+			);
+		};
+		$wanted  = array(
+			'text-color'                           => 'var(--ast-global-color-3)',
+			'link-color'                           => 'var(--ast-global-color-0)',
+			'link-h-color'                         => 'var(--ast-global-color-1)',
+			'theme-color'                          => 'var(--ast-global-color-0)',
+			'heading-base-color'                   => 'var(--ast-global-color-2)',
+			'site-layout-outside-bg-obj-responsive' => $solid( 4 ),
+			'content-bg-obj-responsive'            => $solid( 5 ),
+		);
+		$options = get_option( 'astra-settings', array() );
+		if ( ! is_array( $options ) ) {
+			$options = array();
+		}
+		$current = isset( $options['global-color-palette'] ) && is_array( $options['global-color-palette'] ) ? $options['global-color-palette'] : array();
+		$before  = $options;
+
+		$current['palette']                = $palette;
+		$options['global-color-palette'] = $current;
+		foreach ( $wanted as $key => $value ) {
+			$options[ $key ] = $value;
+		}
+		if ( $options === $before ) {
+			wg_live_seed_log( '  astra palette: already dark (#111111 background, #f0f5fa text, #f0d62b links)' );
+			return;
+		}
+		update_option( 'astra-settings', $options );
+		wg_live_seed_log( '  astra palette: set to the live site look (#111111 background, #f0f5fa text, #f0d62b links)' );
+	}
+
+	/**
 	 * Pretty permalinks (/%postname%/); flush the rewrite rules only when the structure changes.
 	 *
 	 * @return void
@@ -506,6 +574,7 @@ if ( ! function_exists( 'wg_live_seed_log' ) ) {
 
 		if ( wg_live_seed_wants_setup( $cli_args ) ) {
 			wg_live_seed_theme();
+			wg_live_seed_astra_palette();
 			wg_live_seed_permalinks();
 		}
 

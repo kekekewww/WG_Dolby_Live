@@ -4,23 +4,23 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>示範網站頁面（stub）</title>
-    <link rel="stylesheet" href="/dev/site-chrome.css" />
+    <!--WG_SITE_MOCK:head-->
   </head>
-  <body>
-    <header class="site-header">
-      <a class="site-logo" href="/dev/stub.html?page=home">FAKE SITE LOGO</a>
-      <nav class="site-nav" aria-label="示範網站主選單">
-        <ul>
-          <li><a href="/dev/index.html">Live</a></li>
-          <li><a href="/dev/help.html">Listening Guide</a></li>
-        </ul>
-      </nav>
-    </header>
-    <main class="site-main">
-      <h1>示範網站頁面</h1>
-      <p>這是開發測試頁的連結佔位頁（首頁、帳號、商店、聯絡我們），實際網站不使用。</p>
-      <p><a href="/dev/index.html">回到 Live 活動列表</a></p>
+  <body class="wgm">
+    <!--WG_SITE_MOCK:header-->
+
+    <main class="wgm-main" id="content">
+      <div class="wgm-container">
+        <div class="wgm-container__inner">
+          <div class="wgm-widget wgm-widget--text">
+            <h2>示範網站頁面</h2>
+            <p>這是開發測試頁的連結佔位頁（首頁、帳號、商店、聯絡我們），實際網站不使用。</p>
+            <p><a href="/dev/index.html">回到 Live 活動列表</a></p>
+          </div>
+        </div>
+      </div>
     </main>
-    <footer class="site-footer"><p>FAKE SITE FOOTER</p></footer>
+
+    <!--WG_SITE_MOCK:footer-->
   </body>
 </html>

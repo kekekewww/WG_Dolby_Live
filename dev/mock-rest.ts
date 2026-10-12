@@ -1,5 +1,5 @@
 import type { Plugin } from 'vite';
-import { injectConfig, matchRestUrl, parseHarnessOptions, sendRest, serveDemoFile } from './core.mjs';
+import { injectConfig, injectSiteMock, matchRestUrl, parseHarnessOptions, sendRest, serveDemoFile } from './core.mjs';
 
 /**
  * Vite dev-server plugin (never packaged). Stateless (M1-PLAN D11); the logic lives in dev/core.mjs
@@ -9,7 +9,8 @@ import { injectConfig, matchRestUrl, parseHarnessOptions, sendRest, serveDemoFil
  *    each also under /disabled/ (deployment mode disabled),
  *  - serves /demo/* (demo-tone-1.mp3 binaural, demo-tone-2.mp3 atmos, poster) with Range support,
  *  - maps /, /listen.html, /help.html to the harness pages under /dev/,
- *  - injects the BootConfig (fixtures, per-request "now") into the pages.
+ *  - injects the BootConfig (fixtures, per-request "now") and the realistic site chrome (dev/site-mock.html)
+ *    into the pages.
  */
 
 const PAGE_ALIASES: Record<string, string> = {
@@ -47,7 +48,7 @@ export function wgLiveDev(): Plugin {
       order: 'pre',
       handler(html, ctx) {
         const search = new URL(ctx.originalUrl ?? ctx.path, 'http://localhost').search;
-        return injectConfig(html, Date.now(), parseHarnessOptions(search, { pageBase: '/dev/' }));
+        return injectSiteMock(injectConfig(html, Date.now(), parseHarnessOptions(search, { pageBase: '/dev/' })), '/dev/');
       },
     },
   };

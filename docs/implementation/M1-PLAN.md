@@ -87,7 +87,7 @@ src/
   styles/theme-bridge.css, base.css ★, events.css ★, player.css ★, help.css ★, dialog.css ★,
          dev-panel.css ★, responsive.css, accessibility.css, featured.css ★
   fixtures/demo-events.ts
-dev/                      ★ harness pages, site-chrome.css (aggressive global theme rules), mock-rest.ts, dist/ pages
+dev/                      ★ harness pages, site-mock.* (realistic site chrome), stress.css + stress pages (aggressive global theme rules), mock-rest.ts, dist/ pages
 plugin/wg-live/           see §4
 scripts/                  package.mjs, check-artifact.mjs, check-css-scope.mjs ★, seed-demo.php, lint-php.mjs ★,
                           generate-demo-audio.mjs ★, measure-site.mjs ★, build-info.mjs ★, load-test.mjs ★

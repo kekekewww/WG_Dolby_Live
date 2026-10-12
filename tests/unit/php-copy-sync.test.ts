@@ -50,6 +50,8 @@ describe('PHP copy stays in sync with src/i18n', () => {
 
   it.each<[string, string]>([
     ['DEMO_BADGE', DEMO_EVENT_BADGE],
+    ['POSTER_BRAND', eventsCopy.posterPlaceholder.brand],
+    ['POSTER_DEMO_NOTE', eventsCopy.posterPlaceholder.demoNote],
     ['DISABLED_TITLE', statusCopy.gate.disabled.title],
     ['DISABLED_DETAIL', statusCopy.gate.disabled.detail],
     ['FEATURED_FALLBACK', eventsCopy.empty.detail],

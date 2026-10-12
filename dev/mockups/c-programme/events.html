@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mockup C | Programme（活動列表）</title>
+    <!--WG_SITE_MOCK:head assets=live-->
+    <!-- The plugin's own tokens and primitives, then this direction's stylesheet. -->
+    <link rel="stylesheet" href="/src/styles/theme-bridge.css" />
+    <link rel="stylesheet" href="/src/styles/base.css" />
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="/src/styles/accessibility.css" />
+  </head>
+  <body class="wgm">
+    <!--WG_SITE_MOCK:header current=live-->
+
+    <main class="wgm-main" id="content">
+      <div class="wgm-container">
+        <div class="wgm-container__inner">
+          <div class="wgm-widget wgm-widget--shortcode">
+            <div class="wg-live">
+              <div class="wg-live__events">
+                <header class="wg-live__events-header">
+                  <h2 class="wg-live__heading wg-live__view-title">Live</h2>
+                  <p class="wg-live__view-subtitle">線上音樂會</p>
+                  <p class="wg-live__view-intro wg-live__muted">以耳機或家庭劇院，聆聽維光音樂的現場演出。</p>
+                </header>
+
+                <!-- Featured event: the cover -->
+                <section class="wg-live__events-section wg-live__featured" aria-labelledby="h-featured">
+                  <h3 class="wg-live__heading wg-live__heading--h3" id="h-featured">精選活動</h3>
+                  <article class="wg-live__event-card wg-live__event-card--featured" aria-labelledby="t-live" data-event-slug="demo-live-binaural-atmos" data-event-status="live">
+                    <time class="wg-live__date wg-live__date--cover wg-live__date--live" datetime="2026-10-12T06:29:00Z">
+                      <span class="wg-live__visually-hidden">2026年10月12日（一）14:29 台北時間</span>
+                      <span class="wg-live__date-month" aria-hidden="true">2026年10月</span>
+                      <span class="wg-live__date-day" aria-hidden="true">12</span>
+                      <span class="wg-live__date-when" aria-hidden="true">週一 14:29</span>
+                      <span class="wg-live__date-zone" aria-hidden="true">台北時間</span>
+                    </time>
+                    <div class="wg-live__event-card-body">
+                      <div class="wg-live__event-card-info">
+                        <div class="wg-live__event-card-meta">
+                          <span class="wg-live__badge wg-live__badge--live wg-live__event-card-status" data-status="live">演出中</span>
+                        </div>
+                        <h4 class="wg-live__event-card-title" id="t-live">
+                          <span class="wg-live__event-card-title-text">【介面示範】錄音室現場音樂會 Live</span>
+                          <span class="wg-live__badge wg-live__badge--demo">介面示範</span>
+                        </h4>
+                        <p class="wg-live__event-card-performers"><span class="wg-live__event-card-label">演出者：</span>示範樂手 A、示範樂手 B</p>
+                        <div class="wg-live__event-card-modes">
+                          <span class="wg-live__event-card-modes-label">聆聽模式：</span>
+                          <ul class="wg-live__event-card-mode-list" role="list">
+                            <li class="wg-live__event-card-mode">耳機 Binaural</li>
+                            <li class="wg-live__event-card-mode">家庭劇院 Dolby Atmos</li>
+                          </ul>
+                        </div>
+                      </div>
+                      <div class="wg-live__actions wg-live__event-card-actions">
+                        <a class="wg-live__btn wg-live__btn--primary wg-live__event-card-cta" href="./player.html" aria-label="體驗播放介面：【介面示範】錄音室現場音樂會 Live">體驗播放介面</a>
+                        <button class="wg-live__btn wg-live__btn--secondary wg-live__event-card-toggle" type="button" aria-expanded="false" aria-controls="d-live" aria-label="活動簡介：【介面示範】錄音室現場音樂會 Live">活動簡介</button>
+                        <a class="wg-live__btn wg-live__btn--ghost wg-live__event-card-login" href="/dev/stub.html?page=account" aria-label="登入：【介面示範】錄音室現場音樂會 Live">登入</a>
+                      </div>
+                      <div class="wg-live__event-details" id="d-live" hidden>
+                        <p class="wg-live__event-details-text">這是介面示範活動，用來確認播放流程與版面。</p>
+                        <p class="wg-live__event-details-text">內容不是實際演出，也不是真實售票活動。</p>
+                        <p class="wg-live__event-details-note wg-live__muted wg-live__small">操作示範音訊，非 Binaural／Atmos 驗證素材</p>
+                      </div>
+                    </div>
+                  </article>
+                </section>
+
+                <!-- Listening Guide -->
+                <div class="wg-live__events-section">
+                  <section class="wg-live__guide" aria-labelledby="h-guide">
+                    <h3 class="wg-live__heading wg-live__heading--h3" id="h-guide">聆聽方式</h3>
+                    <p class="wg-live__guide-lead wg-live__muted">本站提供兩種聆聽方式，請依自己的設備選擇；是否能呈現 Atmos，依裝置與連接方式而定。</p>
+                    <ul class="wg-live__guide-modes" role="list">
+                      <li class="wg-live__guide-mode wg-live__guide-mode--binaural">
+                        <h4 class="wg-live__guide-mode-name">耳機聆聽 · Binaural</h4>
+                        <p class="wg-live__guide-mode-text">使用耳機聆聽錄音室製作的雙耳版本。</p>
+                        <p class="wg-live__guide-mode-note wg-live__muted wg-live__small">一般耳機即可播放此版本；音訊效果依錄音室交付內容為準。</p>
+                      </li>
+                      <li class="wg-live__guide-mode wg-live__guide-mode--atmos">
+                        <h4 class="wg-live__guide-mode-name">家庭劇院 · Dolby Atmos</h4>
+                        <p class="wg-live__guide-mode-text">適用於經確認的播放裝置、連接方式與 Atmos 家庭劇院。</p>
+                        <p class="wg-live__guide-mode-note wg-live__muted wg-live__small">請先閱讀支援條件；選用 Atmos 音軌不等於系統已確認最終設備輸出。</p>
+                      </li>
+                    </ul>
+                    <p class="wg-live__guide-help"><a class="wg-live__guide-link wg-live__link" href="/dev/help.html">閱讀完整聆聽說明</a></p>
+                  </section>
+                </div>
+
+                <!-- Other events: the schedule -->
+                <section class="wg-live__events-section wg-live__others">
+                  <h3 class="wg-live__heading wg-live__heading--h3" id="h-others">其他活動</h3>
+                  <ul class="wg-live__event-list" role="list" aria-labelledby="h-others">
+                    <li class="wg-live__event-list-item">
+                      <article class="wg-live__event-card" aria-labelledby="t-sched" data-event-slug="demo-scheduled" data-event-status="scheduled">
+                        <time class="wg-live__date wg-live__date--upcoming" datetime="2026-10-15T06:49:00Z">
+                          <span class="wg-live__visually-hidden">2026年10月15日（四）14:49 台北時間</span>
+                          <span class="wg-live__date-month" aria-hidden="true">10月</span>
+                          <span class="wg-live__date-day" aria-hidden="true">15</span>
+                          <span class="wg-live__date-when" aria-hidden="true">週四 14:49</span>
+                          <span class="wg-live__date-zone" aria-hidden="true">台北時間</span>
+                        </time>
+                        <div class="wg-live__event-card-body">
+                          <div class="wg-live__event-card-info">
+                            <div class="wg-live__event-card-meta">
+                              <span class="wg-live__badge wg-live__badge--info wg-live__event-card-status" data-status="scheduled">尚未開始</span>
+                            </div>
+                            <h4 class="wg-live__event-card-title" id="t-sched">
+                              <span class="wg-live__event-card-title-text">【介面示範】即將開始的音樂會</span>
+                              <span class="wg-live__badge wg-live__badge--demo">介面示範</span>
+                            </h4>
+                            <p class="wg-live__event-card-performers"><span class="wg-live__event-card-label">演出者：</span>示範樂手 C</p>
+                            <p class="wg-live__event-card-countdown">距離開始：3 天</p>
+                            <div class="wg-live__event-card-modes">
+                              <span class="wg-live__event-card-modes-label">聆聽模式：</span>
+                              <ul class="wg-live__event-card-mode-list" role="list">
+                                <li class="wg-live__event-card-mode">耳機 Binaural</li>
+                                <li class="wg-live__event-card-mode">家庭劇院 Dolby Atmos</li>
+                              </ul>
+                            </div>
+                          </div>
+                          <div class="wg-live__actions wg-live__event-card-actions">
+                            <a class="wg-live__btn wg-live__btn--primary wg-live__event-card-cta" href="./player.html" aria-label="體驗播放介面：【介面示範】即將開始的音樂會">體驗播放介面</a>
+                            <button class="wg-live__btn wg-live__btn--secondary wg-live__event-card-toggle" type="button" aria-expanded="false" aria-controls="d-sched" aria-label="活動簡介：【介面示範】即將開始的音樂會">活動簡介</button>
+                            <a class="wg-live__btn wg-live__btn--ghost wg-live__event-card-login" href="/dev/stub.html?page=account" aria-label="登入：【介面示範】即將開始的音樂會">登入</a>
+                          </div>
+                          <div class="wg-live__event-details" id="d-sched" hidden>
+                            <p class="wg-live__event-details-text">這是介面示範活動，演出時間尚未到。</p>
+                            <p class="wg-live__event-details-text">用來確認「尚未開始」狀態與倒數顯示。</p>
+                          </div>
+                        </div>
+                      </article>
+                    </li>
+                    <li class="wg-live__event-list-item">
+                      <article class="wg-live__event-card wg-live__event-card--over" aria-labelledby="t-ended" data-event-slug="demo-ended" data-event-status="ended">
+                        <time class="wg-live__date wg-live__date--over" datetime="2026-10-05T06:49:00Z">
+                          <span class="wg-live__visually-hidden">2026年10月5日（一）14:49 台北時間</span>
+                          <span class="wg-live__date-month" aria-hidden="true">10月</span>
+                          <span class="wg-live__date-day" aria-hidden="true">05</span>
+                          <span class="wg-live__date-when" aria-hidden="true">週一 14:49</span>
+                          <span class="wg-live__date-zone" aria-hidden="true">台北時間</span>
+                        </time>
+                        <div class="wg-live__event-card-body">
+                          <div class="wg-live__event-card-info">
+                            <div class="wg-live__event-card-meta">
+                              <span class="wg-live__badge wg-live__badge--muted wg-live__event-card-status" data-status="ended">已結束</span>
+                            </div>
+                            <h4 class="wg-live__event-card-title" id="t-ended">
+                              <span class="wg-live__event-card-title-text">【介面示範】已結束的音樂會</span>
+                              <span class="wg-live__badge wg-live__badge--demo">介面示範</span>
+                            </h4>
+                            <p class="wg-live__event-card-performers"><span class="wg-live__event-card-label">演出者：</span>示範樂手 D、示範樂手 E</p>
+                            <div class="wg-live__event-card-modes">
+                              <span class="wg-live__event-card-modes-label">聆聽模式：</span>
+                              <ul class="wg-live__event-card-mode-list" role="list">
+                                <li class="wg-live__event-card-mode">耳機 Binaural</li>
+                              </ul>
+                            </div>
+                          </div>
+                          <div class="wg-live__actions wg-live__event-card-actions">
+                            <button class="wg-live__btn wg-live__btn--secondary wg-live__event-card-toggle" type="button" aria-expanded="false" aria-controls="d-ended" aria-label="查看活動資訊：【介面示範】已結束的音樂會">查看活動資訊</button>
+                          </div>
+                          <div class="wg-live__event-details" id="d-ended" hidden>
+                            <p class="wg-live__event-details-text">這是介面示範活動，演出已經結束。</p>
+                          </div>
+                        </div>
+                      </article>
+                    </li>
+                  </ul>
+                </section>
+
+                <!-- FAQ summary -->
+                <section class="wg-live__events-section wg-live__faq" aria-labelledby="h-faq">
+                  <h3 class="wg-live__heading wg-live__heading--h3" id="h-faq">常見問題</h3>
+                  <div class="wg-live__faq-list">
+                    <details class="wg-live__faq-item">
+                      <summary class="wg-live__faq-question">需要什麼設備才能聆聽？</summary>
+                      <div class="wg-live__faq-answer"><p>使用一般耳機即可聆聽 Binaural 版本。家庭劇院模式需要經確認的播放裝置與連接方式，詳見聆聽說明。</p></div>
+                    </details>
+                    <details class="wg-live__faq-item">
+                      <summary class="wg-live__faq-question">選了 Dolby Atmos 音軌，就代表我的設備已輸出 Atmos 嗎？</summary>
+                      <div class="wg-live__faq-answer"><p>不代表。選用 Atmos 音軌只是選擇音訊版本，系統無法確認最終設備的輸出方式。</p></div>
+                    </details>
+                    <details class="wg-live__faq-item">
+                      <summary class="wg-live__faq-question">沒有聲音時該怎麼辦？</summary>
+                      <div class="wg-live__faq-answer"><p>請先確認裝置音量與靜音狀態，再回到播放頁按「重試」。仍無法解決時，請參考聆聽說明。</p></div>
+                    </details>
+                  </div>
+                  <p class="wg-live__faq-more-row"><a class="wg-live__faq-more wg-live__link" href="/dev/help.html">查看更多說明</a></p>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!--WG_SITE_MOCK:footer-->
+    <script>
+      /* Mock-only behaviour so the static page can show the disclosure; the real component does this. */
+      document.querySelectorAll('.wg-live__event-card-toggle').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var open = b.getAttribute('aria-expanded') !== 'true';
+          b.setAttribute('aria-expanded', String(open));
+          var p = document.getElementById(b.getAttribute('aria-controls'));
+          if (p) p.hidden = !open;
+        });
+      });
+    </script>
+  </body>
+</html>

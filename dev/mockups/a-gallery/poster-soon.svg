@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-label="介面示範用海報（非實際活動）">
+  <rect width="1200" height="675" fill="#26303d"/>
+  <circle cx="900" cy="520" r="300" fill="#a9bccf"/>
+  <circle cx="900" cy="520" r="30" fill="#26303d"/>
+  <g font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif">
+    <text x="96" y="318" fill="#e6ecf2" font-size="72" font-weight="500">介面示範</text>
+    <text x="98" y="378" fill="#a9bccf" font-size="30" font-weight="400">WG Studio Live</text>
+    <text x="98" y="426" fill="#a9bccf" font-size="22" font-weight="400">操作示範，非正式演出</text>
+  </g>
+</svg>

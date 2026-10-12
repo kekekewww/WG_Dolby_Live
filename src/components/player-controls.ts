@@ -208,7 +208,7 @@ export function createPlayerControls(options: PlayerControlsOptions): PlayerCont
   const reason = h('p', { className: 'wg-live__start-reason wg-live__small wg-live__muted', id: reasonId, hidden: true });
 
   const mute = h('button', {
-    className: 'wg-live__btn wg-live__btn--secondary wg-live__mute',
+    className: 'wg-live__btn wg-live__mute',
     type: 'button',
     attrs: { 'aria-pressed': 'false' },
     text: playerCopy.controls.mute,
@@ -232,13 +232,13 @@ export function createPlayerControls(options: PlayerControlsOptions): PlayerCont
     volumeInput,
   );
   const live = h('button', {
-    className: 'wg-live__btn wg-live__btn--secondary wg-live__live',
+    className: 'wg-live__btn wg-live__live',
     type: 'button',
     text: playerCopy.controls.seekToLive,
     hidden: true,
   });
   const fullscreen = h('button', {
-    className: 'wg-live__btn wg-live__btn--secondary wg-live__fullscreen',
+    className: 'wg-live__btn wg-live__fullscreen',
     type: 'button',
     text: playerCopy.controls.fullscreen,
     hidden: true,

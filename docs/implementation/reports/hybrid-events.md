@@ -1,0 +1,10 @@
+# hybrid-events report
+
+Implemented HYBRID (A base + C date tile) for tokens/primitives, events page, help page, homepage featured card, placeholder posters.
+
+Files: src/styles/{theme-bridge,base,events,help,featured,accessibility,responsive}.css; src/components/{date-tile(new),event-card}.ts; src/views/help.ts (steps role=list, contact CTA is the page's primary, back link class); src/i18n/copy-events.ts (tile + posterPlaceholder strings, no spec string changed); plugin templates/featured.php + includes/class-shortcodes.php (tile_parts(), POSTER_* constants); assets/demo/poster-demo.svg (16:9), poster-demo-square.svg (1:1, new); dev/core.mjs (square poster on demo-scheduled); tests (date-tile new, events, php-copy-sync, php-review-fixes allowlist).
+Outside the owned list (needed): scripts/package.mjs + scripts/check-artifact.mjs allowlist regex now accepts poster-demo-square.svg; LICENSE-demo.txt lists it.
+
+DOM changes: event card media block always present (poster img or aria-hidden placeholder div, plus aria-hidden date tile); demo badge moved from the title heading into the meta row, article aria-labelledby = title id + badge id (demo only); the <time> line is visually hidden when a tile exists. Featured PHP card mirrors this (badge --demo in meta row; classes wg-live-featured__tile*, __placeholder*).
+Tokens: all names of the shared contract exist; legacy aliases (--wg-accent-strong, --wg-card-surface, --wg-card-radius 0, --wg-border, --wg-player-*) kept so player/dialog/dev-panel CSS keeps working. Badge dot rule only for .wg-live__badge[data-status]; player agent must add its own for .wg-live__player-status-badge.
+Verified: typecheck, eslint + check-css-scope, npm run check (unit 1141+, build, package, check:artifact; budgets JS 31.7/100, CSS 8.0/30, featured 2.5/30 KiB gz), lint:php (7.4 + 8.3, PHPCS). Screenshots 1440/390 of index and help, and a static featured-card render, reviewed. Not run: wp-env integration, e2e (events.spec/featured.spec assertions kept compatible by design), PHP render of the featured template.

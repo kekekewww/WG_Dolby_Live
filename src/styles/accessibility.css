@@ -23,23 +23,29 @@
 
 /* Windows high contrast: let system colours win, keep shapes and focus visible. */
 @media (forced-colors: active) {
-  .wg-live .wg-live__btn,
-  .wg-live .wg-live__badge,
-  .wg-live .wg-live__boot-error {
-    border: 1px solid ButtonText;
+  .wg-live .wg-live__btn--primary {
+    border: 1px solid Highlight;
+    background: ButtonFace;
+    color: ButtonText;
     forced-color-adjust: auto;
   }
 
-  .wg-live .wg-live__btn--primary {
-    border-color: Highlight;
-    background: ButtonFace;
-    color: ButtonText;
+  /* The date tile and the placeholder poster are decorative; keep their shape visible. */
+  .wg-live .wg-live__date-tile,
+  .wg-live .wg-live__poster-placeholder {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    forced-color-adjust: auto;
+  }
+
+  .wg-live .wg-live__badge--demo,
+  .wg-live .wg-live__kbd {
+    border: 1px solid CanvasText;
   }
 
   .wg-live .wg-live__btn:disabled,
   .wg-live .wg-live__btn[aria-disabled='true'] {
-    border-style: dashed;
-    border-color: GrayText;
     color: GrayText;
   }
 
@@ -60,6 +66,8 @@
   .wg-live,
   .wg-live-featured {
     --wg-border: #f0f5fa;
-    --wg-text-muted: #f0f5fa;
+    --wg-text-muted: currentColor;
+    --wg-mist: #f0f5fa;
+    --wg-hairline: currentColor;
   }
 }

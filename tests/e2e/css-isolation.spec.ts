@@ -1,7 +1,8 @@
 /**
  * Plan 3.3 / CLAUDE.md "CSS and Elementor": the plugin's CSS is scoped. The harness page wears
- * deliberately hostile global theme rules (dev/site-chrome.css: red uppercase Impact buttons, wavy
- * magenta links, justified text, content-box, dashed image borders ...). Computed styles prove that
+ * deliberately hostile global theme rules (dev/stress.css, served by the stress pages dev/stress.html: red
+ * uppercase Impact buttons, wavy magenta links, justified text, content-box, dashed image borders ...). The
+ * realistic pages (dev/index.html ... with the site-mock chrome) are NOT used here. Computed styles prove that
  *   - none of it changes what the plugin renders, and
  *   - the plugin changes nothing outside `.wg-live`.
  */
@@ -13,19 +14,19 @@ test.describe.configure({ timeout: 90_000 });
 
 for (const view of ['index', 'help'] as const) {
   test(`the ${view} view is untouched by hostile global theme rules`, async ({ page }) => {
-    await gotoView(page, view);
+    await gotoView(page, view, { stress: true });
     expect(await inspectPlugin(page)).toEqual([]);
   });
 }
 
 test('the player view (with the dev panel and the media element) is untouched by hostile global theme rules', async ({ page }) => {
-  const p = await gotoPlayer(page);
+  const p = await gotoPlayer(page, { stress: true });
   await p.openDevPanel();
   expect(await inspectPlugin(page)).toEqual([]);
 });
 
 test('the player while playing and with the switch dialog open is untouched', async ({ page }) => {
-  const p = await gotoPlayer(page);
+  const p = await gotoPlayer(page, { stress: true });
   await p.start('binaural');
   await p.expectAdvancing();
   await p.switchButton.click();
@@ -44,7 +45,7 @@ test('the player while playing and with the switch dialog open is untouched', as
 });
 
 test('a hovered plugin button does not pick up the theme hover colour', async ({ page }) => {
-  const p = await gotoPlayer(page);
+  const p = await gotoPlayer(page, { stress: true });
   await p.radio('binaural').check();
   await p.primary.hover();
   const bg = await p.primary.evaluate((el) => getComputedStyle(el).backgroundColor);
@@ -53,7 +54,7 @@ test('a hovered plugin button does not pick up the theme hover colour', async ({
 });
 
 test('the plugin changes nothing outside .wg-live: the site chrome keeps its own (hostile) look', async ({ page }) => {
-  await gotoPlayer(page);
+  await gotoPlayer(page, { stress: true });
   const site = await page.evaluate(() => {
     const cs = (sel: string) => getComputedStyle(document.querySelector(sel) as Element);
     const h1 = cs('main > h1');

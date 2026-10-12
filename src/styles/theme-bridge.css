@@ -1,54 +1,88 @@
 /*
- * theme-bridge.css - design tokens (spec 3.5, plan 3.3, docs/implementation/design-baseline.md section 3).
+ * theme-bridge.css - design tokens (spec 3.5, plan 3.3, docs/design/HYBRID.md).
  *
  * Every token is defined on .wg-live and .wg-live-featured only. Values marked MEASURED come
  * from the live site (sounds.wgstudiomusic.com, logged out, 2026-10-10, Chromium); values marked
  * NEW are design proposals for components the site does not have, to be confirmed on staging.
  * No fonts are shipped: the font stacks only name fonts the site already loads.
  *
+ * The palette is the six named values of docs/design/directions/a-gallery.md section 2:
+ * Paper, Mist, Night, Studio Yellow (+ hover), Ink on Yellow and Live Green.
+ *
+ * INHERIT-FIRST (spec 3.5, docs/design/HYBRID.md): text that sits on the HOST background uses the host's
+ * own colour. --wg-text / --wg-link are the keyword currentColor (the colour inherited from the theme),
+ * and everything secondary is derived from it (see the @supports block at the end). The palette values
+ * Paper, Mist and Night below are the measured look of the dark live site; they are only used on the
+ * plugin's OWN surfaces (media stage, control bar, dialog, date tile, poster placeholder, dev panel),
+ * which keep explicit colours so they read on any host.
+ *
  * Admin overrides (accent, on-accent, player surface/text) are appended after this file by PHP as
  * ".wg-live,.wg-live-featured{--wg-accent:...}", so keep tokens that must follow an override
  * expressed through var().
+ *
+ * The block "legacy aliases" at the end keeps the names the other stylesheets (player, dialog,
+ * dev panel) were written against; new rules should use the names above it.
  */
 .wg-live,
 .wg-live-featured {
+  /* --- palette --- */
+  --wg-paper: #f0f5fa; /* MEASURED: body/p/h2 colour of the live site; type on our OWN dark surfaces */
+  --wg-mist: #ccd3da; /* NEW: secondary type on our OWN dark surfaces (5.1:1 even on a 72% Night bar over white) */
+  --wg-night: #111111; /* MEASURED: Astra colour 7 (the 75% overlay); media stage, control bar */
+  --wg-accent: #f0d62b; /* MEASURED: brand yellow; the one primary action and the chosen mode */
+  --wg-accent-hover: #c2a903; /* MEASURED: Astra colour 1, button hover (8.1:1 on #111) */
+  --wg-on-accent: #000; /* MEASURED: text on yellow buttons, 14.4:1 */
+  --wg-success: #7ddc9a; /* NEW: the dot before 演出中 only, always next to text */
+  --wg-danger: #ff8a80; /* NEW: cancelled / failed text, 8.6:1 on #111 */
+
+  /* Surfaces (the content itself sits directly on the site's photographic background). */
+  --wg-panel: rgba(17, 17, 17, 0.72); /* Night at 72% over the photo: control bar, tiles over images */
+  --wg-panel-hover: rgba(17, 17, 17, 0.82);
+  --wg-panel-selected: rgba(17, 17, 17, 0.9);
+
   /* --- typography --- */
   /* MEASURED: Elementor content is "Noto Sans TC" (the body font Karla has no CJK glyphs). */
-  --wg-font-body: 'Noto Sans TC', Karla, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
-  --wg-font-heading: 'Noto Sans TC', Karla, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
-  /* MEASURED: Elementor paragraphs use weight 200 (too thin on a dark photo background); NEW: 400 for UI text. */
-  --wg-font-weight-body: 400;
+  --wg-font-body: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', Karla, sans-serif;
+  --wg-font-ui: Karla, 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --wg-font-heading: var(--wg-font-body);
+  /* Body is 300 at 17px and up (the site's own secondary weight; 200 is too thin on the photo). */
+  --wg-font-weight-body: 300;
+  --wg-font-weight-text: 400; /* notes below 17px are never 300 */
   --wg-font-weight-strong: 500; /* MEASURED: Elementor headings are 500 */
-  --wg-font-weight-bold: 700; /* NEW */
+  --wg-font-weight-bold: 700;
   --wg-font-size-body: 17px; /* MEASURED: body 17px / 28.05px */
-  --wg-line-height-body: 1.65; /* MEASURED */
-  --wg-font-size-small: 14px; /* NEW: auxiliary text, never below 14px */
-  --wg-font-size-h2: 38px; /* MEASURED: 38px / 49.4px (28px at the mobile breakpoint, see responsive.css) */
-  --wg-font-size-h3: 22px; /* NEW: the site's card h3 is 18px; section h3 needs more presence */
-  --wg-font-size-h4: 18px; /* MEASURED: card heading 18px */
-  --wg-line-height-heading: 1.3; /* MEASURED: 49.4 / 38 */
+  --wg-line-height-body: 1.7;
+  --wg-font-size-small: 15px; /* notes; never below 14px */
+  --wg-font-size-h2: 38px; /* MEASURED: 38px (28px at the mobile breakpoint, see responsive.css) */
+  --wg-font-size-section: 26px; /* section headings (22px on phones) */
+  --wg-font-size-h3: 26px; /* alias of --wg-font-size-section (kept for older rules) */
+  --wg-font-size-h4: 22px; /* card and mode titles (20px on phones) */
+  --wg-font-size-ui: 17px; /* Karla UI text, buttons */
+  --wg-line-height-heading: 1.3;
 
-  /* --- colour --- */
-  --wg-text: #f0f5fa; /* MEASURED: body/p/h2 colour */
-  --wg-text-muted: #c0c8d0; /* NEW: the site has no secondary text colour; 11.2:1 on #111 */
-  --wg-link: #f0d62b; /* MEASURED: content links */
-  --wg-link-hover: #c2a903; /* MEASURED: link hover (8.1:1 on #111) */
-  --wg-accent: #f0d62b; /* MEASURED: brand yellow (logo pixels, Astra colour 0, Elementor accent) */
-  --wg-accent-strong: #c2a903; /* MEASURED: Astra colour 1, button hover */
-  --wg-on-accent: #000; /* MEASURED: text on yellow buttons, 14.4:1 */
-  --wg-page-surface: transparent; /* NEW: content sits directly on the site's photo + 75% #111 overlay */
-  --wg-card-surface: rgba(17, 17, 17, 0.75); /* NEW: the site's overlay colour, reused for cards */
-  --wg-border: rgba(208, 213, 219, 0.5); /* MEASURED: Astra --ast-border-color, 3.97:1 on #111 */
-  --wg-success: #7ddc9a; /* NEW: status tones, always paired with text, never colour alone */
+  /* --- colour aliases --- */
+  /* Host text: the colour the theme gives the surrounding content (currentColor = inherit). */
+  --wg-text: currentColor;
+  --wg-text-muted: currentColor; /* engines without color-mix keep full strength; @supports below softens it */
+  --wg-link: currentColor; /* links are underlined text colour; hover thickens the underline */
+  --wg-link-hover: currentColor;
+  --wg-danger-text: currentColor; /* error tint on the host; @supports below */
+  --wg-accent-text: var(--wg-accent); /* yellow type on the host (programme numerals); @supports below */
+  /* Veils and hairlines on the host: a neutral grey reads on dark and light hosts alike; @supports ties them to the text colour. */
+  --wg-veil: rgba(128, 128, 128, 0.1);
+  --wg-veil-hover: rgba(128, 128, 128, 0.15);
+  --wg-veil-selected: rgba(128, 128, 128, 0.2);
+  --wg-hairline: rgba(128, 128, 128, 0.55);
+  --wg-track: rgba(128, 128, 128, 0.6);
+  --wg-page-surface: transparent; /* content sits directly on the site's photo + 75% #111 overlay */
   --wg-info: #8ec5ff; /* NEW */
   --wg-warning: #f0d62b; /* NEW: same as the brand yellow */
-  --wg-danger: #ff8a80; /* NEW: 8.6:1 on #111 */
 
   /* --- layout and shape --- */
   --wg-content-max: 1140px; /* MEASURED: Elementor .e-con-inner (Astra container is 1200px) */
-  --wg-gutter: 20px; /* MEASURED: Astra page gutter on mobile (Elementor outer padding is 10px) */
-  --wg-button-radius: 3px; /* MEASURED: Elementor / WPForms buttons (WooCommerce uses 4px) */
-  --wg-card-radius: 6px; /* MEASURED: li.product (card background still to be checked on staging) */
+  --wg-gutter: 20px; /* MEASURED: Astra page gutter on mobile */
+  --wg-section-gap: 96px; /* space separates sections (80px on tablets, 64px on phones) */
+  --wg-button-radius: 3px; /* MEASURED: Elementor / WPForms buttons */
   --wg-space-1: 4px; /* NEW scale from spec 3.6 */
   --wg-space-2: 8px;
   --wg-space-3: 12px;
@@ -59,10 +93,10 @@
   --wg-touch-primary: 48px; /* spec 3.6 */
   --wg-touch-secondary: 44px; /* spec 3.6 */
 
-  /* --- motion and focus --- */
+  /* --- motion and focus: one ring everywhere --- */
   --wg-transition: 200ms linear; /* MEASURED: links 0.2s linear; spec 3.6 allows 160-220ms */
-  --wg-focus-ring: 2px solid var(--wg-accent); /* NEW: the site's 1px dotted focus is hard to see */
-  --wg-focus-offset: 2px; /* NEW */
+  --wg-focus-ring: 2px solid currentColor; /* the colour of the text it sits on: visible on dark and light */
+  --wg-focus-offset: 3px;
 
   /* --- notches and home-indicator areas (iOS) --- */
   --wg-safe-top: env(safe-area-inset-top, 0px);
@@ -71,7 +105,32 @@
   --wg-safe-left: env(safe-area-inset-left, 0px);
 
   /* --- media stage (independent of the site background, spec 3.5) --- */
-  --wg-player-surface: #111; /* NEW (from the site palette: Astra colour 7) */
-  --wg-player-text: #f0f5fa; /* NEW (from the measured text colour), 17.2:1 */
+  --wg-player-surface: var(--wg-night);
+  --wg-player-text: var(--wg-paper);
   --wg-player-surface-raised: #1b1b1b; /* NEW */
+
+  /* --- legacy aliases (do not use in new rules) --- */
+  --wg-accent-strong: var(--wg-accent-hover);
+  --wg-card-surface: var(--wg-panel);
+  --wg-card-radius: 0;
+  --wg-border: rgba(240, 245, 250, 0.4);
+}
+
+/*
+ * Derived colours. Safari 15.4 (browser floor, plan D15) has no color-mix(), so the declarations above are
+ * the complete fallback (secondary text at full strength, neutral grey veils). Where color-mix exists the
+ * tokens follow the host text colour; currentColor is resolved on the element that uses the token.
+ */
+@supports (color: color-mix(in srgb, red 50%, transparent)) {
+  .wg-live,
+  .wg-live-featured {
+    --wg-text-muted: color-mix(in srgb, currentColor 85%, transparent);
+    --wg-danger-text: color-mix(in srgb, currentColor 60%, #ff3b30);
+    --wg-accent-text: color-mix(in srgb, currentColor 45%, var(--wg-accent));
+    --wg-veil: color-mix(in srgb, currentColor 6%, transparent);
+    --wg-veil-hover: color-mix(in srgb, currentColor 9%, transparent);
+    --wg-veil-selected: color-mix(in srgb, currentColor 11%, transparent);
+    --wg-hairline: color-mix(in srgb, currentColor 45%, transparent);
+    --wg-track: color-mix(in srgb, currentColor 42%, transparent);
+  }
 }

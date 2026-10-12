@@ -58,7 +58,7 @@ const ALLOWED_PATHS = [
   /^licenses\/[A-Za-z0-9._-]+\.(?:txt|md)$/i,
   /^assets\/dist\/(?:wg-live\.js|wg-live\.css|wg-live-featured\.css|build-info\.json)$/,
   /^assets\/admin\/[A-Za-z0-9._-]+\.(?:js|css)$/i,
-  /^assets\/demo\/(?:[A-Za-z0-9_-]+\.mp3|poster-demo\.svg|LICENSE-demo\.txt)$/,
+  /^assets\/demo\/(?:[A-Za-z0-9_-]+\.mp3|poster-demo(?:-square)?\.svg|LICENSE-demo\.txt)$/,
 ];
 /** @param {string} rel path below wg-live/ */
 const isAllowedPath = (rel) => ALLOWED_PATHS.some((re) => re.test(rel));

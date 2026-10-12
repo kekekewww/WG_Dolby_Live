@@ -1,0 +1,689 @@
+/*
+ * Realistic mock of the live site's chrome (https://sounds.wgstudiomusic.com/, Astra + Elementor), for
+ * LOCAL design work and the dev/dist harness pages. Dev only, never packaged.
+ *
+ * Numbers come from docs/implementation/design-baseline.md (measured, 2026-10-10) and the screenshots in
+ * evidence/design-baseline/. Anything marked "assumed" below was NOT measured.
+ *
+ * This file plays the role of the THEME's global CSS, so it does style body, a, button and so on. The plugin
+ * must stay correct on top of it. For the deliberately hostile variant see dev/stress.css (stress pages).
+ *
+ * Real-site assets (background photo, logos) and Google Fonts are only requested when `html.wgm-assets` is
+ * set by dev/site-mock.js (default for people; automation gets the offline fallback unless ?chrome=live).
+ */
+
+:root {
+  --wgm-yellow: #f0d62b;
+  --wgm-yellow-dark: #c2a903;
+  --wgm-text: #f0f5fa;
+  --wgm-navy: #1e293b;
+  --wgm-slate: #334155;
+  --wgm-bg: #111111;
+  --wgm-header-h: 83px;
+  --wgm-banner-h: 80px;
+  --wgm-photo: url('https://sounds.wgstudiomusic.com/wp-content/uploads/NicolasMic_01-scaled.webp');
+  --wgm-logo-wide: url('https://sounds.wgstudiomusic.com/wp-content/uploads/Logo_H.png');
+  --wgm-logo-mark: url('https://sounds.wgstudiomusic.com/wp-content/uploads/Logo_WG.png');
+}
+
+@media (max-width: 921px) {
+  :root {
+    --wgm-header-h: 80px;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --wgm-banner-h: 190px;
+  }
+}
+
+/* ---- Astra-like base (assumed: the common Astra resets, values re-used from the measured palette) ---- */
+
+html {
+  box-sizing: border-box;
+  -webkit-text-size-adjust: 100%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+body.wgm {
+  margin: 0;
+  /* 75% #111111 over the studio photo (measured). Fallback: a dark, neutral photographic gradient. */
+  background-color: var(--wgm-bg);
+  background-image: linear-gradient(to right, rgba(17, 17, 17, 0.75), rgba(17, 17, 17, 0.75)), radial-gradient(ellipse 60% 70% at 50% 28%, #6a6a6e 0%, #3d3d40 38%, #1f1f21 72%, #141415 100%);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-attachment: fixed;
+  color: var(--wgm-text);
+  font-family: Karla, sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.65;
+  padding-bottom: var(--wgm-banner-h);
+  -webkit-font-smoothing: antialiased;
+}
+
+html.wgm-assets body.wgm {
+  background-image: linear-gradient(to right, rgba(17, 17, 17, 0.75), rgba(17, 17, 17, 0.75)), var(--wgm-photo);
+}
+
+html.wgm-banner-off body.wgm {
+  padding-bottom: 0;
+}
+
+@media (max-width: 921px) {
+  /* Assumed: scroll on small screens (the baseline mobile shots show the photo moving with the page). */
+  body.wgm {
+    background-attachment: scroll;
+  }
+}
+
+body.wgm a {
+  color: var(--wgm-yellow);
+  text-decoration: none;
+  transition: color 0.2s linear;
+}
+
+body.wgm a:hover {
+  color: var(--wgm-yellow-dark);
+}
+
+body.wgm a:focus-visible,
+body.wgm button:focus-visible {
+  outline: 1px dotted var(--wgm-text);
+  outline-offset: 2px;
+}
+
+body.wgm h1,
+body.wgm h2,
+body.wgm h3,
+body.wgm h4 {
+  margin: 0 0 20px;
+  color: var(--wgm-text);
+  font-family: 'Noto Sans TC', sans-serif;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+body.wgm h2 {
+  font-size: 38px;
+}
+
+@media (max-width: 767px) {
+  body.wgm h2 {
+    font-size: 28px;
+  }
+}
+
+body.wgm p {
+  margin: 0 0 1.75em;
+}
+
+body.wgm ul,
+body.wgm ol {
+  margin: 0 0 1.5em 3em;
+}
+
+body.wgm img,
+body.wgm svg {
+  max-width: 100%;
+}
+
+body.wgm img {
+  height: auto;
+}
+
+/* Astra's global button rule (assumed values, close to Astra's defaults: filled brand yellow, 4px radius,
+   padding 10px 40px, black text as on the measured WooCommerce login button). Plugin buttons sit on top of it. */
+body.wgm button,
+body.wgm input[type='button'],
+body.wgm input[type='submit'],
+body.wgm .button {
+  padding: 10px 40px;
+  border: 0 solid var(--wgm-yellow);
+  border-radius: 4px;
+  background-color: var(--wgm-yellow);
+  color: #000000;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+}
+
+body.wgm button:hover,
+body.wgm .button:hover {
+  border-color: var(--wgm-yellow-dark);
+  background-color: var(--wgm-yellow-dark);
+  color: #000000;
+}
+
+.wgm-skip {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10000;
+  padding: 8px 14px;
+  background: var(--wgm-yellow);
+  color: #000000;
+  transform: translateY(-200%);
+}
+
+.wgm-skip:focus {
+  transform: none;
+}
+
+/* ---- Header: Astra transparent header, bar rgba(0,0,0,.39), 83px desktop / 80px mobile (measured) ---- */
+
+.wgm-header {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 99;
+}
+
+.wgm-header__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--wgm-header-h);
+  padding: 0 35px;
+  background: rgba(0, 0, 0, 0.39);
+  transition: box-shadow 0.2s linear;
+}
+
+html.wgm-scrolled .wgm-header__bar {
+  box-shadow: rgba(36, 50, 66, 0.075) 0 2px 10px 0;
+}
+
+body.wgm .wgm-logo {
+  display: block;
+  flex: none;
+  color: #ffffff;
+  font-family: Karla, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+body.wgm .wgm-logo:hover {
+  color: #ffffff;
+}
+
+/* The files are yellow; the live site turns them white with an SVG colour filter. */
+.wgm-logo__img {
+  display: none;
+  background-position: left center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: brightness(0) invert(1);
+}
+
+.wgm-logo__img--wide {
+  width: 180px;
+  height: 48.86px;
+}
+
+.wgm-logo__img--mark {
+  display: none;
+  width: 45px;
+  height: 34.88px;
+}
+
+html.wgm-assets .wgm-logo__img--wide {
+  display: block;
+  background-image: var(--wgm-logo-wide);
+}
+
+html.wgm-assets .wgm-logo__img--mark {
+  background-image: var(--wgm-logo-mark);
+}
+
+html.wgm-assets .wgm-logo__fallback {
+  display: none;
+}
+
+.wgm-nav {
+  margin-left: auto;
+}
+
+body.wgm .wgm-nav ul {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+body.wgm .wgm-nav a {
+  display: block;
+  padding: 0 17px;
+  color: var(--wgm-text);
+  font-size: 17px;
+  line-height: var(--wgm-header-h);
+  transition: color 0.2s linear;
+}
+
+body.wgm .wgm-nav a:hover,
+body.wgm .wgm-nav a[aria-current='page'] {
+  color: var(--wgm-yellow);
+}
+
+.wgm-nav__caret::after {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 0 3px 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+
+body.wgm .wgm-menu-toggle {
+  display: none;
+  position: relative;
+  width: 49px;
+  height: 49px;
+  margin: 0 -6px 0 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: #ffffff;
+}
+
+body.wgm .wgm-menu-toggle:hover {
+  background: transparent;
+  border-color: transparent;
+  color: #ffffff;
+}
+
+.wgm-menu-toggle__icon,
+.wgm-menu-toggle__icon::before,
+.wgm-menu-toggle__icon::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.wgm-menu-toggle__icon::before,
+.wgm-menu-toggle__icon::after {
+  content: '';
+  margin: 0;
+  top: auto;
+  left: 0;
+}
+
+.wgm-menu-toggle__icon::before {
+  top: -9px;
+}
+
+.wgm-menu-toggle__icon::after {
+  top: 9px;
+}
+
+body.wgm .wgm-header.is-open .wgm-menu-toggle {
+  border: 1px dotted var(--wgm-text);
+}
+
+.wgm-header.is-open .wgm-menu-toggle__icon {
+  width: 22px;
+  height: 2px;
+  margin: -1px 0 0 -11px;
+  border-radius: 0;
+  background: currentColor;
+  transform: rotate(45deg);
+}
+
+.wgm-header.is-open .wgm-menu-toggle__icon::before {
+  top: 0;
+  width: 22px;
+  height: 2px;
+  border-radius: 0;
+  transform: rotate(90deg);
+}
+
+.wgm-header.is-open .wgm-menu-toggle__icon::after {
+  display: none;
+}
+
+@media (max-width: 921px) {
+  .wgm-header__bar {
+    position: relative;
+    padding: 0 20px;
+  }
+
+  .wgm-logo__img--wide,
+  html.wgm-assets .wgm-logo__img--wide {
+    display: none;
+  }
+
+  html.wgm-assets .wgm-logo__img--mark {
+    display: block;
+  }
+
+  body.wgm .wgm-menu-toggle {
+    display: block;
+  }
+
+  .wgm-nav {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    margin: 0;
+    background: #ffffff;
+  }
+
+  .wgm-header.is-open .wgm-nav {
+    display: block;
+  }
+
+  body.wgm .wgm-nav ul {
+    display: block;
+  }
+
+  body.wgm .wgm-nav a {
+    padding: 0 20px;
+    color: var(--wgm-slate);
+    line-height: 51px;
+    letter-spacing: 0.02em;
+  }
+
+  /* Measured, and an existing low-contrast pair on the live site (2.13:1): copied for fidelity. */
+  body.wgm .wgm-nav a:hover,
+  body.wgm .wgm-nav a[aria-current='page'] {
+    background: var(--wgm-text);
+    color: var(--wgm-yellow-dark);
+  }
+
+  .wgm-nav__caret {
+    position: relative;
+  }
+
+  .wgm-nav__caret::after {
+    position: absolute;
+    top: 21px;
+    right: 24px;
+    width: 9px;
+    height: 9px;
+    margin: 0;
+    border-width: 2px;
+  }
+}
+
+/* ---- Content: Elementor boxed container, 1140px, 10px paddings (measured) ---- */
+
+.wgm-main {
+  /* A full screen at least, like the tall Elementor pages of the live site: the footer starts below the fold,
+     so the plugin mounting (dev harness: its CSS arrives after first paint) cannot shift a visible footer. */
+  min-height: 100vh;
+  padding: calc(var(--wgm-header-h) + 18px) 0 40px;
+}
+
+.wgm-container {
+  padding: 10px;
+}
+
+/* ?host=light (dev/site-mock.js): the content section is white with Astra's default text colour, like a light
+   Elementor section on the site. Header, footer and banner stay as they are. Assumed values: #3a3a3a is
+   Astra's default text/heading colour. The plugin must inherit it (spec 3.5). */
+html.wgm-host-light .wgm-container {
+  --wgm-text: #3a3a3a;
+  padding: 56px 10px 72px;
+  background: #fff;
+  color: #3a3a3a;
+}
+
+.wgm-container__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: min(100%, 1140px);
+  margin: 0 auto;
+  padding: 10px;
+}
+
+/* Elementor text-editor / heading widgets use Noto Sans TC weight 200 (measured); the shortcode widget that
+   holds the plugin does NOT (assumed: it inherits the Astra body: Karla 17px/400). */
+.wgm-widget--text,
+.wgm-widget--text p {
+  font-family: 'Noto Sans TC', sans-serif;
+  font-weight: 200;
+}
+
+/* ---- Footer: Astra footer, two text sections, hairline on top (measured text, size 17px) ---- */
+
+.wgm-footer {
+  border-top: 1px solid rgba(208, 213, 219, 0.3);
+}
+
+.wgm-footer__inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 0;
+}
+
+body.wgm .wgm-footer p {
+  margin: 0;
+  line-height: 28.05px;
+}
+
+.wgm-footer__left {
+  text-align: center;
+}
+
+.wgm-footer__right {
+  text-align: right;
+}
+
+body.wgm .wgm-footer a {
+  color: var(--wgm-text);
+}
+
+body.wgm .wgm-footer a:hover {
+  color: var(--wgm-yellow);
+}
+
+@media (max-width: 921px) {
+  .wgm-footer__inner {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 14px 20px;
+  }
+
+  .wgm-footer__left,
+  .wgm-footer__right {
+    text-align: center;
+  }
+}
+
+/* ---- Fixed bottom "Backer Plan" banner: ~80px desktop / ~190px mobile (screenshot-measured) ---- */
+
+.wgm-banner {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 999;
+  display: flex;
+  height: var(--wgm-banner-h);
+  background: var(--wgm-navy);
+  color: #ffffff;
+}
+
+.wgm-banner[hidden] {
+  display: none;
+}
+
+.wgm-banner__brand {
+  display: flex;
+  flex: 0 0 30%;
+  align-items: center;
+  padding-left: 38px;
+  background: var(--wgm-yellow);
+  color: var(--wgm-navy);
+  font-family: Poppins, 'Noto Sans TC', sans-serif;
+  font-size: 60px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.wgm-banner__body {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 22px;
+  padding: 0 80px 0 28px;
+  min-width: 0;
+}
+
+.wgm-banner__title {
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.wgm-banner__sub {
+  margin-top: 8px;
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+body.wgm .wgm-banner__cta {
+  display: inline-block;
+  min-width: 201px;
+  margin-left: auto;
+  padding: 0 24px;
+  border-radius: 3px;
+  background: var(--wgm-yellow);
+  color: var(--wgm-navy);
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  line-height: 44px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+body.wgm .wgm-banner__cta:hover {
+  background: var(--wgm-yellow-dark);
+  color: var(--wgm-navy);
+}
+
+body.wgm .wgm-banner__close {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  margin-top: -22px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 44px;
+}
+
+body.wgm .wgm-banner__close:hover {
+  background: transparent;
+  color: var(--wgm-yellow);
+}
+
+@media (max-width: 1100px) {
+  .wgm-banner__brand {
+    flex-basis: 34%;
+    padding-left: 24px;
+    font-size: 42px;
+  }
+
+  .wgm-banner__title {
+    font-size: 28px;
+  }
+
+  .wgm-banner__sub {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .wgm-banner {
+    flex-direction: column;
+  }
+
+  .wgm-banner__brand {
+    flex: 0 0 70px;
+    justify-content: center;
+    padding: 0;
+    font-size: 42px;
+  }
+
+  .wgm-banner__body {
+    flex-wrap: wrap;
+    flex: 1;
+    align-content: center;
+    justify-content: center;
+    gap: 10px 14px;
+    padding: 0 24px;
+  }
+
+  .wgm-banner__title {
+    font-size: 24px;
+  }
+
+  .wgm-banner__sub {
+    display: block;
+    margin-top: 4px;
+    font-size: 15px;
+  }
+
+  body.wgm .wgm-banner__cta {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: 18px;
+    line-height: 38px;
+  }
+
+  body.wgm .wgm-banner__close {
+    top: 12px;
+    margin-top: 0;
+    width: 36px;
+    height: 36px;
+    line-height: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.wgm a,
+  .wgm-header__bar {
+    transition: none;
+  }
+}

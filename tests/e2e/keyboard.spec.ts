@@ -70,7 +70,8 @@ test('Space and K on a non-interactive element inside the player toggle playback
 });
 
 test('shortcuts ignore modifier keys, key repeat and the volume slider; Space elsewhere keeps its default', async ({ page }) => {
-  const p = await gotoPlayer(page);
+  // The stress page: it has the plain <button> and <h1> outside the player that this test focuses.
+  const p = await gotoPlayer(page, { stress: true });
   await p.start('binaural');
   await p.expectAdvancing();
   await p.primary.focus();
@@ -150,7 +151,7 @@ test('the switch dialog: opens from the keyboard, traps focus, Escape closes it 
     const where = await page.evaluate(() => {
       const el = document.activeElement;
       if (!el || el === document.body) return 'browser-ui';
-      if (el.closest('dialog.wg-live__dialog')) return `dialog:${el.className.replace(/wg-live__btn\s+wg-live__btn--\w+\s*/, '')}`;
+      if (el.closest('dialog.wg-live__dialog')) return `dialog:${el.className.replace(/wg-live__btn(?:\s+wg-live__btn--\w+)?\s*/, '')}`;
       return `PAGE:${el.tagName}.${el.className}`;
     });
     expect(where, `Tab #${i + 1} must not reach the page behind the dialog`).not.toMatch(/^PAGE:/);

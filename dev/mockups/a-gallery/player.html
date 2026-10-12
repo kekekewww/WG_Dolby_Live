@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mockup A Gallery | 播放頁（開始前）</title>
+    <!--WG_SITE_MOCK:head assets=live-->
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body class="wgm">
+    <!--WG_SITE_MOCK:header current=live-->
+
+    <main class="wgm-main" id="content">
+      <div class="wgm-container">
+        <div class="wgm-container__inner">
+          <div class="wgm-widget wgm-widget--shortcode">
+            <div class="wg-live" data-wg-live-view="player">
+              <section class="wg-live__player-view" data-event="demo-live-binaural-atmos" data-media-kind="audio" data-status="selecting" data-gate="open">
+                <div class="wg-live__player" role="group" aria-label="音樂會播放器">
+                  <div class="wg-live__stage wg-live__stage--audio" data-media-kind="audio">
+                    <audio class="wg-live__media wg-live__media--audio" preload="none"></audio>
+                    <div class="wg-live__stage-art">
+                      <img class="wg-live__stage-img" src="./poster-live.svg" width="1200" height="675" alt="介面示範用海報（非實際活動）" />
+                    </div>
+                  </div>
+
+                  <header class="wg-live__player-head">
+                    <div class="wg-live__meta-row">
+                      <span class="wg-live__badge wg-live__badge--live wg-live__player-status-badge">演出中</span>
+                      <span class="wg-live__badge wg-live__badge--demo">介面示範</span>
+                    </div>
+                    <h2 class="wg-live__heading wg-live__player-title">【介面示範】錄音室現場音樂會 Live</h2>
+                    <p class="wg-live__player-meta">
+                      <span class="wg-live__player-meta-item">演出者：示範樂手 A、示範樂手 B</span>
+                      <span class="wg-live__player-meta-item"><time datetime="2026-10-12T06:29:00Z">2026年10月12日（一）14:29 台北時間</time></span>
+                    </p>
+                    <div class="wg-live__status">
+                      <h3 class="wg-live__status-title" tabindex="-1">按下「開始聆聽」即可播放</h3>
+                      <p class="wg-live__demo-notice">操作示範音訊，非 Binaural／Atmos 驗證素材</p>
+                      <p class="wg-live__mode-note wg-live__small wg-live__muted">模式標示只代表所選的音訊版本，不代表已確認裝置的輸出方式。</p>
+                    </div>
+                  </header>
+
+                  <div class="wg-live__controls">
+                    <fieldset class="wg-live__mode-selector">
+                      <legend class="wg-live__mode-legend">選擇聆聽模式</legend>
+                      <div class="wg-live__mode-options">
+                        <div class="wg-live__mode" data-mode="binaural" data-selected="true" data-available="true">
+                          <input class="wg-live__mode-input" type="radio" id="m-bin" name="wg-mode" value="binaural" checked aria-labelledby="m-bin-title m-bin-action" aria-describedby="m-bin-desc m-bin-helper" />
+                          <label class="wg-live__mode-card" for="m-bin">
+                            <span class="wg-live__mode-title" id="m-bin-title">耳機聆聽 · Binaural</span>
+                            <span class="wg-live__mode-desc" id="m-bin-desc">使用耳機聆聽錄音室製作的雙耳版本。</span>
+                            <span class="wg-live__mode-helper" id="m-bin-helper">一般耳機即可播放此版本；音訊效果依錄音室交付內容為準。</span>
+                            <span class="wg-live__mode-foot">
+                              <span class="wg-live__mode-action" id="m-bin-action">選擇耳機模式</span>
+                              <span class="wg-live__mode-marker" aria-hidden="true">已選取</span>
+                            </span>
+                          </label>
+                        </div>
+                        <div class="wg-live__mode" data-mode="atmos" data-selected="false" data-available="true">
+                          <input class="wg-live__mode-input" type="radio" id="m-atm" name="wg-mode" value="atmos" aria-labelledby="m-atm-title m-atm-action" aria-describedby="m-atm-desc m-atm-helper" />
+                          <label class="wg-live__mode-card" for="m-atm">
+                            <span class="wg-live__mode-title" id="m-atm-title">家庭劇院 · Dolby Atmos</span>
+                            <span class="wg-live__mode-desc" id="m-atm-desc">適用於經確認的播放裝置、連接方式與 Atmos 家庭劇院。</span>
+                            <span class="wg-live__mode-helper" id="m-atm-helper">請先閱讀支援條件；選用 Atmos 音軌不等於系統已確認最終設備輸出。</span>
+                            <span class="wg-live__mode-foot">
+                              <span class="wg-live__mode-action" id="m-atm-action">選擇家庭劇院模式</span>
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                      <a class="wg-live__mode-help" href="#">閱讀聆聽說明與支援條件</a>
+                    </fieldset>
+
+                    <div class="wg-live__controls-main">
+                      <button class="wg-live__btn wg-live__btn--primary wg-live__play" type="button" data-action="start">開始聆聽</button>
+                    </div>
+                    <div class="wg-live__modebar" role="group" aria-label="目前聆聽模式">
+                      <div class="wg-live__mode-info">
+                        <p class="wg-live__mode-label">已選擇：Binaural</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="wg-live__aside">
+                  <section class="wg-live__info" aria-labelledby="h-info">
+                    <h3 class="wg-live__info-heading wg-live__heading wg-live__heading--h3" id="h-info" tabindex="-1">活動資訊</h3>
+                    <div class="wg-live__info-body">
+                      <div class="wg-live__info-main">
+                        <p class="wg-live__info-text">這是介面示範活動，用來確認播放流程與版面。</p>
+                      <p class="wg-live__info-text">內容不是實際演出，也不是真實售票活動。</p>
+                      <p class="wg-live__info-when"><strong>演出時間：</strong><time datetime="2026-10-12T06:29:00Z">2026年10月12日（一）14:29 台北時間</time></p>
+                      </div>
+                      <section class="wg-live__programme" aria-labelledby="h-prog">
+                        <h4 class="wg-live__programme-heading wg-live__heading wg-live__heading--h4" id="h-prog">節目單</h4>
+                        <ul class="wg-live__programme-list">
+                          <li>示範曲目 一</li>
+                          <li>示範曲目 二</li>
+                          <li>示範曲目 三</li>
+                        </ul>
+                        <p class="wg-live__programme-note wg-live__small wg-live__muted">節目單為預定內容，不代表目前正在播放的曲目。</p>
+                      </section>
+                    </div>
+                  </section>
+                  <p class="wg-live__help-link"><a class="wg-live__link" href="#">聆聽說明</a></p>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!--WG_SITE_MOCK:footer-->
+  </body>
+</html>

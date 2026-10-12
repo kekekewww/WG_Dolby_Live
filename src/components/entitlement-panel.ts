@@ -39,21 +39,23 @@ export function createEntitlementPanel(options: EntitlementPanelOptions): Entitl
   const contactHref = safeUrl(links.contact);
 
   const login = accountHref
-    ? h('a', { className: 'wg-live__btn wg-live__btn--secondary', href: accountHref, text: statusCopy.entitlement.guest.action, hidden: true })
+    ? h('a', { className: 'wg-live__btn wg-live__btn--primary', href: accountHref, text: statusCopy.entitlement.guest.action, hidden: true })
     : null;
   const buy = buyHref
-    ? h('a', { className: 'wg-live__btn wg-live__btn--secondary', href: buyHref, text: statusCopy.entitlement.notEntitled.action, hidden: true })
+    ? h('a', { className: 'wg-live__btn wg-live__btn--primary', href: buyHref, text: statusCopy.entitlement.notEntitled.action, hidden: true })
     : null;
   const retry = h('button', {
-    className: 'wg-live__btn wg-live__btn--secondary',
+    className: 'wg-live__btn wg-live__btn--primary',
     type: 'button',
     text: statusCopy.entitlement.unavailable.retry,
     hidden: true,
   });
   const contact = contactHref
-    ? h('a', { className: 'wg-live__btn wg-live__btn--ghost', href: contactHref, text: statusCopy.entitlement.unavailable.contact, hidden: true })
+    ? h('a', { className: 'wg-live__btn', href: contactHref, text: statusCopy.entitlement.unavailable.contact, hidden: true })
     : null;
 
+  // The entitlement call to action is the view's one yellow primary while it is shown: the disabled Start
+  // button turns into a muted veil in the same state (player.css), so only one button reads as the next step.
   const actions = h('div', { className: 'wg-live__actions wg-live__actions--stack' }, login, buy, retry, contact);
   const el = h(
     'section',

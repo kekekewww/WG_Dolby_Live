@@ -1,18 +1,29 @@
 /*
- * responsive.css - breakpoints.
+ * responsive.css - breakpoints shared by every view (type scale and section gap).
  *
  * Astra's own breakpoints (544 / 767-768 / 921-922, measured as declared @media widths in
- * design-baseline.md 2.8) are inherited for the type scale. 768 and 1024 are the candidate layout
- * breakpoints from spec 7.1; they get final values after the staging check. View stylesheets add
- * their own layout rules at the same widths.
+ * design-baseline.md 2.8) are inherited for the type scale. 768 and 1024 are the layout
+ * breakpoints from spec 7.1; view stylesheets add their own layout rules at the same widths
+ * (1023 tablet, 767 phone, 543 narrow phone).
  */
+
+/* Tablets: less air between sections. */
+@media (max-width: 1023px) {
+  .wg-live,
+  .wg-live-featured {
+    --wg-section-gap: 80px;
+  }
+}
 
 /* MEASURED: h2 38px -> 28px on 390/360 wide viewports; the switch is placed at Astra's 767/768 break. */
 @media (max-width: 767px) {
   .wg-live,
   .wg-live-featured {
     --wg-font-size-h2: 28px;
-    --wg-font-size-h3: 20px;
+    --wg-font-size-section: 22px;
+    --wg-font-size-h3: 22px;
+    --wg-font-size-h4: 20px;
+    --wg-section-gap: 64px;
   }
 }
 
@@ -26,16 +37,21 @@
   .wg-live .wg-live__actions--stack > .wg-live__btn {
     width: 100%;
   }
+
+  /* Text buttons in a stacked row stay left aligned (a centred underlined word looks lost in a full-width row). */
+  .wg-live .wg-live__actions--stack > .wg-live__btn:not(.wg-live__btn--primary) {
+    justify-content: flex-start;
+  }
 }
 
-/* Spec 7.1 candidate: 768. */
+/* Spec 7.1: 768. */
 @media (min-width: 768px) {
   .wg-live .wg-live__skeleton--player {
     min-height: 480px;
   }
 }
 
-/* Spec 7.1 candidate: 1024. */
+/* Spec 7.1: 1024. */
 @media (min-width: 1024px) {
   .wg-live .wg-live__skeleton--events {
     min-height: 480px;

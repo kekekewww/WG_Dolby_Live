@@ -43,6 +43,11 @@ export interface PageOptions {
   harness?: string;
   /** Other query parameters, e.g. featured, heading, fixed */
   query?: Record<string, string>;
+  /**
+   * Use the stress page (dev/stress.html: deliberately hostile global theme CSS, no realistic site chrome)
+   * instead of the realistic page. For the CSS isolation specs only.
+   */
+  stress?: boolean;
 }
 
 function search(opts: PageOptions): string {
@@ -55,7 +60,10 @@ function search(opts: PageOptions): string {
   return s === '' ? '' : `?${s}`;
 }
 
+const STRESS_VIEW = { index: 'events', listen: 'player', help: 'help' } as const;
+
 export function viewUrl(view: 'index' | 'listen' | 'help', opts: PageOptions = {}): string {
+  if (opts.stress) return `${BASE_PATH[opts.base ?? 'dev']}stress.html${search({ ...opts, query: { view: STRESS_VIEW[view], ...opts.query } })}`;
   return `${BASE_PATH[opts.base ?? 'dev']}${view}.html${search(opts)}`;
 }
 
@@ -343,6 +351,39 @@ export async function scanWgLive(page: Page, label: string): Promise<void> {
   if (minor.length > 0) {
     console.log(`[axe minor] ${label}: ${minor.map((v) => `${v.id}(${v.impact})`).join(', ')}`);
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Host colours (inherit-first, spec 3.5)                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The hosts the plugin must read on. `dark` is the live site (photo under a 75% #111 overlay; automation gets a gradient
+ * instead of the photo, which axe cannot judge); `dark-solid` is the same site with the lightest pixel the photo can
+ * produce under the overlay (#4c4c4c) as a flat colour, so axe can; `light` is `?host=light` (white section, #3a3a3a).
+ */
+export type Host = 'dark' | 'dark-solid' | 'light';
+export const HOSTS: readonly Host[] = ['dark', 'dark-solid', 'light'];
+
+/** Query parameters for a host variant. */
+export function hostQuery(host: Host): Record<string, string> {
+  return host === 'light' ? { host: 'light' } : {};
+}
+
+/** Flat worst-case background for the dark host. Call after every navigation (the style tag does not survive it). */
+export async function applyHostBackground(page: Page, host: Host): Promise<void> {
+  if (host === 'dark-solid') await page.addStyleTag({ content: 'body.wgm { background-image: none !important; background-color: #4c4c4c !important; }' });
+}
+
+/**
+ * axe `color-contrast` scan of a subtree. Zero violations of any impact: this is the inherit-first gate (text on the host
+ * background must follow the host's colour, so it is readable on dark and light sections alike).
+ */
+export async function scanContrast(page: Page, label: string, include = '.wg-live'): Promise<void> {
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running' || a.effect?.getTiming().iterations === Infinity));
+  const results = await new AxeBuilder({ page }).include(include).withRules(['color-contrast']).analyze();
+  const summary = results.violations.map((v) => `${label}: ${v.id} - ${v.help}\n${v.nodes.map((n) => `    ${n.target.join(' ')}  ${n.failureSummary?.replace(/\s+/g, ' ')}`).join('\n')}`);
+  expect(summary, `colour contrast violations in "${label}"`).toEqual([]);
 }
 
 /** True when the page (not just .wg-live) scrolls horizontally. */

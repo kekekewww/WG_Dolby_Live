@@ -164,7 +164,9 @@ describe('dist server (dev/serve-dist.mjs)', () => {
 
     const home = await (await fetch(`${base}/dev/dist/home.html`)).text();
     expect(home).toContain('wg-live-featured.css');
-    expect(home).not.toContain('<script');
+    // No script of ours: the only <script> is the site mock's chrome script (dev/site-mock.js).
+    expect(home).not.toMatch(/<script(?![^>]*data-site-mock)/);
+    expect(home).not.toContain('wg-live.js');
 
     for (const name of ['wg-live.js', 'wg-live.css', 'wg-live-featured.css', 'build-info.json']) {
       expect((await fetch(`${base}/dist/${name}`)).status, name).toBe(200);

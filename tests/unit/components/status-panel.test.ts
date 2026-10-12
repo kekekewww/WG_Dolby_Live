@@ -166,7 +166,11 @@ describe('mode label', () => {
   it('adds the note that the label does not confirm device output', () => {
     const label = createModeLabel();
     label.update(readyState());
-    expect(label.el.querySelector<HTMLElement>('.wg-live__mode-note')?.hidden).toBe(false);
+    // The note is a separate node (the view puts it in the status block), never inside the label element.
+    expect(label.el.querySelector('.wg-live__mode-note')).toBeNull();
+    expect(label.note.classList.contains('wg-live__mode-note')).toBe(true);
+    expect(label.note.hidden).toBe(false);
+    expect(label.note.textContent).toContain('模式標示只代表');
     expect(label.el.textContent).not.toMatch(/已認證|7\.1\.4|Dolby 認證/);
   });
 });
@@ -195,6 +199,16 @@ describe('error recovery actions (plan 6.5 - 6.7)', () => {
     expect(panel.el.querySelector<HTMLElement>('.wg-live__error-code')?.hidden).toBe(true);
     expect(visible(panel.el, '.wg-live__status-actions button, .wg-live__status-actions a')).toHaveLength(0);
     expect(panel.el.querySelector<HTMLElement>('.wg-live__status-actions')?.hidden).toBe(true);
+  });
+
+  it('one yellow primary: only the first recovery action after a failure, never while Start is shown', () => {
+    const atmosFailure: PlayerError = { code: 'network', mode: 'atmos', publicCode: 'E-NET-01' };
+    const { panel } = build(failed(atmosFailure, { player: { lastGoodMode: 'binaural' } }));
+    const primary = visible(panel.el, '.wg-live__status-actions .wg-live__btn--primary');
+    expect(primary.map((b) => b.textContent)).toEqual(['重試']);
+
+    const idle = build(makeState({ entitlement: 'entitled', notReady: 'mode_unavailable', player: { status: 'idle', selectedMode: 'atmos' } }));
+    expect(idle.panel.el.querySelector('.wg-live__btn--primary')).toBeNull();
   });
 
   it('after a failed switch to Atmos: reload the old mode and fall back to Binaural; the track is never changed silently', () => {

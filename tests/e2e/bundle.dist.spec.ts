@@ -234,13 +234,60 @@ test.describe('homepage featured card, built CSS only', () => {
     expect(requests.some((u) => u.includes('wg-live.js'))).toBe(false);
     expect(requests.some((u) => u.includes('wg-live.css'))).toBe(false);
     expect(requests.some((u) => /hls|\.mp3/.test(u))).toBe(false);
-    await expect(page.locator('script')).toHaveCount(0);
+    // The only script is the site mock's own chrome script (dev/site-mock.js), never one of ours.
+    await expect(page.locator('script:not([data-site-mock])')).toHaveCount(0);
+    await expect(page.locator('script')).toHaveCount(1);
     expect(await page.locator('.wg-live-featured').evaluate((el) => getComputedStyle(el).getPropertyValue('--wg-accent').trim())).toBe('#f0d62b');
     expect(await page.evaluate(() => (window as unknown as { WGLive?: unknown }).WGLive)).toBeUndefined();
   });
 
-  test('the featured stylesheet is scoped and does not restyle the homepage chrome', async ({ page }) => {
+  test('home.html shows a featured EVENT card by default: poster, date tile, status, title, one yellow CTA (no script of ours)', async ({ page }) => {
     await page.goto('/dev/dist/home.html');
+    const card = page.locator('section.wg-live-featured--event');
+    await expect(card).toBeVisible();
+    await expect(card.locator('h2.wg-live-featured__title')).toContainText('錄音室現場音樂會');
+    await expect(card.locator('.wg-live-featured__badge--status')).toHaveText('演出中');
+    await expect(card.locator('.wg-live-featured__tile')).toBeVisible();
+    await expect(card.locator('img.wg-live-featured__poster')).toBeVisible();
+    const cta = card.getByRole('link', { name: '體驗播放介面' });
+    await expect(cta).toHaveCount(1);
+    await expect(cta).toHaveAttribute('href', /\/dev\/dist\/listen\.html\?wg_event=demo-live-binaural-atmos$/);
+    expect((await cta.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(47.9);
+    expect(await cta.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(240, 214, 43)');
+    await expect(page.locator('script:not([data-site-mock])')).toHaveCount(0);
+  });
+
+  test('home.html?featured=none: the empty state is a deliberate section with the sentence and a link to Live (spec 16.2)', async ({ page }) => {
+    await page.goto('/dev/dist/home.html?featured=none');
+    const section = page.locator('section.wg-live-featured--empty');
+    await expect(section.getByText('線上音樂會資訊即將公布')).toBeVisible();
+    const link = section.getByRole('link', { name: '前往 Live' });
+    await expect(link).toHaveAttribute('href', '/dev/dist/index.html');
+    expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(47.9);
+    // Heading-sized text, not a line of small print.
+    expect(await section.locator('.wg-live-featured__text').evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(22);
+    await expect(page.locator('.wg-live-featured--event')).toHaveCount(0);
+  });
+
+  test('home.html?harness=disabled: the text only, no link', async ({ page }) => {
+    await page.goto('/dev/dist/home.html?harness=disabled');
+    const section = page.locator('section.wg-live-featured--empty');
+    await expect(section.getByText('線上音樂會資訊即將公布')).toBeVisible();
+    await expect(section.locator('a')).toHaveCount(0);
+  });
+
+  test('the featured card does not scroll sideways at 390px (event card and empty state)', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const query of ['', '?featured=none', '?featured=demo-ended']) {
+      await page.goto(`/dev/dist/home.html${query}`);
+      await expect(page.locator('.wg-live-featured')).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), query).toBeLessThanOrEqual(0);
+    }
+  });
+
+  test('the featured stylesheet is scoped and does not restyle the homepage chrome', async ({ page }) => {
+    // The stress variant of the homepage: hostile global theme rules (dev/stress.css).
+    await page.goto('/dev/dist/stress-home.html');
     const report = await scanScopedRules(page, 'dist');
     expect(report.sheets).toBe(1);
     expect(report.ruleCount).toBeGreaterThan(5);
@@ -266,11 +313,11 @@ test.describe('shipped CSS', () => {
   });
 
   test('the hostile site chrome cannot restyle the shipped plugin (events, help, player, dialog)', async ({ page }) => {
-    await gotoView(page, 'index', { base: 'dist' });
+    await gotoView(page, 'index', { base: 'dist', stress: true });
     expect(await inspectPlugin(page)).toEqual([]);
-    await gotoView(page, 'help', { base: 'dist' });
+    await gotoView(page, 'help', { base: 'dist', stress: true });
     expect(await inspectPlugin(page)).toEqual([]);
-    const p = await gotoPlayer(page, { base: 'dist' });
+    const p = await gotoPlayer(page, { base: 'dist', stress: true });
     await p.start('binaural');
     await p.expectAdvancing();
     await p.switchButton.click();

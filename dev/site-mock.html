@@ -1,0 +1,66 @@
+<!--
+  Realistic mock of the live site's chrome (dev only). Three snippets, picked out by the dev servers
+  (injectSiteMock in dev/core.mjs) when a page contains a token comment named WG_SITE_MOCK:head,
+  WG_SITE_MOCK:header (optionally with "current=live") or WG_SITE_MOCK:footer. See docs/design/site-mock.md
+  for the exact token spelling and a page skeleton (dev/mockups/_template.html is a ready copy).
+
+  Placeholders inside the snippets: {{base}} = "/dev/" (Vite) or "/dev/dist/" (dist server), and
+  {{aria:KEY}} = aria-current="page" when the token says current=KEY, {{assets}} = data-assets="live" when
+  the head token says assets=live (always load the real photo, logos and fonts, even under automation).
+
+  The markup is plain HTML on purpose: copy a snippet into a static page if you need it without a server
+  (then keep the stylesheet and script tags of the head snippet and replace {{base}} and {{aria:*}}).
+-->
+
+<!--wgm:begin head-->
+<link rel="stylesheet" href="/dev/site-mock.css" />
+<script src="/dev/site-mock.js" data-site-mock{{assets}}></script>
+<!--wgm:end head-->
+
+<!--wgm:begin header-->
+<a class="wgm-skip" href="#content">跳到主要內容</a>
+<header class="wgm-header" id="masthead">
+  <div class="wgm-header__bar">
+    <a class="wgm-logo" href="/dev/stub.html?page=home" aria-label="維光音樂 WG STUDIO，回首頁">
+      <span class="wgm-logo__fallback" aria-hidden="true">WG STUDIO</span>
+      <span class="wgm-logo__img wgm-logo__img--wide" aria-hidden="true"></span>
+      <span class="wgm-logo__img wgm-logo__img--mark" aria-hidden="true"></span>
+    </a>
+    <button class="wgm-menu-toggle" type="button" aria-expanded="false" aria-controls="wgm-nav" aria-label="主選單">
+      <span class="wgm-menu-toggle__icon" aria-hidden="true"></span>
+    </button>
+    <nav class="wgm-nav" id="wgm-nav" aria-label="主選單">
+      <ul>
+        <li><a href="/dev/stub.html?page=home" {{aria:home}}>Homepage</a></li>
+        <li><a href="/dev/stub.html?page=biography" {{aria:biography}}>Biography</a></li>
+        <li><a href="/dev/stub.html?page=portfolio" {{aria:portfolio}}>Portfolio</a></li>
+        <li><a href="/dev/stub.html?page=video" {{aria:video}}>Video</a></li>
+        <li><a href="{{base}}index.html" {{aria:live}}>Live</a></li>
+        <li><a href="/dev/stub.html?page=blog" {{aria:blog}}>Blog</a></li>
+        <li><a href="/dev/stub.html?page=contact" {{aria:contact}}>Contact</a></li>
+        <li><a class="wgm-nav__caret" href="/dev/stub.html?page=store" {{aria:store}}>Store</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+<!--wgm:end header-->
+
+<!--wgm:begin footer-->
+<footer class="wgm-footer" id="colophon">
+  <div class="wgm-footer__inner">
+    <p class="wgm-footer__left">營業人名稱：維光音樂有限公司 / 統一編號：64887139</p>
+    <p class="wgm-footer__right">
+      <a href="/dev/stub.html?page=contact">聯絡資訊</a> / <a href="/dev/stub.html?page=terms">服務條款</a> / <a href="/dev/stub.html?page=privacy">隱私權政策</a>
+    </p>
+  </div>
+</footer>
+<aside class="wgm-banner" id="wgm-banner" aria-label="Backer Plan 會員計畫">
+  <div class="wgm-banner__brand" aria-hidden="true">Backer Plan</div>
+  <div class="wgm-banner__body">
+    <span class="wgm-banner__title">加入會員計畫</span>
+    <span class="wgm-banner__sub">支持我們創作更好的內容</span>
+    <a class="wgm-banner__cta" href="/dev/stub.html?page=store">介紹資訊</a>
+  </div>
+  <button class="wgm-banner__close" type="button" aria-label="關閉 Backer Plan 橫幅">&times;</button>
+</aside>
+<!--wgm:end footer-->
