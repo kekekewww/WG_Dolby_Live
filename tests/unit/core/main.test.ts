@@ -272,6 +272,50 @@ describe('registry', () => {
   });
 });
 
+describe('double bundle and detached players (PS-8, PS-9)', () => {
+  it('PS-9: two copies of the bundle mount a player root exactly once, although the probe is async', async () => {
+    const root = makeRoot('player');
+    document.body.append(root);
+    await loadMain(); // copy 1: the probe is pending
+    expect(root.dataset.wgLiveMounted).toBe('pending');
+    await loadMain(); // copy 2 runs mountAll() before copy 1's probe settled
+    await vi.advanceTimersByTimeAsync(100);
+    expect(calls.player).toHaveLength(1);
+    expect(root.dataset.wgLiveMounted).toBe('1');
+  });
+
+  it('PS-9: a pending root is released when it leaves the document before the probe settles', async () => {
+    const root = makeRoot('player');
+    document.body.append(root);
+    await loadMain();
+    root.remove();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(calls.player).toHaveLength(0);
+    expect(root.hasAttribute('data-wg-live-mounted')).toBe(false);
+  });
+
+  it('PS-8: a detached-root announcement from a poller destroys the instance without any mount call', async () => {
+    const root = makeRoot('events');
+    document.body.append(root);
+    await loadMain();
+    const instance = calls.events[0]?.instance;
+    root.remove();
+    expect(instance?.destroy).not.toHaveBeenCalled();
+    document.dispatchEvent(new CustomEvent('wg-live:detached'));
+    expect(instance?.destroy).toHaveBeenCalledTimes(1);
+    document.dispatchEvent(new CustomEvent('wg-live:detached'));
+    expect(instance?.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('PS-8: attached roots survive the announcement', async () => {
+    const root = makeRoot('events');
+    document.body.append(root);
+    await loadMain();
+    document.dispatchEvent(new CustomEvent('wg-live:detached'));
+    expect(calls.events[0]?.instance.destroy).not.toHaveBeenCalled();
+  });
+});
+
 describe('page lifecycle', () => {
   it('pagehide calls stop() on every mounted view', async () => {
     document.body.append(makeRoot('player'), makeRoot('events'));
@@ -471,6 +515,28 @@ describe('announce()', () => {
     expect(region()?.textContent).toBe('請點擊開始聆聽');
     await vi.advanceTimersByTimeAsync(2000);
     expect(region()?.textContent).toBe('請點擊開始聆聽');
+  });
+
+  it('UI-04: an urgent repeat that discards a queued message is announced again, a plain repeat is not', async () => {
+    const { region, ctx } = await setup();
+    const regionEl = region() as HTMLElement;
+    let writes = 0;
+    new MutationObserver(() => (writes += 1)).observe(regionEl, { childList: true, characterData: true, subtree: true });
+    ctx.announce('播放失敗', { immediate: true });
+    await Promise.resolve();
+    expect(writes).toBe(1);
+    // 重試: 「正在連接音訊」 is queued, the same failure arrives before the window closes.
+    ctx.announce('正在連接音訊');
+    ctx.announce('播放失敗', { immediate: true });
+    await Promise.resolve();
+    expect(writes).toBe(2);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(regionEl.textContent).toBe('播放失敗');
+    expect(writes).toBe(2); // the discarded loading message never shows up
+    // Nothing was queued in between: still deduped.
+    ctx.announce('播放失敗', { immediate: true });
+    await Promise.resolve();
+    expect(writes).toBe(2);
   });
 
   it('ignores empty messages', async () => {

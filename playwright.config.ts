@@ -11,6 +11,11 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * Playwright WebKit is not Safari: real-device Safari results go into evidence/test-results.
  * `npm run test:e2e` runs everything; test:e2e:dev and test:e2e:dist run one kind.
+ *
+ * The dist server runs `npm run build`, which EMPTIES plugin/wg-live/assets/dist, the folder wp-env serves. Playwright
+ * starts every webServer whatever --project is selected, so the dist entry is only started when harness-dist is
+ * selected (or no project is: the full run), or WG_E2E_DIST=1. WG_E2E_DIST=0 never starts it. Even so, do not run
+ * `npm run test:e2e` / `test:e2e:dist` while the wp-env integration suite (npm run test:integration) is running.
  */
 
 export const DEV_PORT = 5174;
@@ -19,6 +24,24 @@ export const DIST_PORT = 5175;
 const DEV_URL = `http://localhost:${DEV_PORT}`;
 const DIST_URL = `http://localhost:${DIST_PORT}`;
 const DIST_SPEC = '**/*.dist.spec.ts';
+
+/** Project names from the command line (--project=a, --project a, repeated); empty = no filter. */
+export function selectedProjects(argv: readonly string[]): string[] {
+  const out: string[] = [];
+  argv.forEach((arg, i) => {
+    if (arg.startsWith('--project=')) out.push(arg.slice('--project='.length));
+    else if (arg === '--project' && argv[i + 1]) out.push(String(argv[i + 1]));
+  });
+  return out;
+}
+
+/** Does this run need the built dist (and thus `npm run build`)? */
+export function needsDistServer(argv: readonly string[] = process.argv.slice(2), env: Record<string, string | undefined> = process.env): boolean {
+  if (env.WG_E2E_DIST === '0') return false;
+  if (env.WG_E2E_DIST === '1') return true;
+  const selected = selectedProjects(argv);
+  return selected.length === 0 || selected.includes('harness-dist');
+}
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -40,12 +63,16 @@ export default defineConfig({
       reuseExistingServer: true,
       timeout: 60_000,
     },
-    {
-      command: `npm run build && node dev/serve-dist.mjs --port ${DIST_PORT}`,
-      url: `${DIST_URL}/dev/dist/index.html`,
-      reuseExistingServer: true,
-      timeout: 120_000,
-    },
+    ...(needsDistServer()
+      ? [
+          {
+            command: `npm run build && node dev/serve-dist.mjs --port ${DIST_PORT}`,
+            url: `${DIST_URL}/dev/dist/index.html`,
+            reuseExistingServer: true,
+            timeout: 120_000,
+          },
+        ]
+      : []),
   ],
   projects: [
     { name: 'harness-dev-chromium', testIgnore: DIST_SPEC, use: { ...devices['Desktop Chrome'], baseURL: DEV_URL } },

@@ -17,7 +17,7 @@ import { createModeLabel, createStatusPanel, createUnavailablePanel } from '../c
 import { createEntitlementPanel } from '../components/entitlement-panel';
 import { createSwitchDialog } from '../components/dialog';
 import { createDevPanel } from '../components/dev-panel';
-import { h, safeUrl, uid } from '../dom';
+import { h, isFocusable, safeUrl, uid } from '../dom';
 import { DEMO_EVENT_BADGE, playerCopy, statusCopy } from '../i18n/copy';
 import { createAdapterFactory } from '../adapters/factory';
 import { createEntitlementPlaceholder } from '../adapters/entitlement-placeholder';
@@ -26,11 +26,11 @@ import { createPlayerController } from '../state/coordinator';
 import type { CoordinatorDeps } from '../state/coordinator';
 import { startEventPoller } from '../state/event-poller';
 import { pageRegistry } from '../state/page-registry';
-import { isUrgentAnnouncement, selectAnnouncement, selectGate, selectModeLabel } from '../state/model';
+import { isUrgentAnnouncement, selectAnnouncement, selectGate, selectModeLabel, selectSwitchTarget } from '../state/model';
 import { readModePreference, writeModePreference } from '../util/storage';
 import { readEventParam, readModeParam } from '../util/url';
 import { formatEventDateTime } from '../util/time';
-import type { AppState, BootConfig, ListeningMode, PublicEvent } from '../types';
+import type { AppState, BootConfig, EventStatus, ListeningMode, PublicEvent } from '../types';
 import type { ViewContext, ViewInstance } from './types';
 
 type Heading = 'h1' | 'h2' | 'h3' | 'h4';
@@ -151,9 +151,31 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
   function openSwitchDialog(trigger: HTMLElement): void {
     const state = controller.getState();
     if (state.player.status === 'switching' || state.player.status === 'loading') return;
-    const current = currentModeForSwitch(state);
+    // After a failure the target is the OTHER mode than the one that failed (selectSwitchTarget), which
+    // after a failed switch is the last good mode, never the mode that just failed.
+    const failedTarget = state.player.status === 'failed' ? selectSwitchTarget(state) : null;
+    const current = failedTarget !== null ? otherMode(failedTarget) : currentModeForSwitch(state);
     if (current === null) return;
     dialog.open(trigger, current, otherMode(current));
+  }
+
+  /**
+   * The status panel's 切換模式 action (UI-03). Before anything was started (idle / selecting, for
+   * example mode_unavailable) there is no stream to interrupt: select the other mode directly and
+   * keep focus on the radio, because the action disappears once the not-ready state clears.
+   */
+  function onStatusSwitch(trigger: HTMLElement): void {
+    const state = controller.getState();
+    const { status } = state.player;
+    if (status === 'idle' || status === 'selecting') {
+      const target = selectSwitchTarget(state);
+      if (target === null) return;
+      controller.selectMode(target);
+      const radio = selector.inputs[target];
+      if (isFocusable(radio)) radio.focus({ preventScroll: true });
+      return;
+    }
+    openSwitchDialog(trigger);
   }
 
   const statusPanel = createStatusPanel({
@@ -161,7 +183,7 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     headingTag: sectionTag,
     links: boot.links,
     event,
-    onSwitchMode: openSwitchDialog,
+    onSwitchMode: onStatusSwitch,
     onViewEvent: () => {
       infoHeading.focus();
     },
@@ -228,11 +250,21 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
   }
 
   /* ---- in-place rendering ---- */
-  let lastEvent: PublicEvent | null = null;
+  let lastEventKey: string | null = null;
+
+  /**
+   * Every poll delivers a freshly parsed PublicEvent, so identity says nothing. Compare the fields this
+   * block renders: an unchanged poll must not replace the description or programme nodes (a screen reader's
+   * virtual cursor and a text selection live on them, plan 6.6).
+   */
+  function eventDetailsKey(data: PublicEvent): string {
+    return JSON.stringify([data.title, data.performers, data.startsAt, data.displayTimezone, data.description, data.programme]);
+  }
 
   function renderEventDetails(data: PublicEvent): void {
-    if (lastEvent === data) return;
-    lastEvent = data;
+    const key = eventDetailsKey(data);
+    if (lastEventKey === key) return;
+    lastEventKey = key;
     setText(titleText, data.title);
 
     const when = formatEventDateTime(data.startsAt, data.displayTimezone);
@@ -275,7 +307,23 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     infoBody.replaceChildren(...body);
   }
 
+  /**
+   * Keyboard focus must not fall to <body> when the control that has it hides itself (Start on
+   * failure, 重試, 重新載入, 改用耳機 Binaural, the entitlement 重試, WCAG 2.4.3). The status heading
+   * (tabindex="-1") is the same fallback the switch dialog uses (plan 6.6).
+   */
+  function keepFocus(before: Element | null): void {
+    if (before === null || before === statusPanel.heading || before === infoHeading) return;
+    if (!view.contains(before) || dialog.el.contains(before)) return;
+    if (isFocusable(before)) return;
+    const now = document.activeElement;
+    // Browsers move focus to <body> when a focused element is hidden; jsdom keeps the stale element.
+    if (now !== null && now !== document.body && now !== before) return;
+    statusPanel.heading.focus({ preventScroll: true });
+  }
+
   function render(state: AppState): void {
+    const focusedBefore = document.activeElement;
     const data: PublicEvent = state.event.data ?? event;
     renderEventDetails(data);
 
@@ -314,19 +362,37 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     // A modal about a stream that is gone (ended, cancelled, not yet open) must not linger.
     if (dialog.isOpen() && (!controlsVisible || gate !== 'open' || !engaged)) dialog.close();
     dialog.notifyStatus(playerStatus);
+    keepFocus(focusedBefore);
   }
 
   /* ---- announcements (plan 6.10): only what selectAnnouncement() says, only when it changes ---- */
   let lastAnnounced: string | null = null;
+  let lastEventStatus: EventStatus | null = null;
   function announce(state: AppState): void {
-    const message = selectAnnouncement(state);
+    const status = state.event.status;
+    const statusChanged = status !== lastEventStatus;
+    lastEventStatus = status;
+    const statusMessage = status !== null ? statusCopy.announce.eventStatus(status) : null;
+    const gateOpen = selectGate(state).kind === 'open';
+    const waiting = state.player.status === 'idle' || state.player.status === 'selecting';
+
+    let message = selectAnnouncement(state);
+    // While nothing plays selectAnnouncement() falls back to the event status. That is news only when the
+    // status really changed; picking another mode after a failure must not claim 「活動狀態更新」.
+    if (gateOpen && waiting && message === statusMessage && !statusChanged) message = null;
+
     if (message === null) {
       lastAnnounced = null;
-      return;
+    } else if (message !== lastAnnounced) {
+      lastAnnounced = message;
+      ctx.announce(message, isUrgentAnnouncement(state) ? { immediate: true } : undefined);
     }
-    if (message === lastAnnounced) return;
-    lastAnnounced = message;
-    ctx.announce(message, isUrgentAnnouncement(state) ? { immediate: true } : undefined);
+
+    // live <-> intermission while the player is engaged: the player message does not change, so announce
+    // the event status itself (plan 6.10). Idle / selecting and the closed gates are covered above.
+    if (statusChanged && statusMessage !== null && gateOpen && !waiting && message !== statusMessage) {
+      ctx.announce(statusMessage);
+    }
   }
 
   /* ---- wiring ---- */
@@ -344,6 +410,7 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
   const initial = controller.getState();
   render(initial);
   lastAnnounced = selectAnnouncement(initial); // never announce the state the page loaded in
+  lastEventStatus = initial.event.status;
   mount.replaceChildren(view);
 
   let destroyed = false;

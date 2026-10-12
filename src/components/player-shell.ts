@@ -53,7 +53,6 @@ export function createPlayerShell(mediaKind: 'audio' | 'video'): PlayerShell {
       attrs: {
         role: 'group',
         'aria-label': playerCopy.group.label,
-        'aria-keyshortcuts': playerCopy.controls.keyShortcuts,
       },
     },
     stage,

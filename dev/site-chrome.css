@@ -168,4 +168,5 @@ dialog {
   color: #222;
   font-family: 'Courier New', monospace;
   font-size: 0.8rem;
+  overflow-wrap: anywhere;
 }

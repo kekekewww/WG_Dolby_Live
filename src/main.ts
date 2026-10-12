@@ -14,6 +14,7 @@ import { version as packageVersion } from '../package.json';
 import { readBootConfig } from './boot';
 import { h } from './dom';
 import { statusCopy } from './i18n/copy-status';
+import { DETACHED_EVENT } from './state/event-poller';
 import { probeVolumeControl, volumeProbeResult } from './util/capabilities';
 import type { BootConfig, LiveView } from './types';
 import type { ViewContext, ViewInstance } from './views/types';
@@ -81,6 +82,10 @@ function createAnnouncer(root: HTMLElement): Announcer {
     announce(message, opts) {
       if (typeof message !== 'string' || message === '') return;
       if (opts?.immediate) {
+        // An urgent message that discards a different queued one (retry: 「正在連接音訊」 swallowed by the
+        // same failure again) is a new event for the listener: do not dedupe it against what was written
+        // before the discarded message (UI-04).
+        if (pending !== null && pending !== message) lastWritten = null;
         pending = null;
         if (timer !== null) {
           window.clearTimeout(timer);
@@ -196,9 +201,12 @@ function finishMount(entry: Entry, boot: BootConfig, env: ViewContext['env']): v
 function mountRoot(root: HTMLElement): void {
   if (entries.has(root)) return; // idempotent
   // A second copy of the bundle (double enqueue, optimizer quirks) must not mount over the first.
-  if (root.getAttribute('data-wg-live-mounted') === '1') return;
+  // Any value counts, including the 'pending' marker set below: player roots finish mounting only after
+  // the async volume probe, and both copies run mountAll() before either probe settles.
+  if (root.hasAttribute('data-wg-live-mounted')) return;
   const view = asView(root.dataset.wgLiveView);
   if (!view) return;
+  root.setAttribute('data-wg-live-mounted', 'pending');
 
   const entry: Entry = { root, view, instance: null, announcer: createAnnouncer(root), destroyed: false };
   entries.set(root, entry);
@@ -322,6 +330,10 @@ window.addEventListener('pageshow', (event) => {
     }
   }
 });
+
+// A poller that finds its root detached asks for a sweep, so players no timer watches (paused, failed,
+// selecting) are still destroyed when their widget is removed without a later mount call (PS-8).
+document.addEventListener(DETACHED_EVENT, sweepDetached);
 
 wireElementorLate();
 

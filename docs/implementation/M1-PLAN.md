@@ -4,6 +4,16 @@ This document turns the spec (`WG_Studio_Live_Design_and_WordPress_Deployment_Sp
 
 Rev 2 applies the 60 confirmed findings of the multi-lens contract review of 2026-10-10. Finding ids are cited in brackets, e.g. [slug].
 
+## Rev 2.1 changes
+
+Decisions recorded after the verified code review of the committed M1 build (bc1e150):
+- Account link (spec §10.4): the WooCommerce My Account page when WooCommerce is active and the page is published, else the admin `account_url` override, else null. Store follows the same order with the shop page. Contact is unchanged (override or null).
+- Publishing an event requires a non-empty title and a valid start time. Otherwise the event is forced to draft with an admin notice, using the same mechanism as the slug rule.
+- `scripts/seed-demo.php` refuses to run unless `wp_get_environment_type()` is `local` or `development`, or an explicit `force` argument is passed.
+- `build-info.json` records `{ commit, dirty: boolean }`. `package.mjs` refuses a dirty tree unless `--allow-dirty` is given, and `check-artifact` reports a dirty build as a failure unless `--allow-dirty` is given.
+- A network error while the user has paused (or after `play_blocked`) must not auto-play: the source is recovered but playback stays paused.
+- Runbooks (docs only): the contact link has no automatic value and must be set during staging and production setup; permalink checks move after publishing because draft pages have no internal links; page caches must be purged after changing an event, because `/live/` and the featured card are page-load snapshots.
+
 ## 1. Decisions
 
 | # | Decision | Why |
@@ -149,7 +159,7 @@ Namespace `WG_Live`. Every file starts with `defined( 'ABSPATH' ) || exit;`, exc
 | `includes/class-entitlement.php` | M1 server-side entitlement seam (D6). | `Entitlement::check( int $event_id, int $user_id ): array` → `['status'=>…, 'reason'=>…]` |
 | `includes/class-public-data.php` | `is_enabled()` (D16). PublicEvent mapping, whitelist only. REST routes (§5). `boot_config()`. | `Public_Data::is_enabled(): bool`, `public_event( WP_Post ): ?array`, `published_events(): array`, `boot_config( string $view, ?string $slug, string $heading ): array` |
 | `includes/class-playback-provider.php` | Resolution order in §5.1. | `Playback_Provider::resolve( int $event_id, string $mode, int $user_id ): array` |
-| `includes/class-site-links.php` | Bound page permalinks via `get_permalink( $id )`, only for published pages. Account: the valid `account_url` override, else the WooCommerce myaccount page when `function_exists('wc_get_page_id') && wc_get_page_id('myaccount') > 0` and it is published, else null. Store works the same way with `shop`. Contact: the override, else null. Never uses the WooCommerce home fallback. [wc-account-fallback] | `Site_Links::all(): array` (`SiteLinks`), `Site_Links::player_url( string $slug, ?string $mode ): string` |
+| `includes/class-site-links.php` | Bound page permalinks via `get_permalink( $id )`, only for published pages. Account (spec §10.4, Rev 2.1): the WooCommerce myaccount page when `function_exists('wc_get_page_id') && wc_get_page_id('myaccount') > 0` and it is published, else the valid `account_url` override, else null. Store works the same way with `shop`. Contact: the override, else null. Never uses the WooCommerce home fallback. [wc-account-fallback] | `Site_Links::all(): array` (`SiteLinks`), `Site_Links::player_url( string $slug, ?string $mode ): string` |
 | `includes/class-shortcodes.php` | `[wg_live view="events\|player\|help" event="slug" heading="h1\|h2"]`: view whitelist; `event` must match the slug pattern and resolve via `Events::is_public`. Also `[wg_live_featured]`. Returns HTML and never echoes. When `devTools` is on, calls `nocache_headers()` and defines `DONOTCACHEPAGE` before output is sent. | — |
 | `includes/class-assets.php` | Registers the `wg-live` and `wg-live-featured` handles, versioned with the hashes from `build-info.json`. Enqueues on the bound page IDs (`wp_enqueue_scripts`, `is_page( $ids )`), featured CSS on the front page, and both on `elementor/preview/enqueue_scripts` and `elementor/preview/enqueue_styles`. Shortcodes fall back to a late enqueue. A missing build gives an admin notice and a readable viewer message, never a fatal error. | `Assets::enqueue_app()`, `enqueue_featured()`, `is_build_present(): bool`, `attach_overrides( string $handle )` |
 | `templates/{events,player,help}.php` | §3.1 container. | — |

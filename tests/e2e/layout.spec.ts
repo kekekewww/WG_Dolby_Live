@@ -4,7 +4,7 @@
  * bottom sheet at <= 768 px, and layout does not jump when the view mounts (CLS, lab only).
  */
 import { test, type Page } from '@playwright/test';
-import { expect, gotoPlayer, gotoView, horizontalOverflow, rewriteBootConfig, SLUG_ENDED, SLUG_PENDING, SLUG_SCHEDULED } from './helpers';
+import { expect, gotoPlayer, gotoView, horizontalOverflow, rewriteBootConfig, SLUG_ENDED, SLUG_LIVE, SLUG_PENDING, SLUG_SCHEDULED } from './helpers';
 
 test.describe.configure({ timeout: 90_000 });
 
@@ -159,6 +159,32 @@ for (const vp of VIEWPORTS) {
       expect((b?.y ?? 0) - (a?.y ?? 0)).toBeGreaterThan((a?.height ?? 0) - 2);
       expect(a?.height ?? 0).toBeGreaterThanOrEqual(44);
     });
+  });
+}
+
+/**
+ * UI-01: base.css keeps <time> on one line, but the full date and zone label (about 290px) is wider than
+ * the one-third info column on tablets and wider than a 320px column. The page must not scroll sideways
+ * from phone to iPad portrait width.
+ */
+for (const width of [320, 768, 820, 834]) {
+  test.describe(`player page reflows at ${width}px`, () => {
+    test.use({ viewport: { width, height: 1000 } });
+
+    for (const slug of [SLUG_LIVE, SLUG_SCHEDULED, SLUG_ENDED]) {
+      test(`event ${slug}: the document does not scroll horizontally`, async ({ page }) => {
+        await gotoPlayer(page, { event: slug });
+        await expectNoHorizontalScroll(page, `${slug} at ${width}`);
+        const times = await page.locator('.wg-live__player-meta time, .wg-live__info-when time').evaluateAll((els) =>
+          els.map((el) => {
+            const r = el.getBoundingClientRect();
+            return { right: r.right, vw: document.documentElement.clientWidth };
+          }),
+        );
+        expect(times.length).toBeGreaterThan(0);
+        for (const t of times) expect(t.right).toBeLessThanOrEqual(t.vw + 1);
+      });
+    }
   });
 }
 

@@ -34,12 +34,12 @@ test('modes section carries the spec 5.2 copy and the label note', async ({ page
   await expect(modes).toContainText('只代表所選的音訊版本，不代表已確認裝置的輸出方式');
 });
 
-test('the Safari-first note does not block other browsers and says "not yet confirmed"', async ({ page }) => {
+test('the Safari-first note does not block other browsers and promises no state the UI never shows', async ({ page }) => {
   await gotoView(page, 'help');
   const safari = page.locator('.wg-live__help-section--safari');
   await expect(safari).toContainText('Safari');
   await expect(safari).toContainText('不會被擋在 Binaural 模式之外');
-  await expect(safari).toContainText('尚未確認');
+  await expect(safari).not.toContainText('尚未確認');
 });
 
 test('the compatibility table is a real table; untested rows read 尚待測試; nothing is claimed supported', async ({ page }) => {
@@ -72,14 +72,14 @@ test('no-sound steps, reconnecting and switching sections state the real behavio
   await expect(root).toContainText('新模式成功播放後，「目前播放」才會更新');
 });
 
-test('keyboard section documents Tab, Enter/Space, Space/K in the player, and Esc', async ({ page }) => {
+test('keyboard section documents Tab, Enter/Space, K in the player, and Esc', async ({ page }) => {
   await gotoView(page, 'help');
   const keyboard = page.locator('.wg-live__help-section--keyboard');
   await expect(keyboard).toContainText('Tab');
   await expect(keyboard).toContainText('Enter');
   await expect(keyboard).toContainText('K');
   await expect(keyboard).toContainText('Esc');
-  await expect(keyboard).toContainText('焦點在播放器內、且不在按鈕或輸入欄位上時，切換播放與暫停');
+  await expect(keyboard).toContainText('焦點在播放器內（輸入欄位除外）時，切換播放與暫停');
   await expect(keyboard.locator('kbd').first()).toBeVisible();
 });
 

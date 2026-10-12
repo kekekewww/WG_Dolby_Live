@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // Validates the release ZIP (spec 13.4, 15.1; M1-PLAN 7.3).
 //
-//   node scripts/check-artifact.mjs [path-to-zip]
+//   node scripts/check-artifact.mjs [--allow-dirty] [path-to-zip]
 //
 // Default: the newest artifacts/wg-live-*.zip. The ZIP is read in memory with fflate.
+// A build from a dirty or uncommitted tree is a failure unless --allow-dirty is given.
 // Exit codes: 0 = ok, 1 = problems found, 2 = usage / IO error.
 
 import { createHash } from 'node:crypto';
@@ -13,7 +14,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gzipSync as nodeGzip } from 'node:zlib';
 import { strFromU8, unzipSync } from 'fflate';
 import { checkCss, DEFAULT_BLOCKS } from './check-css-scope.mjs';
-import { DIST_FILES, parsePluginVersion, parseStableTag, shouldShip } from './package.mjs';
+import { DIST_FILES, parsePluginVersion, parseStableTag, parseVersionConstant } from './package.mjs';
 
 export const ROOT_DIR = 'wg-live';
 export const DIST_DIR = `${ROOT_DIR}/assets/dist`;
@@ -43,13 +44,49 @@ const FORBIDDEN_DIRS = new Set([
   'test',
   '__tests__',
 ]);
-const FORBIDDEN_EXT = /\.(ts|tsx|map|woff2?|ttf|otf|eot|zip|sql|log)$/i;
+const FORBIDDEN_EXT = /(?:\.(?:ts|tsx|map|woff2?|ttf|otf|eot|zip|sql|log|gz|tgz|tar|7z|bak|orig|swp|sqlite|db|webm|mp4|mov|pem|key|env|phar)|~)$/i;
+
+/**
+ * The allowlist of ZIP paths below wg-live/, written out independently of package.mjs shouldShip() so that
+ * a packager mistake is caught here (M1-PLAN 7.3). Anything not matching is "not on the allowlist".
+ */
+const ALLOWED_PATHS = [
+  /^(?:wg-live|uninstall)\.php$/,
+  /^readme\.txt$/,
+  /^(?:license|licence|copying|notice|third-party|third_party)(?:\.txt|\.md)?$/i,
+  /^(?:includes|templates)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.php$/,
+  /^licenses\/[A-Za-z0-9._-]+\.(?:txt|md)$/i,
+  /^assets\/dist\/(?:wg-live\.js|wg-live\.css|wg-live-featured\.css|build-info\.json)$/,
+  /^assets\/admin\/[A-Za-z0-9._-]+\.(?:js|css)$/i,
+  /^assets\/demo\/(?:[A-Za-z0-9_-]+\.mp3|poster-demo\.svg|LICENSE-demo\.txt)$/,
+];
+/** @param {string} rel path below wg-live/ */
+const isAllowedPath = (rel) => ALLOWED_PATHS.some((re) => re.test(rel));
+
+/** Files the plugin needs at runtime besides the require_once targets of wg-live.php (relative to wg-live/). */
+export const REQUIRED_FILES = [
+  'wg-live.php',
+  'uninstall.php',
+  'readme.txt',
+  'templates/events.php',
+  'templates/featured.php',
+  'templates/help.php',
+  'templates/player.php',
+  'templates/partials/container.php',
+  'assets/demo/demo-tone-1.mp3',
+  'assets/demo/demo-tone-2.mp3',
+  'assets/demo/poster-demo.svg',
+  'assets/demo/LICENSE-demo.txt',
+  'assets/admin/admin.js',
+  'assets/admin/admin.css',
+];
 
 /**
  * @typedef {{ check: string, ok: boolean, detail: string }} Row
  * @typedef {{ ok: boolean, problems: string[], rows: Row[] }} Result
  * @typedef {{
  *   zipName?: string,
+ *   allowDirty?: boolean,
  *   packageVersion?: string | null,
  *   zipBytes?: Uint8Array | null,
  *   sha256Text?: string | null,
@@ -86,7 +123,7 @@ const sha = (data) => createHash('sha256').update(data).digest('hex');
  * @returns {Result}
  */
 export function checkEntries(entries, options = {}) {
-  const { zipName, packageVersion = null, zipBytes = null, sha256Text = null } = options;
+  const { zipName, allowDirty = false, packageVersion = null, zipBytes = null, sha256Text = null } = options;
   /** @type {string[]} */
   const problems = [];
   /** @type {Row[]} */
@@ -156,13 +193,29 @@ export function checkEntries(entries, options = {}) {
     for (const n of files) {
       if (!n.startsWith(`${ROOT_DIR}/`) || forbiddenReason(n)) continue; // reported by the checks above
       const rel = n.slice(ROOT_DIR.length + 1);
-      if (!shouldShip(rel)) p.push(`"${n}" is not on the package allowlist`);
+      if (!isAllowedPath(rel)) p.push(`"${n}" is not on the package allowlist`);
     }
     record('allowlist', p, 'every entry is on the package allowlist');
   }
 
+  // 3c. Required files: everything wg-live.php require_once's plus the templates, demo and admin assets.
+  //     Uploading a ZIP over an active plugin with a missing include is a site-wide fatal error.
+  {
+    /** @type {string[]} */
+    const p = [];
+    const main = entries[`${ROOT_DIR}/wg-live.php`];
+    const required = new Set(REQUIRED_FILES);
+    if (main) {
+      for (const m of strFromU8(main).matchAll(/require_once\s+WG_LIVE_DIR\s*\.\s*'([^']+)'/g)) if (m[1]) required.add(m[1]);
+    }
+    for (const rel of [...required].sort()) {
+      if (!entries[`${ROOT_DIR}/${rel}`]) p.push(`${ROOT_DIR}/${rel} is missing`);
+    }
+    record('required files', p, `${required.size} required file(s) present`);
+  }
+
   // 4. dist contents and build-info hashes.
-  /** @type {{ version?: unknown, files?: Record<string, { sha256?: string }> } | null} */
+  /** @type {{ version?: unknown, commit?: unknown, dirty?: unknown, files?: Record<string, { sha256?: string }> } | null} */
   let buildInfo = null;
   {
     /** @type {string[]} */
@@ -251,6 +304,7 @@ export function checkEntries(entries, options = {}) {
     versions['plugin header'] = php ? parsePluginVersion(strFromU8(php)) : null;
     const readme = entries[`${ROOT_DIR}/readme.txt`];
     versions['readme Stable tag'] = readme ? parseStableTag(strFromU8(readme)) : null;
+    versions['WG_LIVE_VERSION'] = php ? parseVersionConstant(strFromU8(php)) : null;
     versions['build-info.json'] = typeof buildInfo?.version === 'string' ? buildInfo.version : null;
     const fromName = zipName ? /^wg-live-(.+)\.zip$/.exec(zipName)?.[1] : undefined;
     if (fromName) versions['zip file name'] = fromName;
@@ -258,6 +312,23 @@ export function checkEntries(entries, options = {}) {
     const distinct = new Set(Object.values(versions).filter(Boolean));
     if (distinct.size > 1) p.push(`versions differ: ${Object.entries(versions).map(([k, v]) => `${k}=${v ?? '?'}`).join(', ')}`);
     record('versions', p, [...distinct].join(', ') || '-');
+  }
+
+  // 8b. Build provenance: the build must come from a clean, committed tree (spec 18.3, 19.4).
+  {
+    /** @type {string[]} */
+    const p = [];
+    const commit = typeof buildInfo?.commit === 'string' ? buildInfo.commit : '';
+    const hasSha = /^[0-9a-f]{40}$/.test(commit);
+    if (!buildInfo) p.push('build-info.json is missing or unreadable');
+    else {
+      if (!hasSha && !(allowDirty && commit === 'uncommitted')) p.push(`commit "${commit || '(missing)'}" is not a full 40-character git SHA`);
+      if (buildInfo.dirty === true) {
+        if (!allowDirty) p.push('the build was made from a dirty working tree (dirty: true); rebuild from a clean commit or pass --allow-dirty');
+      } else if (buildInfo.dirty !== false) p.push('build-info.json has no boolean "dirty" field');
+    }
+    const note = buildInfo?.dirty === true ? ' (dirty build allowed)' : '';
+    record('build commit', p, `${commit}${note}`);
   }
 
   // 9. Checksum file.
@@ -318,9 +389,10 @@ function printTable(rows) {
 
 function main() {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  const args = process.argv.slice(2);
+  const allowDirty = process.argv.slice(2).includes('--allow-dirty');
+  const args = process.argv.slice(2).filter((a) => a !== '--allow-dirty');
   if (args.length > 1 || args.some((a) => a.startsWith('-'))) {
-    console.error('usage: node scripts/check-artifact.mjs [path-to-zip]');
+    console.error('usage: node scripts/check-artifact.mjs [--allow-dirty] [path-to-zip]');
     return 2;
   }
   const zipPath = args[0] ? resolve(args[0]) : findNewestZip(join(root, 'artifacts'));
@@ -339,6 +411,7 @@ function main() {
   const shaPath = `${zipPath}.sha256`;
   const result = checkZip(new Uint8Array(readFileSync(zipPath)), {
     zipName: basename(zipPath),
+    allowDirty,
     packageVersion,
     sha256Text: existsSync(shaPath) ? readFileSync(shaPath, 'utf8') : null,
   });

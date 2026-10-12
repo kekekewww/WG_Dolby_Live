@@ -117,7 +117,9 @@ test('F15 deactivate: commerce pages still render, Live pages show the raw short
       const { status, text } = await body(path);
       expect(status, path).toBe(200);
       expect(text, path).toMatch(/<h1[^>]*>/i);
-      expect(text, path).not.toMatch(/Fatal error|Uncaught|Call to undefined|wg-live|Great things are on the horizon/);
+      // Plugin output only (asset URLs, handles, container/config markup) — a bare /wg-live/ would also match
+      // a site title derived from the checkout folder (the WSL mirror lives in ~/wg-live).
+      expect(text, path).not.toMatch(/Fatal error|Uncaught|Call to undefined|plugins\/wg-live\/|id=['"]wg-live(?:-featured)?-(?:css|js)['"]|class="wg-live[\s_"-]|wg-live__config|Great things are on the horizon/);
     }
     expect((await body('/')).status).toBe(200);
 

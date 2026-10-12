@@ -63,6 +63,35 @@ const BANNED_AT_RULE_HINT = {
 const unprefixed = (name) => name.toLowerCase().replace(/^-(?:webkit|moz|ms|o)-/, '');
 
 /**
+ * Does this compound selector match the root container itself? True when it directly holds a root class
+ * (.wg-live, .wg-live--x ...) and no element class (__), or when any :is()/:where() argument matches the
+ * root (judged per argument, on the argument's own subject compound, so a "__" class in one argument can
+ * never cancel a root class in another).
+ * @param {import('postcss-selector-parser').Node[]} compound
+ * @param {{ root: RegExp }} matchers
+ * @returns {boolean}
+ */
+function compoundIsRoot(compound, matchers) {
+  const direct = compound.filter((n) => n.type === 'class').map((n) => n.value);
+  if (direct.some((c) => matchers.root.test(c)) && !direct.some((c) => c.includes('__'))) return true;
+  for (const node of compound) {
+    if (node.type !== 'pseudo' || !/^:(?:is|where)$/i.test(node.value)) continue;
+    for (const arg of node.nodes) {
+      // The element an argument matches is its LAST compound (".wg-live .x" matches .x, not the root).
+      /** @type {import('postcss-selector-parser').Node[]} */
+      let subject = [];
+      for (const n of arg.nodes) {
+        if (n.type === 'comment') continue;
+        if (n.type === 'combinator') subject = [];
+        else subject.push(n);
+      }
+      if (compoundIsRoot(subject, matchers)) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Is the selector (one complex selector, no commas) scoped? Rules 1, 2 and the html/body/:root/* bans.
  * @param {import('postcss-selector-parser').Selector} selector
  * @returns {string | null} a problem description, or null when scoped
@@ -96,15 +125,6 @@ function selectorProblem(selector, matchers = classMatchers(DEFAULT_BLOCKS)) {
   if (banned) return banned;
 
   const classes = first.filter((n) => n.type === 'class').map((n) => n.value);
-  // Classes inside :is()/:where() count for the root test (but not for the scope test) too.
-  const rootTestClasses = [...classes];
-  for (const node of first) {
-    if (node.type === 'pseudo' && /^:(?:is|where)$/i.test(node.value)) {
-      node.walk((inner) => {
-        if (inner.type === 'class') rootTestClasses.push(inner.value);
-      });
-    }
-  }
   let scoped = classes.some((c) => matchers.scope.test(c));
 
   // :is(.wg-live ...) / :where(.wg-live ...) as the scope carrier: every argument must itself be scoped.
@@ -126,7 +146,7 @@ function selectorProblem(selector, matchers = classMatchers(DEFAULT_BLOCKS)) {
     return `the first compound selector must contain ${SCOPE_HINT} as a whole class`;
   }
 
-  const isRoot = rootTestClasses.some((c) => matchers.root.test(c)) && !rootTestClasses.some((c) => /__/.test(c));
+  const isRoot = compoundIsRoot(first, matchers);
   if (isRoot && firstCombinator && (firstCombinator.value === '+' || firstCombinator.value === '~')) {
     return `a "${firstCombinator.value}" sibling combinator directly after the root scope selector would style elements outside the container`;
   }

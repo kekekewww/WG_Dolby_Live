@@ -75,6 +75,33 @@ describe('check-css-scope: selectors', () => {
     expect(checkCss('.wg-live > .wg-live__a { x: 1 }\n.wg-live .wg-live__a + .wg-live__b { x: 1 }')).toEqual([]);
   });
 
+  it('rejects sibling combinators after a root hidden in :is()/:where() (TR-05)', () => {
+    const bypass = [
+      ':is(.wg-live, .wg-live__x) + p { x: 1 }',
+      '.wg-live:is(.wg-live__nope, *) ~ p { x: 1 }',
+      '.wg-live:where(:not(.wg-live__x)) ~ p { x: 1 }',
+      ':is(.wg-live__section, .wg-live) + * { x: 1 }',
+      ':where(.wg-live-featured--a, .wg-live__b) ~ p { x: 1 }',
+      ':is(:where(.wg-live)) + p { x: 1 }',
+    ];
+    for (const rule of bypass) {
+      const v = messages(rule);
+      expect(v, rule).toHaveLength(1);
+      expect(v[0], rule).toContain('sibling combinator');
+    }
+  });
+
+  it('still allows sibling combinators between elements, also inside :is()/:where() (TR-05)', () => {
+    const ok = [
+      '.wg-live__a + .wg-live__b { x: 1 }',
+      ':is(.wg-live__a, .wg-live__b) + .wg-live__c { x: 1 }',
+      ':where(.wg-live__a, .wg-live__b) ~ .wg-live__c { x: 1 }',
+      ':is(.wg-live .wg-live__a, .wg-live__b) + .wg-live__c { x: 1 }',
+      '.wg-live__a:is(:hover, :focus-visible) + .wg-live__b { x: 1 }',
+    ];
+    for (const rule of ok) expect(checkCss(rule), rule).toEqual([]);
+  });
+
   it('accepts :is()/:where() as a scope carrier only when every argument is scoped', () => {
     expect(isScopedSelector(':where(.wg-live, .wg-live-featured) a')).toBe(true);
     expect(isScopedSelector(':where(.wg-live, .other) a')).toBe(false);

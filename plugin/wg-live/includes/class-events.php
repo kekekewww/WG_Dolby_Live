@@ -584,7 +584,7 @@ final class Events {
 
 		if ( '' === $problem ) {
 			$data['post_name'] = $raw;
-			return $data;
+			return self::require_title_and_start( $data, $status, $post_id, $postarr );
 		}
 
 		// Keep the previous name (never the junk WordPress derived from the title).
@@ -620,7 +620,87 @@ final class Events {
 			);
 		}
 
+		return self::require_title_and_start( $data, $status, $post_id, $postarr );
+	}
+
+	/**
+	 * Publishing needs a title and a valid start time (spec 10.2, both required). Without them the event
+	 * goes back to draft with a notice, the same way a bad 代稱 does. Drafts are never blocked.
+	 *
+	 * @param array  $data    Post data (post_status may already have been pulled back to draft).
+	 * @param string $status  The status the save asked for.
+	 * @param int    $post_id Post ID (0 for a programmatic insert).
+	 * @param mixed  $postarr Sanitized post array.
+	 * @return array
+	 */
+	private static function require_title_and_start( array $data, string $status, int $post_id, $postarr ): array {
+		if ( ! in_array( $status, array( 'publish', 'future', 'private' ), true ) ) {
+			return $data;
+		}
+
+		$problems = array();
+		if ( '' === trim( wp_strip_all_tags( isset( $data['post_title'] ) ? (string) $data['post_title'] : '' ) ) ) {
+			$problems[] = '活動標題是必填欄位。請填入標題後再發布；活動已存為草稿。';
+		}
+		if ( ! self::will_have_start_time( $post_id, is_array( $postarr ) ? $postarr : array() ) ) {
+			$problems[] = '開始時間是必填欄位。請設定有效的開始時間後再發布；活動已存為草稿。';
+		}
+		if ( empty( $problems ) ) {
+			return $data;
+		}
+
+		$data['post_status'] = 'draft';
+		self::$forced_draft  = true;
+		foreach ( $problems as $message ) {
+			self::flash( 'error', $message );
+		}
 		return $data;
+	}
+
+	/**
+	 * Will this event have a valid start time once the save finishes? The meta is written after the post
+	 * data filter runs, so this mirrors what save_post() is about to store.
+	 *
+	 * - Our meta box form: a blank field clears the time; a malformed one keeps the stored time.
+	 * - A programmatic insert (no ID yet) writes its meta afterwards, so nothing can be checked here: pass.
+	 *   public_event() and the list column still keep such a row off the front end and flag it.
+	 * - Any other update (Quick Edit, bulk edit, wp_update_post): the stored time.
+	 *
+	 * @param int   $post_id Post ID.
+	 * @param array $postarr Sanitized post array.
+	 * @return bool
+	 */
+	private static function will_have_start_time( int $post_id, array $postarr ): bool {
+		$key = self::META_PREFIX . 'starts_at_utc';
+		if ( isset( $postarr['meta_input'] ) && is_array( $postarr['meta_input'] ) && array_key_exists( $key, $postarr['meta_input'] ) ) {
+			return '' !== self::clean_utc( is_string( $postarr['meta_input'][ $key ] ) ? $postarr['meta_input'][ $key ] : '' );
+		}
+		if ( $post_id <= 0 ) {
+			return true;
+		}
+
+		$stored = self::clean_utc( self::meta( $post_id, 'starts_at_utc' ) );
+		if ( ! self::has_valid_nonce( $post_id ) ) {
+			return '' !== $stored;
+		}
+		$fields = self::posted_fields();
+		if ( ! isset( $fields['starts_local'] ) || ! is_string( $fields['starts_local'] ) ) {
+			return '' !== $stored;
+		}
+		$local = trim( $fields['starts_local'] );
+		if ( '' === $local ) {
+			return false;
+		}
+		$timezone = self::meta( $post_id, 'display_timezone' );
+		if ( isset( $fields['display_timezone'] ) && is_string( $fields['display_timezone'] ) && self::is_valid_timezone( trim( $fields['display_timezone'] ) ) ) {
+			$timezone = trim( $fields['display_timezone'] );
+		} elseif ( ! self::is_valid_timezone( $timezone ) ) {
+			$timezone = self::DEFAULT_TIMEZONE;
+		}
+		if ( '' !== self::local_to_utc( $local, $timezone ) ) {
+			return true;
+		}
+		return '' !== $stored; // Malformed input: save_post() keeps the old time.
 	}
 
 	/**
@@ -760,7 +840,7 @@ final class Events {
 			if ( '' === $local ) {
 				update_post_meta( $post_id, $p . 'starts_at_utc', '' );
 				if ( 'publish' === get_post_status( $post_id ) ) {
-					self::flash( 'warning', '這場活動尚未設定開始時間。' );
+					self::flash( 'warning', '這場活動尚未設定開始時間，設定之前不會顯示在前台。' );
 				}
 			} else {
 				$utc = self::local_to_utc( $local, $timezone );
@@ -878,7 +958,11 @@ final class Events {
 				break;
 			case 'wg_live_start':
 				if ( '' === $data['starts_at_utc'] ) {
-					echo '—';
+					if ( 'publish' === $post->post_status ) {
+						echo '— <span class="wg-live-admin__flag wg-live-admin__flag--bad">未設定：不會公開</span>';
+					} else {
+						echo '—';
+					}
 					break;
 				}
 				try {

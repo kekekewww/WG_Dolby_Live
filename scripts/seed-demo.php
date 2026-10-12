@@ -27,6 +27,11 @@
  *
  * It never touches users, orders, products or any page it did not create.
  *
+ * SAFETY GUARD: it changes the theme, permalinks, the static front page and publishes test events, so it refuses to
+ * run unless wp_get_environment_type() is "local" or "development", or the argument "force" is passed (wp-env's
+ * tests site is "production" on purpose, so scripts/wp-env-setup.mjs passes "force" for it). Never pass "force" on a
+ * staging copy or a production site.
+ *
  * Compatible with PHP 7.4.
  */
 
@@ -59,6 +64,22 @@ if ( ! function_exists( 'wg_live_seed_log' ) ) {
 			}
 		}
 		return getenv( 'WG_LIVE_SEED_MODE' ) === 'demo';
+	}
+
+	/**
+	 * May the seed run here? Only on a local/development environment, or when "force" is given explicitly.
+	 *
+	 * @param array $cli_args Positional arguments handed to eval-file.
+	 * @return bool
+	 */
+	function wg_live_seed_allowed( array $cli_args ) {
+		foreach ( $cli_args as $arg ) {
+			if ( is_string( $arg ) && in_array( $arg, array( 'force', '--force' ), true ) ) {
+				return true;
+			}
+		}
+		$type = function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'production';
+		return in_array( $type, array( 'local', 'development' ), true );
 	}
 
 	/**
@@ -433,6 +454,13 @@ if ( ! function_exists( 'wg_live_seed_log' ) ) {
 			wg_live_seed_log( '  woocommerce_coming_soon: no' );
 		}
 
+		// Dev site only: wp-env names the site after the checkout folder (e.g. "wg-live" for the WSL mirror),
+		// which leaks the plugin slug into every page title. Use a neutral, stable name instead.
+		if ( get_option( 'blogname' ) !== 'WG Studio Dev' ) {
+			update_option( 'blogname', 'WG Studio Dev' );
+			wg_live_seed_log( '  blogname: WG Studio Dev' );
+		}
+
 		$featured = wg_live_seed_find( 'demo-live' );
 		$changed  = wg_live_seed_update_settings(
 			array(
@@ -453,6 +481,17 @@ if ( ! function_exists( 'wg_live_seed_log' ) ) {
 	 * @return int Exit code.
 	 */
 	function wg_live_seed_run( array $cli_args ) {
+		if ( ! wg_live_seed_allowed( $cli_args ) ) {
+			$type    = function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'production';
+			$message = 'seed-demo.php refused: the environment type is "' . $type . '" (only "local" and "development" are allowed). It changes the theme, permalinks and front page and publishes test events. Pass the argument "force" only for a throw-away site.';
+			if ( class_exists( 'WP_CLI' ) ) {
+				WP_CLI::error( $message );
+			}
+			echo $message . "
+"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CLI output.
+			return 1;
+		}
+
 		if ( ! post_type_exists( 'wg_live_event' ) ) {
 			$message = 'The post type wg_live_event is not registered. Activate the wg-live plugin first.';
 			if ( class_exists( 'WP_CLI' ) ) {

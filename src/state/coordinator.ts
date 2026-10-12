@@ -39,6 +39,11 @@ import { reduce } from './reducer';
 import type { Action } from './reducer';
 import { WATCHED_STATUSES, hasPlaybackIntent } from './transitions';
 
+/** An entitlement provider that mirrors event data on the client (the M1 placeholder) can follow polls. */
+interface EventAwareEntitlementProvider extends EntitlementProvider {
+  setEvent?(event: PublicEvent): void;
+}
+
 export interface CoordinatorDeps {
   boot: BootConfig;
   event: PublicEvent | null;
@@ -62,6 +67,8 @@ export const STALL_GRACE_MS = 3_000;
 export const STALL_FAIL_MS = 15_000;
 export const BUDGET_RESET_MS = 30_000;
 export const NON_FATAL_TOLERANCE_MS = 15_000;
+/** A descriptor request that has not answered by now is a network failure (E-NET-03), never a silent hang. */
+export const DESCRIPTOR_TIMEOUT_MS = 12_000;
 const TICK_MS = 500;
 
 type Playable = Exclude<PlaybackSource, { kind: 'not_ready' }>;
@@ -168,6 +175,11 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
   let lastAttempt: { kind: AttemptKind; mode: ListeningMode } | null = null;
   /** 'prepare' = the descriptor fetch failed (retry re-fetches); 'attempt' = a load/play failed. */
   let failureOrigin: 'prepare' | 'attempt' | null = null;
+  /**
+   * Set when a network error hit a paused player (user pause or play_blocked): the adapter is gone,
+   * the status stays `paused`, and the next user click re-attaches the cached source and plays (PS-2).
+   */
+  let pausedResume: AttemptCtx | null = null;
 
   /* ---- timers: the only ones in the state layer ---- */
   let retriesUsed = 0;
@@ -229,6 +241,7 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
     requestId += 1;
     actionAbort?.abort();
     actionAbort = new AbortController();
+    pausedResume = null;
     return requestId;
   }
 
@@ -273,6 +286,7 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
     retriesUsed = 0;
     failureOrigin = null;
     lastAttempt = null;
+    pausedResume = null;
   }
 
   /* ================================================================ */
@@ -289,14 +303,45 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
     return { ok: false, reason: 'not_ready', notReady: 'source_not_configured' };
   }
 
+  /**
+   * The only place that owns the descriptor timeout (PS-1, PS-4). The provider gets an inner signal; a
+   * request that has not answered after DESCRIPTOR_TIMEOUT_MS settles as `error` (the caller shows E-NET-03
+   * and offers 重試) while the caller's own signal stays un-aborted. An abort of the caller's signal settles
+   * as `aborted` at once and clears the timer, so nothing is left running after stop()/destroy().
+   */
   function fetchDescriptor(mode: ListeningMode, signal: AbortSignal): Promise<ResolveResult> {
     const event = state.event.data;
     if (event === null) return Promise.resolve({ ok: false, reason: 'not_ready', notReady: 'event_not_found' });
-    return deps.playbackProvider.resolve(event.id, mode, signal).then(
-      (source): ResolveResult => (signal.aborted ? { ok: false, reason: 'aborted' } : toResult(source)),
-      (error: unknown): ResolveResult =>
-        signal.aborted || isAbort(error) ? { ok: false, reason: 'aborted' } : { ok: false, reason: 'error' },
-    );
+    return new Promise<ResolveResult>((resolve) => {
+      if (signal.aborted) {
+        resolve({ ok: false, reason: 'aborted' });
+        return;
+      }
+      const inner = new AbortController();
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      let settled = false;
+      const finish = (result: ResolveResult): void => {
+        if (settled) return;
+        settled = true;
+        if (timer !== null) clearTimeout(timer);
+        signal.removeEventListener('abort', onAbort);
+        resolve(result);
+      };
+      const onAbort = (): void => {
+        inner.abort();
+        finish({ ok: false, reason: 'aborted' });
+      };
+      signal.addEventListener('abort', onAbort, { once: true });
+      timer = setTimeout(() => {
+        timer = null;
+        inner.abort();
+        finish({ ok: false, reason: 'error' });
+      }, DESCRIPTOR_TIMEOUT_MS);
+      deps.playbackProvider.resolve(event.id, mode, inner.signal).then(
+        (source) => finish(signal.aborted ? { ok: false, reason: 'aborted' } : toResult(source)),
+        (error: unknown) => finish(signal.aborted || isAbort(error) ? { ok: false, reason: 'aborted' } : { ok: false, reason: 'error' }),
+      );
+    });
   }
 
   function syncPrepared(): void {
@@ -394,6 +439,14 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
       return;
     }
     cur.errorHandled = true;
+    if (code === 'network' && state.player.status === 'paused') {
+      // The user paused (or play() was blocked): no automatic play() without a gesture (CLAUDE.md, plan 6.3).
+      // Drop the broken adapter, stay paused, and re-attach the cached source inside the next click.
+      clearRetry();
+      teardownCurrent();
+      pausedResume = cur.ctx;
+      return;
+    }
     if (code === 'network' && retriesUsed < MAX_RETRIES) {
       scheduleRetry(cur);
       return;
@@ -756,6 +809,9 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
   function syncEvent(data: PublicEvent | null): void {
     const prevStatus = state.event.status;
     const prevGate = gateKind();
+    const prevSourceKind = state.event.data?.sourceKind ?? null;
+    // The client entitlement mirror must answer for the CURRENT event data, not the mount-time one (F7).
+    if (data !== null) (deps.entitlementProvider as EventAwareEntitlementProvider).setEvent?.(data);
     const effective = data !== null ? (eventOverride ?? data.status) : null;
     dispatch({ type: 'event/set', data, status: effective, simulated: data !== null && eventOverride !== null });
 
@@ -765,7 +821,9 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
     }
 
     const nextGate = gateKind();
-    if (prevStatus === effective && prevGate === nextGate) return;
+    // A changed sourceKind (for example not_configured -> demo) must re-ask the server even when the status is the same (PS-7).
+    const sourceChanged = data !== null && prevSourceKind !== data.sourceKind;
+    if (prevStatus === effective && prevGate === nextGate && !sourceChanged) return;
 
     const intent = hasPlaybackIntent(state.player.status) || state.player.status === 'failed';
     const toFinished = effective === 'ended' || effective === 'cancelled';
@@ -778,7 +836,8 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
 
     // The server may answer differently under the new status: ask again.
     dispatch({ type: 'prepare/clear_not_ready' });
-    if (isBlockingGate(nextGate)) {
+    // Clearing the pin can open the gate: decide on the gate as it is NOW, not on the stale one (PS-7).
+    if (isBlockingGate(gateKind())) {
       abortEntitlement();
     } else {
       fetchEntitlement();
@@ -892,6 +951,14 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
           (error: unknown) => onPlayRejected(cur, error),
         );
       }
+      if (status === 'paused' && cur === null && pausedResume !== null) {
+        // A network error hit the paused player (PS-2): re-attach the cached source inside this click.
+        const ctx = pausedResume;
+        retriesUsed = 0;
+        dispatch({ type: 'attempt/resume' });
+        if (state.player.status !== 'loading') return done;
+        return runAttempt(ctx, false);
+      }
       return done; // loading / switching: pause is unavailable (plan 6.4)
     },
 
@@ -920,6 +987,12 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
     switchMode(mode) {
       if (destroyed || !offers(mode)) return done;
       const { status, pendingMode, loadedMode, error } = state.player;
+      if (status === 'idle' || status === 'selecting') {
+        // No adapter and nothing playing (for example mode_unavailable): "switching" is just choosing the other mode.
+        failureOrigin = null;
+        controller.selectMode(mode);
+        return done;
+      }
       if (!['playing', 'paused', 'reconnecting', 'failed', 'switching'].includes(status)) return done;
       if (gateKind() !== 'open' || state.entitlement !== 'entitled') return done;
       if (status === 'switching' && pendingMode === mode) return done; // double click
@@ -940,6 +1013,8 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
         if (mode !== null) controller.selectMode(mode);
         return done;
       }
+      // Same rule as start()/switchMode(): a denied or unknown entitlement never lets playback through (D6, PS-6).
+      if (gateKind() !== 'open' || state.entitlement !== 'entitled') return done;
       const mode = state.player.error?.mode ?? lastAttempt?.mode ?? state.player.selectedMode;
       if (mode === null || !offers(mode)) return done;
       const kind = lastAttempt?.kind ?? 'start';
@@ -959,6 +1034,7 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
     reloadLastGood() {
       const mode = state.player.lastGoodMode;
       if (destroyed || state.player.status !== 'failed' || mode === null || !offers(mode)) return done;
+      if (gateKind() !== 'open' || state.entitlement !== 'entitled') return done; // PS-6
       retriesUsed = 0;
       const source = descriptors.get(mode);
       if (source !== undefined) return runAttempt({ kind: 'switch', mode, source, remembered: false }, true);

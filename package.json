@@ -7,6 +7,11 @@
     "wp:start": "wp-env start",
     "wp:stop": "wp-env stop",
     "wp:cli": "wp-env run cli wp",
+    "wsl:doctor": "node scripts/wsl.mjs doctor",
+    "wsl:sync": "node scripts/wsl.mjs sync",
+    "wp:start:wsl": "node scripts/wsl.mjs start",
+    "wp:stop:wsl": "node scripts/wsl.mjs stop",
+    "wp:cli:wsl": "node scripts/wsl.mjs wp-env run cli wp",
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . && node scripts/check-css-scope.mjs",
@@ -15,13 +20,15 @@
     "build": "vite build && vite build --mode featured && node scripts/build-info.mjs",
     "test:e2e": "playwright test",
     "test:integration": "playwright test -c playwright.integration.config.ts",
+    "test:integration:wsl": "node scripts/wsl.mjs sync && playwright test -c playwright.integration.config.ts",
     "package": "node scripts/package.mjs",
     "check:artifact": "node scripts/check-artifact.mjs",
     "demo:audio": "node scripts/generate-demo-audio.mjs",
     "measure:site": "node scripts/measure-site.mjs",
     "test:e2e:dist": "playwright test --project=harness-dist",
     "test:e2e:dev": "playwright test --project=harness-dev-chromium --project=harness-dev-firefox --project=harness-dev-webkit",
-    "serve:dist": "node dev/serve-dist.mjs"
+    "serve:dist": "node dev/serve-dist.mjs",
+    "check": "npm run typecheck && npm run lint && npm run test:unit && npm run build && npm run package -- --allow-dirty && npm run check:artifact -- --allow-dirty"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

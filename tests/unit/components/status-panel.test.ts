@@ -256,6 +256,24 @@ describe('error recovery actions (plan 6.5 - 6.7)', () => {
     expect(actionLabels(panel.el)).toEqual(['重試']);
   });
 
+  it('PS-6: the retry fallback needs an entitled viewer; a denied or unknown entitlement gets no retry', () => {
+    const odd: PlayerError = { code: 'play_blocked', mode: 'binaural', publicCode: 'E-PLY-01' };
+    for (const entitlement of ['guest', 'not_entitled', 'unavailable', 'unknown'] as const) {
+      const { panel } = build(failed(odd, { entitlement }));
+      expect(actionLabels(panel.el), entitlement).toEqual([]);
+      expect(panel.el.querySelector<HTMLElement>('.wg-live__status-actions')?.hidden, entitlement).toBe(true);
+    }
+    const { panel } = build(failed(networkError, { entitlement: 'guest' }));
+    expect(actionLabels(panel.el)).toEqual([]);
+  });
+
+  it('UI-07: with no listening mode on offer the heading does not ask for a choice', () => {
+    const none = makeEvent({ availableModes: [] });
+    const { panel } = build(makeState({ entitlement: 'entitled', player: { status: 'idle' } }, none));
+    expect(panel.heading.textContent).toBe('聆聽模式即將公布');
+    expect(panel.heading.textContent).not.toContain('請先選擇');
+  });
+
   it('keeps the same button nodes across updates', () => {
     const { panel } = build(failed(networkError));
     const before = Array.from(panel.el.querySelectorAll('button'));

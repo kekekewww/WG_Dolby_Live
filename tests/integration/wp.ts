@@ -221,6 +221,23 @@ export function deleteEventsByPrefix(env: WpEnv, prefix: string): void {
 
 const loginStates = new Map<string, Awaited<ReturnType<BrowserContext['storageState']>>>();
 
+/**
+ * Fill the wp-login.php form on an already loaded login page.
+ *
+ * wp-login.php runs wp_attempt_focus() 200 ms after load: it focuses AND selects #user_login. If that
+ * lands between Playwright's focus and text insertion (seen on WebKit), the password is typed over the
+ * username. Wait for that focus first, then fill and verify both fields (retrying) before the caller submits.
+ */
+export async function fillLoginForm(page: Page, user: string, pass: string): Promise<void> {
+  await page.waitForFunction(() => document.activeElement?.id === 'user_login', undefined, { timeout: 5_000 }).catch(() => {});
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.locator('#user_login').fill(user);
+    await page.locator('#user_pass').fill(pass);
+    if ((await page.locator('#user_login').inputValue()) === user && (await page.locator('#user_pass').inputValue()) === pass) return;
+  }
+  throw new Error('wp-login.php: the login fields did not keep the filled values');
+}
+
 /** Log in to wp-login.php once per browser type and environment and return the storage state. */
 export async function adminState(browser: Browser, env: WpEnv): Promise<Awaited<ReturnType<BrowserContext['storageState']>>> {
   const key = `${browser.browserType().name()}:${env.port}`;
@@ -229,8 +246,7 @@ export async function adminState(browser: Browser, env: WpEnv): Promise<Awaited<
   const context = await browser.newContext({ baseURL: env.baseURL });
   const page = await context.newPage();
   await page.goto('/wp-login.php');
-  await page.locator('#user_login').fill(ADMIN_USER);
-  await page.locator('#user_pass').fill(ADMIN_PASS);
+  await fillLoginForm(page, ADMIN_USER, ADMIN_PASS);
   await page.locator('#wp-submit').click();
   await page.waitForURL(/\/wp-admin\/?/);
   const state = await context.storageState();

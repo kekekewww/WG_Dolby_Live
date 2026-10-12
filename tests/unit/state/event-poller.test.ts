@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EventProvider, PublicEvent } from '../../../src/types';
-import { POLL_INTERVAL_MS, POLL_MAX_BACKOFF_MS, startEventPoller } from '../../../src/state/event-poller';
+import { DETACHED_EVENT, POLL_INTERVAL_MS, POLL_MAX_BACKOFF_MS, POLL_TIMEOUT_MS, startEventPoller } from '../../../src/state/event-poller';
 import type { EventPoller } from '../../../src/state/event-poller';
 import { deferred, makeEvent } from './helpers';
 
@@ -177,5 +177,65 @@ describe('event poller', () => {
     await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
     expect(r.events).toHaveLength(0);
     expect(r.gone).not.toHaveBeenCalled();
+  });
+  it('PS-5: a request that never answers times out, backs off and polling continues', async () => {
+    let hang = true;
+    const r = rig((_slug, signal) => {
+      if (!hang) return Promise.resolve(makeEvent({ title: 'recovered' }));
+      void signal; // a provider that ignores the abort signal must not hang the chain either
+      return new Promise<PublicEvent | null>(() => undefined);
+    });
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    expect(r.get).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(POLL_TIMEOUT_MS - 1);
+    expect(vi.getTimerCount()).toBe(1); // only the guard
+    await vi.advanceTimersByTimeAsync(1);
+    // The hung request failed: next poll after the doubled delay (120 s), and refreshNow works again.
+    expect(vi.getTimerCount()).toBe(1);
+    hang = false;
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 2 - 1);
+    expect(r.get).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(r.get).toHaveBeenCalledTimes(2);
+    expect(r.events.map((e) => e.title)).toEqual(['recovered']);
+  });
+
+  it('PS-5: refreshNow (visibilitychange) is not blocked forever by a hung request', async () => {
+    let hang = true;
+    const r = rig(() => (hang ? new Promise<PublicEvent | null>(() => undefined) : Promise.resolve(makeEvent())));
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    r.poller.refreshNow(); // still in flight: ignored
+    expect(r.get).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(POLL_TIMEOUT_MS);
+    hang = false;
+    r.poller.refreshNow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(r.get).toHaveBeenCalledTimes(2);
+    expect(r.events).toHaveLength(1);
+  });
+
+  it('PS-5: stop() clears the timeout guard of an in-flight request', async () => {
+    const r = rig(() => new Promise<PublicEvent | null>(() => undefined));
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    expect(vi.getTimerCount()).toBe(1);
+    r.poller.stop();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('PS-8: a detached root stops the poller and announces it on document, once', async () => {
+    const seen = vi.fn();
+    document.addEventListener(DETACHED_EVENT, seen);
+    try {
+      const r = rig(() => Promise.resolve(makeEvent()));
+      root.remove();
+      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+      expect(r.get).not.toHaveBeenCalled();
+      expect(seen).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
+      expect(seen).toHaveBeenCalledTimes(1);
+    } finally {
+      document.removeEventListener(DETACHED_EVENT, seen);
+    }
   });
 });

@@ -76,7 +76,10 @@ test.describe('assets only where they are needed', () => {
     for (const path of ['/sample-page/', '/shop/', '/my-account/', '/cart/']) {
       const { status, text } = await fetchText(DEV, path);
       expect(status, path).toBe(200);
-      expect(text, path).not.toMatch(/wg-live/);
+      // Match the plugin's output only: asset URLs, enqueue handles and the container/config markup.
+      // A bare /wg-live/ also matches the site title, which wp-env derives from the checkout folder name
+      // (the WSL mirror lives in ~/wg-live, see docs/implementation/WSL.md).
+      expect(text, path).not.toMatch(/plugins\/wg-live\/|id=['"]wg-live(?:-featured)?-(?:css|js)['"]|class="wg-live[\s_"-]|wg-live__config/);
     }
   });
 

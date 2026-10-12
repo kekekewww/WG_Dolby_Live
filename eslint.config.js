@@ -18,6 +18,8 @@ export default defineConfig(
       'artifacts/**',
       'evidence/**',
       'playwright-report/**',
+      'playwright-report-integration/**',
+      'blob-report/**',
       'test-results/**',
       'coverage/**',
       '.cache/**',
@@ -33,8 +35,8 @@ export default defineConfig(
     languageOptions: { globals: { ...globals.browser } },
   },
   {
-    // D12 bans: markup and script sinks.
-    files: ['src/**/*.ts', 'dev/**/*.ts'],
+    // D12 bans: markup and script sinks. Also covers the wp-admin script that ships in the ZIP (admin-entered rows).
+    files: ['src/**/*.ts', 'dev/**/*.ts', 'plugin/wg-live/assets/admin/**/*.js'],
     rules: {
       'no-eval': 'error',
       'no-implied-eval': 'error',

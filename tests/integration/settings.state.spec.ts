@@ -6,7 +6,7 @@
  * Every test restores what it changed.
  */
 import { test, type Page } from '@playwright/test';
-import { DEPLOY_URL, PAGES_URL, saveLink } from './settings-ui';
+import { DEPLOY_URL, openSettings, PAGES_URL, saveLink, submitSettings } from './settings-ui';
 import { adminContext, bootConfigs, createEvents, deleteEventsByPrefix, deletePosts, DEV, expect, fetchText, getSettings, setSettingsKeys, wpPhp } from './wp';
 
 test.describe.configure({ mode: 'serial' });
@@ -32,6 +32,11 @@ test.afterAll(() => {
     deployment_mode: settingsSnapshot.deployment_mode,
   });
 });
+
+/** Publish or draft the WooCommerce My Account page (the account-link order test, spec 10.4). */
+function setMyAccountStatus(status: 'publish' | 'draft'): void {
+  wpPhp(DEV, `$id = (int) get_option( 'woocommerce_myaccount_page_id' ); if ( $id > 0 ) { wp_update_post( array( 'ID' => $id, 'post_status' => '${status}' ) ); } return $id;`);
+}
 
 /** Click "建立三個草稿頁面" and wait until WordPress has answered and the pages screen shows the outcome. */
 async function submitCreatePages(page: Page): Promise<void> {
@@ -80,10 +85,18 @@ test.describe('link overrides and the host-mismatch warning (deployment screen)'
       // A same-host link is not flagged.
       await expect(page.locator('#wpbody-content table.wg-live-admin__table').last()).not.toContainText('http://localhost:8888/shop/');
 
-      // The override reaches the pages (login links), the WooCommerce fallback is gone.
+      // Spec 10.4 order: the WooCommerce My Account page wins while it is published, so the stored override
+      // is not used yet (F12).
+      const wcLinks = bootConfigs((await fetchText(DEV, '/live/')).text)[0]?.links;
+      expect(wcLinks.account).toMatch(/^http:\/\/localhost:8888\/my-account\/$/);
+
+      // Without a published My Account page the override reaches the pages (login links).
+      setMyAccountStatus('draft');
       const links = bootConfigs((await fetchText(DEV, '/live/')).text)[0]?.links;
       expect(links.account).toBe(FOREIGN);
+      setMyAccountStatus('publish');
     } finally {
+      setMyAccountStatus('publish');
       await saveLink(page, 'account_url', '').catch(() => setSettingsKeys(DEV, { account_url: '' }));
       await close();
     }
@@ -166,6 +179,61 @@ test.describe('the homepage card when the featured event is not usable', () => {
   });
 });
 
+test.describe('review fixes: escaping (F1, F2)', () => {
+  test('F2: an invalid colour is echoed escaped in the notice, never as markup', async ({ browser }) => {
+    const { page, close } = await adminPage(browser);
+    try {
+      await openSettings(page);
+      await page.locator('[name="wg_live_settings[style_overrides][accent]"]').evaluate((el: HTMLInputElement) => {
+        el.removeAttribute('maxlength');
+        el.value = '<i id="it-f2-probe">q</i>';
+      });
+      await submitSettings(page);
+      const notices = page.locator('#wpbody-content .notice');
+      await expect(notices.filter({ hasText: '不是有效的十六進位色碼' })).toHaveCount(1);
+      // The submitted text is shown as text: no element was created from it.
+      await expect(page.locator('#it-f2-probe')).toHaveCount(0);
+      await expect(notices.filter({ hasText: '不是有效的十六進位色碼' })).toContainText('<i id="it-f2-probe">');
+      expect((getSettings(DEV).style_overrides as Record<string, string>).accent).toBe(((settingsSnapshot.style_overrides ?? {}) as Record<string, string>).accent ?? '');
+    } finally {
+      await close();
+    }
+  });
+
+  test('F1: a bare [shortcode] in a title survives a second do_shortcode() pass (Elementor) in the card and in the JSON bootstrap', async () => {
+    const prefix = 'it-f1-state';
+    deleteEventsByPrefix(DEV, prefix);
+    const title = `${prefix} [wg_live view="help"] 與 [gallery] 演出`;
+    const ids = createEvents(DEV, [{ slug: `${prefix}-brackets`, title, meta: { description: '描述 [wg_live_featured] 結尾' } }]);
+    try {
+      setSettingsKeys(DEV, { featured_event: ids[`${prefix}-brackets`] });
+
+      const card = wpPhp<{ first: string; second: string }>(DEV, `$first = do_shortcode( '[wg_live_featured]' ); return array( 'first' => $first, 'second' => do_shortcode( $first ) );`);
+      expect(card.first, 'the card is rendered').toContain('wg-live-featured--event');
+      expect(card.second, 'a second pass changes nothing').toBe(card.first);
+      expect(card.first).not.toContain('[wg_live');
+      expect(card.first).not.toContain('[gallery]');
+      expect(card.first).toContain('&#x5B;wg_live');
+
+      const app = wpPhp<{ first: string; second: string }>(DEV, `$first = do_shortcode( '[wg_live view="events"]' ); return array( 'first' => $first, 'second' => do_shortcode( $first ) );`);
+      expect(app.second, 'a second pass changes nothing').toBe(app.first);
+      expect(app.first).not.toContain('[wg_live');
+
+      // The browser still decodes the original text from the escaped JSON.
+      const fetched = await fetchText(DEV, '/live/');
+      expect(fetched.text).not.toContain('[wg_live view=');
+      const decoded = bootConfigs(fetched.text)[0]?.events.find((e: { slug: string }) => e.slug === `${prefix}-brackets`);
+      expect(decoded?.title).toBe(title);
+      expect(decoded?.description).toBe('描述 [wg_live_featured] 結尾');
+      expect(Array.isArray(bootConfigs(fetched.text)[0]?.events), 'array brackets stay structural').toBe(true);
+    } finally {
+      setSettingsKeys(DEV, { featured_event: settingsSnapshot.featured_event });
+      deletePosts(DEV, Object.values(ids));
+      deleteEventsByPrefix(DEV, prefix);
+    }
+  });
+});
+
 test.describe('create suggested pages (plan 4.6)', () => {
   const pageState = (): Array<{ id: number; uri: string; status: string; parent: number; content: string }> =>
     wpPhp(DEV, `$o = array(); foreach ( get_posts( array( 'post_type' => 'page', 'post_status' => 'any', 'numberposts' => -1, 'orderby' => 'ID' ) ) as $p ) { $o[] = array( 'id' => $p->ID, 'uri' => get_page_uri( $p ), 'status' => $p->post_status, 'parent' => (int) $p->post_parent, 'content' => $p->post_content ); } return $o;`);
@@ -183,6 +251,33 @@ test.describe('create suggested pages (plan 4.6)', () => {
     } finally {
       await close();
     }
+  });
+
+  test('F3: an unattached media-library file named like a page slug is a conflict too (no live-2 rename)', async ({ browser }) => {
+    const before = pageState();
+    const liveId = before.find((p) => p.uri === 'live')!.id;
+    const { page, close } = await adminPage(browser);
+    let attachmentId = 0;
+    try {
+      // Free the page path, then let a media file take the slug (wp_unique_post_slug() checks pages and attachments together).
+      wpPhp(DEV, `wp_update_post( array( 'ID' => ${liveId}, 'post_name' => 'live-tmp-it' ) ); return true;`);
+      attachmentId = wpPhp<number>(DEV, `return wp_insert_attachment( array( 'post_title' => 'live', 'post_name' => 'live', 'post_status' => 'inherit', 'post_mime_type' => 'image/png', 'post_parent' => 0 ), false );`);
+      expect(attachmentId).toBeGreaterThan(0);
+      expect(wpPhp<string>(DEV, `return get_post_field( 'post_name', ${attachmentId} );`)).toBe('live');
+
+      await page.goto(PAGES_URL);
+      const rows = page.locator('#wpbody-content table tbody tr');
+      await expect(rows.first()).toContainText('已存在');
+      await expect(rows.first()).toContainText('媒體庫檔案');
+      await expect(page.locator('.notice-error')).toContainText('已有相同路徑的頁面，所以不能建立');
+      await expect(page.getByRole('button', { name: '建立三個草稿頁面' })).toHaveCount(0);
+      expect(pageState().map((p) => p.id), 'no page was created').toEqual(before.map((p) => p.id));
+    } finally {
+      if (attachmentId > 0) deletePosts(DEV, [attachmentId]);
+      wpPhp(DEV, `wp_update_post( array( 'ID' => ${liveId}, 'post_name' => 'live' ) ); return true;`);
+      await close();
+    }
+    expect(pageState()).toEqual(before);
   });
 
   test('the handler re-checks conflicts: a form rendered while the paths were free is refused once a page exists', async ({ browser }) => {

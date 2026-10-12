@@ -135,6 +135,24 @@ describe('createEntitlementPlaceholder (plan D6)', () => {
     await expect(createEntitlementPlaceholder(all).get(live.id, ctl.signal)).rejects.toMatchObject({ name: 'AbortError' });
   });
 
+  it('F7: setEvent makes the mirror answer for the CURRENT event data, not the mount-time one', async () => {
+    const provider = createEntitlementPlaceholder(all);
+    await expect(provider.get(demoNoSource.id)).resolves.toMatchObject({ status: 'unavailable' });
+    provider.setEvent({ ...demoNoSource, sourceKind: 'demo' }); // the admin fixed the source; a poll delivered it
+    await expect(provider.get(demoNoSource.id)).resolves.toEqual({ status: 'entitled' });
+    provider.setEvent({ ...demoNoSource, sourceKind: 'not_configured' });
+    await expect(provider.get(demoNoSource.id)).resolves.toMatchObject({ status: 'unavailable' });
+  });
+
+  it('F7: setEvent never grants a real (non-demo) event and learns events it did not know', async () => {
+    const provider = createEntitlementPlaceholder([]);
+    await expect(provider.get(real.id)).resolves.toMatchObject({ status: 'unavailable', reason: 'event_not_found' });
+    provider.setEvent({ ...real, sourceKind: 'demo' });
+    await expect(provider.get(real.id)).resolves.toEqual({ status: 'unavailable', reason: 'not_implemented' });
+    provider.setEvent(live);
+    await expect(provider.get(live.id)).resolves.toEqual({ status: 'entitled' });
+  });
+
   it('makes no network request', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

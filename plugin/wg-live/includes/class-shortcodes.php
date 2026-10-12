@@ -429,6 +429,22 @@ final class Shortcodes {
 	/* ------------------------------------------------------------------ */
 
 	/**
+	 * Protect already-escaped HTML text from a second shortcode pass.
+	 *
+	 * Page builders (Elementor) run do_shortcode() again over a Shortcode widget's output. A bare [tag]
+	 * typed into an event title or poster alt text would be expanded there, so the brackets become
+	 * HEX character references, which browsers render as the same characters. Not the decimal
+	 * &#91;/&#93;: do_shortcode() ends with unescape_invalid_shortcodes(), which turns exactly those back
+	 * into [ and ] across the whole output, so they would not survive the very pass they guard against.
+	 *
+	 * @param string $escaped Output of esc_html() / esc_attr() / esc_url().
+	 * @return string
+	 */
+	public static function defuse_brackets( $escaped ) {
+		return str_replace( array( '[', ']' ), array( '&#x5B;', '&#x5D;' ), (string) $escaped );
+	}
+
+	/**
 	 * Render a template and return the HTML.
 	 *
 	 * @param string $name Template name (events|player|help|featured).

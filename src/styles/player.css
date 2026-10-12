@@ -64,6 +64,17 @@
   font-size: 16px;
 }
 
+/*
+ * base.css keeps <time> on one line, but the full date and zone label is wider than the one-third
+ * aside column on tablets (768-880px) and wider than a 320px column. keep-all stops a break inside
+ * 台北時間: the line may only wrap at the spaces and brackets. Scoped to the two player spots.
+ */
+.wg-live .wg-live__player-meta time,
+.wg-live .wg-live__info-when time {
+  white-space: normal;
+  word-break: keep-all;
+}
+
 /* ---- status + entitlement panels ---- */
 .wg-live .wg-live__status,
 .wg-live .wg-live__entitlement {

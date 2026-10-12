@@ -1,5 +1,23 @@
 # Integration results (wp-env, real WordPress, M1)
 
+## Latest run: 2026-10-12, review fixes, wp-env inside WSL2
+
+| Item | Value |
+|---|---|
+| Command | `npm run test:integration:wsl`: syncs to `~/wg-live` in WSL2, then runs Playwright from Windows (see `docs/implementation/WSL.md`) |
+| Stack | WordPress 7.1.3, PHP 8.2.34, Astra 4.14.0, Elementor 4.3.4, WooCommerce 11.2.1, wg-live 0.1.0 |
+| Result | **174 passed, 0 failed** (Chromium and WebKit, including all chained state projects) in 18.3 min |
+| Speed | 0.6–1.2 s per WordPress request, against 5–25 s with wp-env on the Windows filesystem. A full run takes about 10–18 min instead of about 3 h. |
+
+Fixes made during this run:
+1. **Product bug, F1 follow-up.** `Shortcodes::defuse_brackets()` used `&#91;`/`&#93;`. WordPress's `do_shortcode()` ends with `unescape_invalid_shortcodes()`, which turns exactly those back into `[`/`]`. The featured-card title `[gallery]` was therefore still expanded by Elementor's second pass. The function now uses hex `&#x5B;`/`&#x5D;`, confirmed in the running WordPress. The unit test and the integration test were updated.
+2. **Test helper.** wp-login's `wp_attempt_focus()`, which focuses and selects the username 200 ms after load, could swap the typed values on WebKit. A new shared `fillLoginForm()` waits for that focus and verifies both fields.
+3. **Test environment.** wp-env names the site after the checkout folder (`wg-live` for the WSL mirror), so two specs that matched a bare `/wg-live/` against whole pages failed. The seed now sets `blogname` to "WG Studio Dev", and those assertions match only the plugin's own output.
+
+---
+
+## Earlier run (2026-10-10 to 2026-10-11, wp-env on the Windows filesystem)
+
 Run: 2026-10-10 to 2026-10-11, Windows 11, Docker Desktop, Node 22.17, `@playwright/test` 1.64.0 (Chromium and WebKit; WebKit is not Safari).
 Config: `playwright.integration.config.ts` (`npm run test:integration`). HTML report: `playwright-report-integration/index.html` (git-ignored).
 

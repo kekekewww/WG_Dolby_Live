@@ -9,6 +9,7 @@ import type {
   AdapterFactory,
   AppState,
   BootConfig,
+  EntitlementProvider,
   EntitlementResult,
   ListeningMode,
   MediaHost,
@@ -316,6 +317,8 @@ export interface HarnessOptions {
   boot?: Partial<BootConfig>;
   preselect?: ListeningMode | null;
   entitlement?: EntitlementResult;
+  /** Replace the fake entitlement provider (for example with the real client placeholder). */
+  entitlementProvider?: EntitlementProvider;
   /** Scripts consumed in order by created adapters; later adapters use the last (or the default). */
   scripts?: AdapterScript[];
   /** Skip the initial prefetch/entitlement flush (to observe the in-flight state). */
@@ -362,7 +365,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
     env: { volumeSettable: true },
     adapterFactory,
     playbackProvider: { resolve: playback.resolve },
-    entitlementProvider: { get: entitlement.get },
+    entitlementProvider: options.entitlementProvider ?? { get: entitlement.get },
     eventProvider: { list: () => Promise.resolve([]), get: () => Promise.resolve(null) },
     root,
     preselect: options.preselect ?? null,

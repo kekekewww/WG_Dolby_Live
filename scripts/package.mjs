@@ -5,6 +5,8 @@
 //   artifacts/wg-live-<version>.zip.sha256  "<hex>  wg-live-<version>.zip" (sha256sum -c format)
 //
 // Run `npm run build` first (needs plugin/wg-live/assets/dist/build-info.json).
+// Refuses a build that is not from a clean, committed tree (build-info.json "dirty": true, an
+// "uncommitted" commit, or a commit that is no longer HEAD) unless --allow-dirty is given (spec 18.3, 19.4).
 // Entries are sorted, use forward slashes and carry a fixed mtime, so the same inputs
 // give the same bytes.
 //
@@ -15,6 +17,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { zipSync } from 'fflate';
+import { gitState, UNCOMMITTED } from './build-info.mjs';
 
 export const PLUGIN_SLUG = 'wg-live';
 
@@ -35,8 +38,12 @@ const EXCLUDED_SEGMENTS = new Set([
   'artifacts',
 ]);
 
-/** File extensions that never ship. */
-const EXCLUDED_EXT = /\.(ts|tsx|map|woff2?|ttf|otf|eot|zip|sql|log)$/i;
+/**
+ * File extensions that never ship: sources, maps, fonts, archives, databases, logs, backups and
+ * editor leftovers, keys and env files, recordings, phar. Names containing ".php." (x.php.bak) never ship either.
+ */
+const EXCLUDED_EXT = /(?:\.(?:ts|tsx|map|woff2?|ttf|otf|eot|zip|sql|log|gz|tgz|tar|7z|bak|orig|swp|sqlite|db|webm|mp4|mov|pem|key|env|phar)|~)$/i;
+const PHP_DOT_SEGMENT = /\.php\./i;
 
 /** The fixed dist set (M1-PLAN 7.3 item 4): the three bundles plus build-info.json. */
 export const DIST_FILES = ['wg-live.js', 'wg-live.css', 'wg-live-featured.css', 'build-info.json'];
@@ -44,7 +51,12 @@ export const DIST_FILES = ['wg-live.js', 'wg-live.css', 'wg-live-featured.css', 
 const DEMO_FILE = /^(?:[A-Za-z0-9_-]+\.mp3|poster-demo\.svg|LICENSE-demo\.txt)$/;
 /** Admin screen assets (assets/admin/**): scripts and styles only. */
 const ADMIN_ASSET = /\.(?:js|css)$/i;
-const TOP_LEVEL_LICENSE = /^(license|licence|copying|notice|third-party|third_party)[^/]*$/i;
+const TOP_LEVEL_LICENSE = /^(license|licence|copying|notice|third-party|third_party)(?:\.txt|\.md)?$/i;
+/** PHP under includes/ and templates/: plain `name.php` file names, nested folders allowed. */
+const PHP_FILE = /^[A-Za-z0-9_-]+\.php$/;
+/** Third-party license notices under licenses/. */
+const LICENSE_NOTICE = /^[A-Za-z0-9._-]+\.(?:txt|md)$/i;
+const TOP_LEVEL_FILES = new Set(['wg-live.php', 'uninstall.php', 'readme.txt']);
 
 /**
  * Is this plugin-relative path (forward slashes) part of the release?
@@ -56,16 +68,16 @@ export function shouldShip(rel) {
   const parts = rel.split('/');
   if (parts.some((p) => p === '' || p === '.' || p === '..' || p.startsWith('.'))) return false; // dotfiles, .gitkeep
   if (parts.some((p) => EXCLUDED_SEGMENTS.has(p.toLowerCase()))) return false;
-  if (EXCLUDED_EXT.test(rel)) return false;
+  if (EXCLUDED_EXT.test(rel) || PHP_DOT_SEGMENT.test(rel)) return false;
 
   const first = parts[0] ?? '';
   const name = parts[parts.length - 1] ?? '';
 
   if (parts.length === 1) {
-    return name.endsWith('.php') || name === 'readme.txt' || TOP_LEVEL_LICENSE.test(name);
+    return TOP_LEVEL_FILES.has(name) || TOP_LEVEL_LICENSE.test(name);
   }
-  if (first === 'templates' || first === 'includes') return true;
-  if (first === 'licenses') return true; // third-party license notices
+  if (first === 'templates' || first === 'includes') return PHP_FILE.test(name);
+  if (first === 'licenses') return parts.length === 2 && LICENSE_NOTICE.test(name); // third-party license notices
   if (first === 'assets') {
     const second = parts[1] ?? '';
     if (second === 'dist') return parts.length === 3 && DIST_FILES.includes(name);
@@ -78,9 +90,10 @@ export function shouldShip(rel) {
 /**
  * All shipped files under a plugin directory, as sorted forward-slash relative paths.
  * @param {string} pluginDir
+ * @param {string[]} [skipped] receives the regular files outside excluded and dot directories that are NOT shipped
  * @returns {string[]}
  */
-export function collectFiles(pluginDir) {
+export function collectFiles(pluginDir, skipped = []) {
   /** @type {string[]} */
   const out = [];
   /** @param {string} dir @param {string} prefix */
@@ -91,12 +104,14 @@ export function collectFiles(pluginDir) {
         // Prune excluded/dot directories early.
         if (entry.name.startsWith('.') || EXCLUDED_SEGMENTS.has(entry.name.toLowerCase())) continue;
         walk(join(dir, entry.name), rel);
-      } else if (entry.isFile() && shouldShip(rel)) {
-        out.push(rel);
+      } else if (entry.isFile()) {
+        if (shouldShip(rel)) out.push(rel);
+        else if (!entry.name.startsWith('.')) skipped.push(rel);
       }
     }
   };
   walk(pluginDir, '');
+  skipped.sort();
   return out.sort();
 }
 
@@ -104,6 +119,12 @@ export function collectFiles(pluginDir) {
 export function parsePluginVersion(php) {
   const header = php.slice(0, 8192);
   const m = /^[ \t/*#@]*Version:[ \t]*([^\s*]+)/im.exec(header);
+  return m ? (m[1] ?? null) : null;
+}
+
+/** @param {string} php @returns {string | null} the value of define( 'WG_LIVE_VERSION', '...' ) */
+export function parseVersionConstant(php) {
+  const m = /define\(\s*['"]WG_LIVE_VERSION['"]\s*,\s*['"]([^'"]+)['"]\s*\)/.exec(php);
   return m ? (m[1] ?? null) : null;
 }
 
@@ -148,10 +169,11 @@ export function createZip(pluginDir, files) {
 }
 
 /**
- * @param {{ root: string }} opts
- * @returns {{ version: string, zipPath: string, shaPath: string, sha256: string, files: string[], bytes: number }}
+ * @param {{ root: string, allowDirty?: boolean, git?: { commit: string, dirty: boolean } | null }} opts
+ *   `git` overrides the lookup of the current git state (default: gitState(root) when root has a .git)
+ * @returns {{ version: string, zipPath: string, shaPath: string, sha256: string, files: string[], skipped: string[], bytes: number }}
  */
-export function packagePlugin({ root }) {
+export function packagePlugin({ root, allowDirty = false, git }) {
   const pluginDir = join(root, 'plugin', PLUGIN_SLUG);
   const distInfo = join(pluginDir, 'assets', 'dist', 'build-info.json');
   if (!existsSync(distInfo)) {
@@ -169,15 +191,20 @@ export function packagePlugin({ root }) {
   if (!existsSync(phpFile)) throw new Error('plugin/wg-live/wg-live.php not found: the plugin main file must exist before packaging');
   if (!existsSync(readmeFile)) throw new Error('plugin/wg-live/readme.txt not found: the readme with "Stable tag" must exist before packaging');
 
-  const headerVersion = parsePluginVersion(readFileSync(phpFile, 'utf8'));
+  const phpSource = readFileSync(phpFile, 'utf8');
+  const headerVersion = parsePluginVersion(phpSource);
   if (headerVersion !== version) {
     throw new Error(`plugin header Version is ${headerVersion ?? '(missing)'} but package.json version is ${version}`);
+  }
+  const constVersion = parseVersionConstant(phpSource);
+  if (constVersion !== version) {
+    throw new Error(`WG_LIVE_VERSION is ${constVersion ?? '(missing)'} but package.json version is ${version}`);
   }
   const stableTag = parseStableTag(readFileSync(readmeFile, 'utf8'));
   if (stableTag !== version) {
     throw new Error(`readme.txt Stable tag is ${stableTag ?? '(missing)'} but package.json version is ${version}`);
   }
-  /** @type {{ version?: unknown, files?: Record<string, { sha256?: string }> }} */
+  /** @type {{ version?: unknown, commit?: unknown, dirty?: unknown, files?: Record<string, { sha256?: string }> }} */
   let buildInfo;
   try {
     buildInfo = JSON.parse(readFileSync(distInfo, 'utf8'));
@@ -187,6 +214,24 @@ export function packagePlugin({ root }) {
   if (buildInfo.version !== version) {
     throw new Error(`build-info.json version is ${String(buildInfo.version)} but package.json version is ${version}: run npm run build again`);
   }
+  // The build must come from a clean, committed tree that is still HEAD (spec 18.3, 19.4).
+  if (!allowDirty) {
+    const commit = typeof buildInfo.commit === 'string' ? buildInfo.commit : '';
+    if (!/^[0-9a-f]{40}$/.test(commit) || commit === UNCOMMITTED) {
+      throw new Error(`build-info.json commit is "${commit || '(missing)'}": build from a committed tree (or pass --allow-dirty for a throw-away package)`);
+    }
+    if (buildInfo.dirty !== false) {
+      throw new Error('build-info.json says the build was made from a dirty working tree: commit, run npm run build again (or pass --allow-dirty for a throw-away package)');
+    }
+    const current = git === undefined ? (existsSync(join(root, '.git')) ? gitState(root) : null) : git;
+    if (current) {
+      if (current.dirty) throw new Error('the working tree has uncommitted changes since the build: commit, run npm run build again (or pass --allow-dirty)');
+      if (current.commit !== commit) {
+        throw new Error(`build-info.json commit ${commit.slice(0, 12)} is not HEAD ${current.commit.slice(0, 12)}: run npm run build again (or pass --allow-dirty)`);
+      }
+    }
+  }
+
   // The dist files must be the ones build-info.json describes (stale or hand-edited build).
   for (const name of DIST_FILES) {
     if (name === 'build-info.json') continue;
@@ -198,7 +243,9 @@ export function packagePlugin({ root }) {
     }
   }
 
-  const files = collectFiles(pluginDir);
+  /** @type {string[]} */
+  const skipped = [];
+  const files = collectFiles(pluginDir, skipped);
   const zip = createZip(pluginDir, files);
 
   const outDir = join(root, 'artifacts');
@@ -211,14 +258,21 @@ export function packagePlugin({ root }) {
   const shaPath = `${zipPath}.sha256`;
   writeFileSync(shaPath, `${sha256}  ${zipName}\n`);
 
-  return { version, zipPath, shaPath, sha256, files, bytes: zip.length };
+  return { version, zipPath, shaPath, sha256, files, skipped, bytes: zip.length };
 }
 
 function main() {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
   try {
-    const r = packagePlugin({ root });
+    const args = process.argv.slice(2);
+    const unknown = args.filter((a) => a !== '--allow-dirty');
+    if (unknown.length > 0) {
+      console.error(`package: unknown argument(s): ${unknown.join(' ')} (usage: node scripts/package.mjs [--allow-dirty])`);
+      return 1;
+    }
+    const r = packagePlugin({ root, allowDirty: args.includes('--allow-dirty') });
     for (const f of r.files) console.log(`  wg-live/${f}`);
+    for (const f of r.skipped) console.warn(`package: warning: not shipped (not on the allowlist): ${f}`);
     console.log(`package: ${r.files.length} file(s), ${r.bytes} bytes`);
     console.log(`package: wrote ${r.zipPath}`);
     console.log(`package: wrote ${r.shaPath}`);

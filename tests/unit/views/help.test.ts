@@ -120,6 +120,24 @@ describe('help view: fixed sections (plan 6.11)', () => {
     expect(mount.querySelector('.wg-live__help-section--safari')?.textContent).toContain('Safari');
   });
 
+  it('UI-09: does not promise a 「尚未確認」 state the player never renders', () => {
+    mountView(makeBoot());
+    expect(mount.textContent).not.toContain('尚未確認');
+  });
+
+  it('UI-08: the K shortcut row does not describe a Space shortcut or an impossible focus position', () => {
+    mountView(makeBoot());
+    const rows = Array.from(mount.querySelectorAll('.wg-live__keys-row'));
+    const kRow = rows.find((r) => Array.from(r.querySelectorAll('dt kbd')).some((k) => k.textContent === 'K'));
+    expect(kRow).toBeDefined();
+    expect(Array.from(kRow?.querySelectorAll('dt kbd') ?? []).map((k) => k.textContent)).toEqual(['K']);
+    expect(kRow?.querySelector('dd')?.textContent).not.toContain('不在按鈕');
+    // Space is documented once, as the normal way to press the focused button.
+    const spaceRows = rows.filter((r) => Array.from(r.querySelectorAll('dt kbd')).some((k) => k.textContent === 'Space'));
+    expect(spaceRows).toHaveLength(1);
+    expect(spaceRows[0]?.querySelector('dd')?.textContent).toContain('按鈕');
+  });
+
   it('documents the real keyboard shortcuts (Space and K inside the player, Esc for the dialog)', () => {
     mountView(makeBoot());
     const keys = Array.from(mount.querySelectorAll('.wg-live__kbd')).map((e) => e.textContent);

@@ -10,6 +10,13 @@ import type { EventProvider, PublicEvent } from '../types';
 
 export const POLL_INTERVAL_MS = 60_000;
 export const POLL_MAX_BACKOFF_MS = 300_000;
+/** A poll that has not answered by now counts as a failure (backoff), so one hung request cannot end polling (PS-5). */
+export const POLL_TIMEOUT_MS = 15_000;
+/**
+ * Fired on `document` when the poller finds its root detached. main.ts listens and destroys the
+ * mounted instance, so a paused/failed player that no timer watches is still released (PS-8).
+ */
+export const DETACHED_EVENT = 'wg-live:detached';
 
 export interface EventPollerOptions {
   provider: EventProvider;
@@ -33,6 +40,7 @@ function isAbortError(error: unknown): boolean {
 export function startEventPoller(opts: EventPollerOptions): EventPoller {
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let guard: ReturnType<typeof setTimeout> | null = null;
   let controller: AbortController | null = null;
   let inFlight = false;
   let delay = POLL_INTERVAL_MS;
@@ -49,6 +57,10 @@ export function startEventPoller(opts: EventPollerOptions): EventPoller {
     if (stopped) return;
     stopped = true;
     clearTimer();
+    if (guard !== null) {
+      clearTimeout(guard);
+      guard = null;
+    }
     controller?.abort();
     controller = null;
     document.removeEventListener('visibilitychange', onVisibility);
@@ -59,6 +71,11 @@ export function startEventPoller(opts: EventPollerOptions): EventPoller {
   const orphaned = (): boolean => {
     if (opts.root.isConnected) return false;
     stop();
+    try {
+      document.dispatchEvent(new CustomEvent(DETACHED_EVENT));
+    } catch {
+      // Releasing the player is best effort; the next mountAll() sweep still catches it.
+    }
     return true;
   };
 
@@ -80,8 +97,18 @@ export function startEventPoller(opts: EventPollerOptions): EventPoller {
     clearTimer();
     const mine = new AbortController();
     controller = mine;
+    let timedOut = false;
+    // Race the request against the timeout: a provider that ignores the abort signal must not hang the chain either.
+    const timeout = new Promise<never>((_, reject) => {
+      guard = setTimeout(() => {
+        guard = null;
+        timedOut = true;
+        mine.abort();
+        reject(new Error('poll timeout'));
+      }, POLL_TIMEOUT_MS);
+    });
     try {
-      const event = await opts.provider.get(opts.slug, mine.signal);
+      const event = await Promise.race([opts.provider.get(opts.slug, mine.signal), timeout]);
       if (stopped || mine.signal.aborted) return;
       delay = POLL_INTERVAL_MS;
       if (event === null) {
@@ -94,9 +121,14 @@ export function startEventPoller(opts: EventPollerOptions): EventPoller {
         opts.onEvent(event);
       }
     } catch (error) {
-      if (stopped || mine.signal.aborted || isAbortError(error)) return;
+      if (stopped) return;
+      if (!timedOut && (mine.signal.aborted || isAbortError(error))) return;
       delay = Math.min(delay * 2, POLL_MAX_BACKOFF_MS);
     } finally {
+      if (guard !== null) {
+        clearTimeout(guard);
+        guard = null;
+      }
       inFlight = false;
       if (controller === mine) controller = null;
       if (!stopped && !orphaned()) schedule();

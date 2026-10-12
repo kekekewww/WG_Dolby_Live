@@ -13,7 +13,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { test, type BrowserContext, type Page } from '@playwright/test';
-import { bootConfigs, deleteEventsByPrefix, deletePosts, DEV, expect, fetchText, LISTEN_URL, MODE_NAME, rest, TONE, waitMounted, wpPhp, type Mode } from './wp';
+import { bootConfigs, deleteEventsByPrefix, deletePosts, DEV, expect, fetchText, fillLoginForm, LISTEN_URL, MODE_NAME, rest, TONE, waitMounted, wpPhp, type Mode } from './wp';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -115,8 +115,7 @@ test.beforeAll(async ({ browser }, testInfo) => {
   page = await context.newPage();
   page.on('dialog', (d) => void d.accept());
   await page.goto('/wp-login.php');
-  await page.locator('#user_login').fill(login);
-  await page.locator('#user_pass').fill(password);
+  await fillLoginForm(page, login, password);
   await page.locator('#wp-submit').click();
   await page.waitForURL(/wp-admin/);
 });
@@ -376,6 +375,82 @@ test.describe('F13 admin save validation', () => {
   });
 });
 
+test.describe('spec F3/F4: publishing needs a title and a valid start time', () => {
+  test('an empty title is not published: draft, a notice says why, nothing is public', async () => {
+    await openNew(page);
+    const id = await postId(page);
+    await fill(page, { slug: `${prefix}-no-title`, startsLocal: '2030-06-01T20:00', status: 'live', modes: ['binaural', 'atmos'], demo: true, source: 'demo' });
+    await publishWithoutScript(page);
+
+    expect(await noticeText(page)).toContain('活動標題是必填欄位');
+    expect(row(id)).toMatchObject({ status: 'draft', title: '' });
+    expect((await rest(DEV, `events/${prefix}-no-title`)).status, 'a draft is not public').toBe(404);
+
+    // Adding the title makes the same event publishable.
+    await openEdit(page, id);
+    await fill(page, { title: `${TITLE()} 有標題` });
+    await publish(page);
+    expect(row(id)).toMatchObject({ status: 'publish', name: `${prefix}-no-title` });
+    expect((await rest(DEV, `events/${prefix}-no-title`)).status).toBe(200);
+  });
+
+  test('a missing start time is not published: draft and a notice; clearing the time of a published event pulls it back to draft', async () => {
+    await openNew(page);
+    const id = await postId(page);
+    await fill(page, { title: `${TITLE()} 無時間`, slug: `${prefix}-no-start`, status: 'live', modes: ['binaural', 'atmos'], demo: true, source: 'demo' });
+    await publishWithoutScript(page);
+
+    expect(await noticeText(page)).toContain('開始時間是必填欄位');
+    expect(row(id)).toMatchObject({ status: 'draft', name: `${prefix}-no-start` });
+    expect(row(id).meta.starts_at_utc).toBe('');
+    expect((await rest(DEV, `events/${prefix}-no-start`)).status).toBe(404);
+
+    await openEdit(page, id);
+    await fill(page, { startsLocal: '2030-06-02T20:00' });
+    await publish(page);
+    expect(row(id)).toMatchObject({ status: 'publish' });
+    expect(row(id).meta.starts_at_utc).toBe('2030-06-02T12:00:00Z');
+    expect((await rest(DEV, `events/${prefix}-no-start`)).status).toBe(200);
+
+    // Clearing the time while keeping the event published: the server refuses to keep it published.
+    await openEdit(page, id);
+    await page.locator('#wg-live-starts-local').fill('');
+    await publishWithoutScript(page);
+    expect(await noticeText(page)).toContain('開始時間是必填欄位');
+    expect(row(id).status).toBe('draft');
+    expect((await rest(DEV, `events/${prefix}-no-start`)).status).toBe(404);
+  });
+
+  test('a draft without title or start time is saved as before (drafts are never blocked)', async () => {
+    await openNew(page);
+    const id = await postId(page);
+    await fill(page, { slug: `${prefix}-draft-only` });
+    await Promise.all([
+      page.waitForURL(SAVED_URL, { timeout: 120_000 }),
+      page.evaluate(() => {
+        const form = document.getElementById('post') as HTMLFormElement;
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'save';
+        input.value = 'Save Draft';
+        form.append(input);
+        HTMLFormElement.prototype.submit.call(form);
+      }),
+    ]);
+    expect(await noticeText(page)).not.toContain('是必填欄位');
+    expect(row(id)).toMatchObject({ status: 'draft', name: `${prefix}-draft-only` });
+  });
+
+  test('programmatic inserts (fixtures, seed-demo) are not blocked: their meta is written after the insert', async () => {
+    const result = wpPhp<{ status: string }>(
+      DEV,
+      `$id = wp_insert_post( array( 'post_type' => 'wg_live_event', 'post_status' => 'publish', 'post_title' => '${prefix} programmatic ok', 'post_name' => '${prefix}-programmatic-ok' ) );
+       $p = get_post( $id ); return array( 'status' => $p->post_status );`,
+    );
+    expect(result.status).toBe('publish');
+  });
+});
+
 test.describe('capabilities', () => {
   test('a user without the manage capability cannot open the event, settings, deployment or pages screens', async ({ browser }) => {
     const login = `it-editor-${randomUUID().slice(0, 8)}`;
@@ -385,8 +460,7 @@ test.describe('capabilities', () => {
     try {
       const p = await editor.newPage();
       await p.goto('/wp-login.php');
-      await p.locator('#user_login').fill(login);
-      await p.locator('#user_pass').fill(password);
+      await fillLoginForm(p, login, password);
       await p.locator('#wp-submit').click();
       await p.waitForURL(/wp-admin/);
 

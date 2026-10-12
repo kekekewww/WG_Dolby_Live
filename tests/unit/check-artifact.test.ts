@@ -5,10 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { strToU8, unzipSync, zipSync } from 'fflate';
 import { afterEach, describe, expect, it } from 'vitest';
-import { checkEntries, checkZip } from '../../scripts/check-artifact.mjs';
-import { collectFiles, entryNameProblem, packagePlugin, parsePluginVersion, parseStableTag, shouldShip } from '../../scripts/package.mjs';
+import { checkEntries, checkZip, REQUIRED_FILES } from '../../scripts/check-artifact.mjs';
+import { collectFiles, entryNameProblem, packagePlugin, parsePluginVersion, parseStableTag, parseVersionConstant, shouldShip } from '../../scripts/package.mjs';
 
 const VERSION = '1.2.3';
+const COMMIT = 'a'.repeat(40);
+const OTHER_COMMIT = 'b'.repeat(40);
+const MAIN_PHP = (version: string, constant: string = version) =>
+  `<?php\n/**\n * Plugin Name: WG Studio Live\n * Version: ${version}\n */\ndefined( 'ABSPATH' ) || exit;\ndefine( 'WG_LIVE_VERSION', '${constant}' );\nrequire_once WG_LIVE_DIR . 'includes/class-events.php';\nrequire_once WG_LIVE_DIR . 'includes/class-plugin.php';\n`;
 
 function sha256(data: Uint8Array): string {
   return createHash('sha256').update(data).digest('hex');
@@ -21,7 +25,8 @@ function goodFiles(): Record<string, string | Uint8Array> {
   const featured = '.wg-live-featured{display:block}';
   const info = {
     version: VERSION,
-    commit: 'abc1234',
+    commit: COMMIT,
+    dirty: false,
     builtAt: '2026-01-01T00:00:00.000Z',
     files: {
       'wg-live.js': { bytes: js.length, sha256: sha256(strToU8(js)) },
@@ -30,10 +35,16 @@ function goodFiles(): Record<string, string | Uint8Array> {
     },
   };
   return {
-    'wg-live/wg-live.php': `<?php\n/**\n * Plugin Name: WG Studio Live\n * Version: ${VERSION}\n */\ndefined( 'ABSPATH' ) || exit;\n`,
+    'wg-live/wg-live.php': MAIN_PHP(VERSION),
+    'wg-live/uninstall.php': "<?php\ndefined( 'WP_UNINSTALL_PLUGIN' ) || exit;\n",
     'wg-live/readme.txt': `=== WG Studio Live ===\nStable tag: ${VERSION}\n`,
     'wg-live/includes/class-plugin.php': "<?php\ndefined( 'ABSPATH' ) || exit;\n",
+    'wg-live/includes/class-events.php': "<?php\ndefined( 'ABSPATH' ) || exit;\n",
     'wg-live/templates/events.php': "<?php\ndefined( 'ABSPATH' ) || exit;\n",
+    'wg-live/templates/featured.php': "<?php\ndefined( 'ABSPATH' ) || exit;\n",
+    'wg-live/templates/help.php': "<?php\ndefined( 'ABSPATH' ) || exit;\n",
+    'wg-live/templates/player.php': "<?php\ndefined( 'ABSPATH' ) || exit;\n",
+    'wg-live/templates/partials/container.php': "<?php\ndefined( 'ABSPATH' ) || exit;\n",
     'wg-live/assets/dist/wg-live.js': js,
     'wg-live/assets/dist/wg-live.css': css,
     'wg-live/assets/dist/wg-live-featured.css': featured,
@@ -227,8 +238,16 @@ describe('check-artifact', () => {
   });
 
   it('requires equal versions everywhere', () => {
-    const header = run({ 'wg-live/wg-live.php': "<?php\n/**\n * Version: 9.9.9\n */\n" });
+    const header = run({ 'wg-live/wg-live.php': MAIN_PHP('9.9.9', VERSION) });
     expect(header.problems.join('\n')).toContain('versions differ');
+
+    // TR-04: the WG_LIVE_VERSION constant is compared too
+    const constant = run({ 'wg-live/wg-live.php': MAIN_PHP(VERSION, '0.0.9') });
+    expect(constant.ok).toBe(false);
+    expect(constant.problems.join('\n')).toContain('WG_LIVE_VERSION=0.0.9');
+    expect(constant.rows.find((r) => r.check === 'versions')?.ok).toBe(false);
+    const noConstant = run({ 'wg-live/wg-live.php': MAIN_PHP(VERSION).replace(/define\([^;]*;/, '') });
+    expect(noConstant.problems.join('\n')).toContain('WG_LIVE_VERSION: version not found');
 
     const readme = run({ 'wg-live/readme.txt': '=== X ===\nStable tag: 0.0.1\n' });
     expect(readme.problems.join('\n')).toContain('readme Stable tag=0.0.1');
@@ -285,7 +304,121 @@ describe('check-artifact', () => {
   });
 });
 
+describe('check-artifact: required files (TR-02)', () => {
+  const required = [...REQUIRED_FILES, 'includes/class-events.php', 'includes/class-plugin.php'];
+
+  it.each(required)('fails when %s is missing', (rel) => {
+    const r = run({ [`wg-live/${rel}`]: null });
+    expect(r.ok).toBe(false);
+    expect(r.problems.filter((p) => p.startsWith('required files')).join('\n')).toContain(`wg-live/${rel} is missing`);
+    expect(r.rows.find((row) => row.check === 'required files')?.ok).toBe(false);
+  });
+
+  it('a clean ZIP passes the required-files check', () => {
+    const r = run();
+    expect(r.rows.find((row) => row.check === 'required files')?.ok).toBe(true);
+  });
+
+  it('follows the require_once targets of wg-live.php, whatever they are', () => {
+    const php = `${MAIN_PHP(VERSION)}require_once WG_LIVE_DIR . 'includes/class-new-thing.php';\n`;
+    const r = run({ 'wg-live/wg-live.php': php });
+    expect(r.problems.join('\n')).toContain('wg-live/includes/class-new-thing.php is missing');
+  });
+});
+
+describe('check-artifact: build provenance (TR-01 / F2)', () => {
+  const info = (extra: Record<string, unknown>) => {
+    const base = JSON.parse(String(goodFiles()['wg-live/assets/dist/build-info.json']));
+    return JSON.stringify({ ...base, ...extra });
+  };
+  const withInfo = (extra: Record<string, unknown>, allowDirty = false) => {
+    const { zip, sha256Text } = buildZip({ 'wg-live/assets/dist/build-info.json': info(extra) });
+    return checkZip(zip, { zipName: `wg-live-${VERSION}.zip`, packageVersion: VERSION, sha256Text, allowDirty });
+  };
+
+  it('reports the commit on a clean build', () => {
+    const r = run();
+    const row = r.rows.find((x) => x.check === 'build commit');
+    expect(row?.ok).toBe(true);
+    expect(row?.detail).toContain(COMMIT);
+  });
+
+  it('fails a dirty build unless allowDirty is set', () => {
+    const bad = withInfo({ dirty: true });
+    expect(bad.ok).toBe(false);
+    expect(bad.problems.join('\n')).toContain('dirty working tree');
+    const allowed = withInfo({ dirty: true }, true);
+    expect(allowed.problems).toEqual([]);
+    expect(allowed.rows.find((x) => x.check === 'build commit')?.detail).toContain('dirty build allowed');
+  });
+
+  it('fails an "uncommitted", short or missing commit', () => {
+    for (const commit of ['uncommitted', 'abc1234', undefined]) {
+      const r = withInfo({ commit, dirty: false });
+      expect(r.problems.join('\n'), String(commit)).toContain('full 40-character git SHA');
+    }
+    expect(withInfo({ commit: 'uncommitted', dirty: true }, true).problems).toEqual([]);
+  });
+
+  it('requires a boolean dirty field', () => {
+    expect(withInfo({ dirty: undefined }).problems.join('\n')).toContain('no boolean "dirty" field');
+  });
+});
+
 describe('package.mjs helpers', () => {
+  it('parses the WG_LIVE_VERSION constant', () => {
+    expect(parseVersionConstant("<?php\ndefine( 'WG_LIVE_VERSION', '0.1.0' );")).toBe('0.1.0');
+    expect(parseVersionConstant('define("WG_LIVE_VERSION","2.0.0-rc.1");')).toBe('2.0.0-rc.1');
+    expect(parseVersionConstant("define( 'OTHER', '1.0.0' );")).toBeNull();
+  });
+
+  it('ships only recognised file types (TR-03)', () => {
+    const skip = [
+      'includes/class-settings.php.bak',
+      'includes/class-x.php~',
+      'includes/backup.sql.gz',
+      'includes/dump.sql',
+      'includes/credentials.json',
+      'includes/x.phar',
+      'includes/Thumbs.db',
+      'includes/notes.md',
+      'includes/x.php.orig',
+      'includes/x.php.swp',
+      'includes/key.pem',
+      'includes/private.key',
+      'includes/site.sqlite',
+      'includes/data.7z',
+      'templates/notes.md',
+      'templates/clip.mp4',
+      'licenses/a.exe',
+      'licenses/hls.js.txt.bak',
+      'licenses/sub/hls.js.txt',
+      'phpinfo.php',
+      'config.php',
+      'LICENSE-keys.pem',
+      'LICENSE.bak',
+      'readme.md',
+    ];
+    for (const p of skip) expect(shouldShip(p), p).toBe(false);
+    for (const p of ['includes/sub/class-a.php', 'templates/partials/container.php', 'licenses/hls.js.md', 'NOTICE', 'NOTICE.txt']) {
+      expect(shouldShip(p), p).toBe(true);
+    }
+  });
+
+  it('check-artifact has its own allowlist: a .php.bak, a dump and a credentials file are rejected even if present', () => {
+    const r = run({
+      'wg-live/includes/class-settings.php.bak': '<?php',
+      'wg-live/includes/backup.sql.gz': new Uint8Array([1]),
+      'wg-live/includes/credentials.json': '{}',
+      'wg-live/phpinfo.php': '<?php',
+    });
+    const text = r.problems.join('\n');
+    expect(text).toContain('class-settings.php.bak');
+    expect(text).toContain('backup.sql.gz');
+    expect(text).toContain('credentials.json');
+    expect(text).toContain('phpinfo.php');
+  });
+
   it('parses the plugin header Version and the readme Stable tag', () => {
     expect(parsePluginVersion('<?php\n/**\n * Plugin Name: X\n * Version:           0.1.0\n * Requires PHP: 7.4\n */')).toBe('0.1.0');
     expect(parsePluginVersion('<?php\n// nothing')).toBeNull();
@@ -355,7 +488,7 @@ describe('package.mjs end to end on a fake plugin', () => {
     for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
   });
 
-  function fakeRepo(opts: { header?: string; stable?: string; buildInfo?: boolean; tamper?: boolean } = {}): string {
+  function fakeRepo(opts: { header?: string; stable?: string; constant?: string; buildInfo?: boolean; tamper?: boolean; info?: Record<string, unknown> } = {}): string {
     const root = mkdtempSync(join(tmpdir(), 'wg-live-pkg-'));
     dirs.push(root);
     const plugin = join(root, 'plugin', 'wg-live');
@@ -363,7 +496,7 @@ describe('package.mjs end to end on a fake plugin', () => {
       mkdirSync(join(plugin, d), { recursive: true });
     }
     writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'wg-live', version: VERSION }));
-    writeFileSync(join(plugin, 'wg-live.php'), `<?php\n/**\n * Version: ${opts.header ?? VERSION}\n */\n`);
+    writeFileSync(join(plugin, 'wg-live.php'), MAIN_PHP(opts.header ?? VERSION, opts.constant ?? VERSION));
     writeFileSync(join(plugin, 'readme.txt'), `=== X ===\nStable tag: ${opts.stable ?? VERSION}\n`);
     writeFileSync(join(plugin, 'includes', 'a.php'), '<?php');
     writeFileSync(join(plugin, 'templates', 'b.php'), '<?php');
@@ -376,7 +509,7 @@ describe('package.mjs end to end on a fake plugin', () => {
     writeFileSync(join(plugin, 'assets', 'dist', 'wg-live.js.map'), '{}');
     writeFileSync(join(plugin, 'assets', 'dist', 'chunk-stray.js'), 'x');
     writeFileSync(join(plugin, 'assets', 'dist', '.gitkeep'), '');
-    if (opts.buildInfo !== false) writeFileSync(join(plugin, 'assets', 'dist', 'build-info.json'), JSON.stringify({ version: VERSION, files }));
+    if (opts.buildInfo !== false) writeFileSync(join(plugin, 'assets', 'dist', 'build-info.json'), JSON.stringify({ version: VERSION, commit: COMMIT, dirty: false, files, ...opts.info }));
     writeFileSync(join(plugin, 'assets', 'admin', 'admin.js'), 'a');
     writeFileSync(join(plugin, 'assets', 'admin', 'admin.css'), '.wg-live-admin{a:b}');
     writeFileSync(join(plugin, 'assets', 'demo', 'demo-tone-1.mp3'), 'mp3');
@@ -445,6 +578,40 @@ describe('package.mjs end to end on a fake plugin', () => {
   it('fails when the plugin header or Stable tag differ from package.json', () => {
     expect(() => packagePlugin({ root: fakeRepo({ header: '0.0.1' }) })).toThrow(/plugin header Version is 0\.0\.1/);
     expect(() => packagePlugin({ root: fakeRepo({ stable: '0.0.2' }) })).toThrow(/Stable tag is 0\.0\.2/);
+  });
+
+  it('fails when the WG_LIVE_VERSION constant differs from package.json (TR-04)', () => {
+    expect(() => packagePlugin({ root: fakeRepo({ constant: '0.0.9' }) })).toThrow(/WG_LIVE_VERSION is 0\.0\.9/);
+  });
+
+  it('refuses a dirty, uncommitted or stale build unless allowDirty (TR-01 / F2)', () => {
+    expect(() => packagePlugin({ root: fakeRepo({ info: { dirty: true } }) })).toThrow(/dirty working tree/);
+    expect(() => packagePlugin({ root: fakeRepo({ info: { dirty: undefined } }) })).toThrow(/dirty working tree/);
+    expect(() => packagePlugin({ root: fakeRepo({ info: { commit: 'uncommitted', dirty: true } }) })).toThrow(/committed tree/);
+    expect(() => packagePlugin({ root: fakeRepo({ info: { commit: 'abc1234' } }) })).toThrow(/committed tree/);
+    expect(() => packagePlugin({ root: fakeRepo({ info: { commit: undefined } }) })).toThrow(/committed tree/);
+
+    // tree edited after the build, or HEAD moved on since
+    expect(() => packagePlugin({ root: fakeRepo(), git: { commit: COMMIT, dirty: true } })).toThrow(/uncommitted changes since the build/);
+    expect(() => packagePlugin({ root: fakeRepo(), git: { commit: OTHER_COMMIT, dirty: false } })).toThrow(/is not HEAD/);
+    expect(packagePlugin({ root: fakeRepo(), git: { commit: COMMIT, dirty: false } }).files.length).toBeGreaterThan(0);
+
+    // explicit override for a throw-away package
+    const root = fakeRepo({ info: { commit: 'uncommitted', dirty: true } });
+    expect(packagePlugin({ root, allowDirty: true, git: { commit: OTHER_COMMIT, dirty: true } }).files.length).toBeGreaterThan(0);
+  });
+
+  it('reports regular files it does not ship instead of dropping them silently (TR-02)', () => {
+    const root = fakeRepo();
+    writeFileSync(join(root, 'plugin', 'wg-live', 'assets', 'img.png'), 'png');
+    mkdirSync(join(root, 'plugin', 'wg-live', 'languages'));
+    writeFileSync(join(root, 'plugin', 'wg-live', 'languages', 'wg-live-zh_TW.mo'), 'mo');
+    const r = packagePlugin({ root });
+    expect(r.skipped).toContain('assets/img.png');
+    expect(r.skipped).toContain('languages/wg-live-zh_TW.mo');
+    expect(r.skipped).toContain('assets/demo/demo-tone.m4a');
+    expect(r.skipped).not.toContain('.gitkeep');
+    expect(r.files).not.toContain('languages/wg-live-zh_TW.mo');
   });
 
   it('fails clearly when wg-live.php or readme.txt do not exist yet', () => {

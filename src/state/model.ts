@@ -289,7 +289,9 @@ export function selectStatusMessage(s: AppState): StatusMessage {
     case 'idle':
     case 'selecting': {
       let hint: string | null;
-      if (player.status === 'idle') hint = p.idle;
+      // No mode on offer (plan 4.2): do not tell the user to choose one.
+      if (s.event.data !== null && s.event.data.availableModes.length === 0) hint = p.modesPending;
+      else if (player.status === 'idle') hint = p.idle;
       else if (s.entitlement === 'entitled') hint = player.preparedMode === player.selectedMode ? p.selecting : p.checkingSource;
       else hint = s.entitlement === 'unknown' ? statusCopy.entitlement.checking : null;
       if (gate.intermission) return { title: statusCopy.gate.intermission.title, detail: hint, tone: 'info' };
@@ -373,6 +375,20 @@ export type ErrorAction =
   | 'back_to_events';
 
 /**
+ * The mode the 切換模式 (switch_mode) action moves to, or null when there is none. It is always the
+ * OTHER mode than the one that is failing (the selected mode while nothing has started, the failed
+ * attempt's mode otherwise), and only when that mode is offered by the event. After a failed
+ * Atmos -> Binaural switch the target is therefore Atmos, never the mode that just failed.
+ */
+export function selectSwitchTarget(s: AppState): ListeningMode | null {
+  const { player } = s;
+  const failing = player.status === 'failed' ? (player.error?.mode ?? player.selectedMode) : player.selectedMode;
+  if (failing === null) return null;
+  const target = otherMode(failing);
+  return offers(s, target) ? target : null;
+}
+
+/**
  * Recovery actions for the current state, in display order (plan 6.6, 6.7). A failed switch offers
  * reloading the old mode, and a failed Atmos load offers the Binaural fallback; the track is never
  * changed silently.
@@ -406,7 +422,7 @@ export function selectErrorActions(s: AppState): ErrorAction[] {
       case 'event_not_found':
         return ['back_to_events'];
       case 'mode_unavailable':
-        return s.player.selectedMode !== null && offers(s, otherMode(s.player.selectedMode)) ? ['switch_mode'] : [];
+        return selectSwitchTarget(s) !== null ? ['switch_mode'] : [];
       case 'disabled':
       case 'event_not_playable':
       case 'not_entitled':
@@ -423,11 +439,14 @@ export function selectErrorActions(s: AppState): ErrorAction[] {
   if (player.status !== 'failed' || player.error === null) return out;
   const error = player.error;
 
+  // Resuming playback needs the same conditions as Start (plan 6.2, D6): a denied or unknown entitlement
+  // offers no retry/reload/switch that would start sound.
+  const entitled = s.entitlement === 'entitled';
   switch (error.code) {
     case 'network':
     case 'unknown':
     case 'decode':
-      add('retry');
+      if (entitled) add('retry');
       break;
     case 'not_configured':
       add('view_event');
@@ -442,13 +461,17 @@ export function selectErrorActions(s: AppState): ErrorAction[] {
       return unreachable;
     }
   }
-  if (player.lastGoodMode !== null && error.mode !== player.lastGoodMode && offers(s, player.lastGoodMode)) {
+  if (entitled && player.lastGoodMode !== null && error.mode !== player.lastGoodMode && offers(s, player.lastGoodMode)) {
     add('reload_last_good');
   }
   if (error.mode === 'atmos' && offers(s, 'binaural')) add('fallback_binaural');
   // "This environment cannot play this version" (plan 6.7) offers the other mode when it exists.
-  // For Atmos the Binaural fallback above already is that offer.
-  if (error.code === 'unsupported' && error.mode === 'binaural' && offers(s, 'atmos')) add('switch_mode');
+  // For Atmos the Binaural fallback above already is that offer. When the target is the last good mode,
+  // reload_last_good already is that offer (the same click), so it is not listed twice.
+  if (entitled && error.code === 'unsupported' && error.mode === 'binaural') {
+    const target = selectSwitchTarget(s);
+    if (target !== null && !(out.includes('reload_last_good') && target === player.lastGoodMode)) add('switch_mode');
+  }
   return out;
 }
 

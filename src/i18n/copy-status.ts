@@ -40,6 +40,8 @@ export const statusCopy = {
   /* ---- player (spec 6 table, plan 6.4/6.5) ---- */
   player: {
     idle: '請先選擇聆聽模式',
+    /** The event offers no listening mode yet (availableModes is empty): there is nothing to choose. */
+    modesPending: '聆聽模式即將公布',
     selecting: '按下「開始聆聽」即可播放',
     loading: '正在連接音訊', // [spec 6]
     playing: '播放中',

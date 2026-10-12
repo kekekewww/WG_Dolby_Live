@@ -177,7 +177,9 @@ export function createStatusPanel(options: StatusPanelOptions): StatusPanel {
     setText(code, error ? `${statusCopy.errorCodeLabel}：${error.publicCode}` : '');
 
     const wanted = new Set<ActionId>(selectErrorActions(state));
-    if (state.player.status === 'failed' && wanted.size === 0) wanted.add('retry');
+    // A failed state always offers a way out, but resuming needs the same conditions as Start (D6): a denied
+    // or unknown entitlement never gets a retry that would start sound (PS-6).
+    if (state.player.status === 'failed' && wanted.size === 0 && state.entitlement === 'entitled') wanted.add('retry');
 
     const lastGood = state.player.lastGoodMode;
     retry.hidden = !wanted.has('retry');

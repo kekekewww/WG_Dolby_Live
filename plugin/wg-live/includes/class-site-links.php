@@ -38,8 +38,8 @@ final class Site_Links {
 			'events'  => self::page_permalink( isset( $settings['page_events'] ) ? $settings['page_events'] : 0 ),
 			'player'  => self::page_permalink( isset( $settings['page_player'] ) ? $settings['page_player'] : 0 ),
 			'help'    => self::page_permalink( isset( $settings['page_help'] ) ? $settings['page_help'] : 0 ),
-			'account' => self::override_or_wc( $settings, 'account_url', 'myaccount', array( 'http', 'https' ) ),
-			'store'   => self::override_or_wc( $settings, 'store_url', 'shop', array( 'http', 'https' ) ),
+			'account' => self::wc_or_override( $settings, 'account_url', 'myaccount', array( 'http', 'https' ) ),
+			'store'   => self::wc_or_override( $settings, 'store_url', 'shop', array( 'http', 'https' ) ),
 			'contact' => self::override_or_null( $settings, 'contact_url', array( 'http', 'https', 'mailto' ) ),
 		);
 	}
@@ -84,7 +84,8 @@ final class Site_Links {
 	}
 
 	/**
-	 * A valid admin override, else the WooCommerce page, else null (never the WooCommerce home fallback).
+	 * The WooCommerce page when WooCommerce is active and that page is published (spec 10.4), else a valid
+	 * admin override, else null. Never the WooCommerce home fallback.
 	 *
 	 * @param array    $settings  Settings.
 	 * @param string   $key       Override key.
@@ -92,18 +93,17 @@ final class Site_Links {
 	 * @param string[] $protocols Allowed schemes.
 	 * @return string|null
 	 */
-	private static function override_or_wc( array $settings, $key, $wc_page, array $protocols ) {
-		$override = self::override_or_null( $settings, $key, $protocols );
-		if ( null !== $override ) {
-			return $override;
-		}
+	private static function wc_or_override( array $settings, $key, $wc_page, array $protocols ) {
 		if ( function_exists( 'wc_get_page_id' ) ) {
 			$id = (int) wc_get_page_id( $wc_page );
 			if ( $id > 0 ) {
-				return self::page_permalink( $id );
+				$url = self::page_permalink( $id );
+				if ( null !== $url ) {
+					return $url;
+				}
 			}
 		}
-		return null;
+		return self::override_or_null( $settings, $key, $protocols );
 	}
 
 	/**

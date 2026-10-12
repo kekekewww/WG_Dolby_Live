@@ -36,10 +36,11 @@ test.describe('F02 direct player link', () => {
     await expect(p.root.locator('.wg-live__help-link a')).toHaveText('聆聽說明');
     await expectHref(p.root.locator('.wg-live__help-link a'), '/dev/help.html');
 
-    // The player is a labelled group and carries the documented shortcuts.
+    // The player is a labelled group; the shortcuts are advertised on the play button (UI-08).
     await expect(p.region).toHaveAttribute('role', 'group');
     await expect(p.region).toHaveAccessibleName('音樂會播放器');
-    await expect(p.region).toHaveAttribute('aria-keyshortcuts', 'Space K');
+    expect(await p.region.getAttribute('aria-keyshortcuts')).toBeNull();
+    await expect(p.primary).toHaveAttribute('aria-keyshortcuts', 'Space K');
     // The skeleton is gone and the media element is the single stable one, without controls/autoplay.
     await expect(page.locator('.wg-live__skeleton')).toHaveCount(0);
     await expect(page.locator('audio')).toHaveCount(1);

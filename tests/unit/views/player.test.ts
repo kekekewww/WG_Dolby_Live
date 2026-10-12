@@ -927,6 +927,190 @@ describe('lifecycle', () => {
 
 /* ------------------------------------------------------------------ */
 
+describe('review fixes (ui-a11y)', () => {
+  const decode: PlayerError = { code: 'decode', mode: 'binaural', publicCode: 'E-DEC-01' };
+  const failedStart = (): AppState =>
+    makeState({ entitlement: 'entitled', player: { status: 'failed', selectedMode: 'binaural', error: decode } });
+  const visibleActions = (m: Mounted): HTMLElement[] =>
+    Array.from(m.mount.querySelectorAll<HTMLElement>('.wg-live__status-actions button')).filter((b) => !b.hidden);
+
+  describe('UI-02 focus does not fall to <body> when the focused control hides', () => {
+    it('Start hides on failure: focus moves to the status heading', () => {
+      const m = mountView({ state: readyState() });
+      const primary = q<HTMLButtonElement>(m, '.wg-live__play');
+      primary.focus();
+      expect(document.activeElement).toBe(primary);
+      m.controller.set(failedStart());
+      expect(primary.hidden).toBe(true);
+      expect(document.activeElement).toBe(q(m, '.wg-live__status-title'));
+    });
+
+    it('重試 hides once the retry is under way: focus moves to the status heading', () => {
+      const m = mountView({ state: failedStart() });
+      const retry = visibleActions(m).find((b) => b.textContent === '重試') as HTMLElement;
+      expect(retry).toBeDefined();
+      retry.focus();
+      m.controller.set(makeState({ entitlement: 'entitled', player: { status: 'loading', selectedMode: 'binaural' } }));
+      expect(retry.hidden).toBe(true);
+      expect(document.activeElement).toBe(q(m, '.wg-live__status-title'));
+    });
+
+    it('the entitlement 重試 hides with its panel: focus moves to the status heading', () => {
+      const m = mountView({ state: makeState({ entitlement: 'unavailable', player: { status: 'selecting', selectedMode: 'binaural' } }) });
+      const retry = Array.from(m.mount.querySelectorAll<HTMLButtonElement>('.wg-live__entitlement button')).find((b) => !b.hidden) as HTMLElement;
+      retry.focus();
+      expect(document.activeElement).toBe(retry);
+      m.controller.set(makeState({ entitlement: 'unknown', player: { status: 'selecting', selectedMode: 'binaural' } }));
+      expect(document.activeElement).toBe(q(m, '.wg-live__status-title'));
+    });
+
+    it('a control that stays visible keeps focus, and so does one that is outside the view', () => {
+      const m = mountView({ state: playingState('binaural') });
+      const primary = q<HTMLButtonElement>(m, '.wg-live__play');
+      primary.focus();
+      m.controller.set(playingState('binaural', { player: { status: 'paused', confirmedPlaying: false } }));
+      expect(document.activeElement).toBe(primary);
+
+      const outside = document.createElement('button');
+      document.body.append(outside);
+      outside.focus();
+      m.controller.set(failedStart());
+      expect(document.activeElement).toBe(outside);
+    });
+  });
+
+  describe('UI-03 the status-panel 切換模式 action', () => {
+    const modeUnavailable = (): AppState =>
+      makeState({ entitlement: 'entitled', notReady: 'mode_unavailable', player: { status: 'selecting', selectedMode: 'atmos' } });
+
+    it('before anything started it selects the other mode directly, with no dialog, and focuses that radio', () => {
+      const m = mountView({ state: modeUnavailable() });
+      const trigger = visibleActions(m).find((b) => b.textContent === '切換模式') as HTMLElement;
+      expect(trigger).toBeDefined();
+      trigger.focus();
+      trigger.click();
+      expect(m.controller.calls.selectMode).toHaveBeenCalledWith('binaural');
+      expect(m.controller.calls.selectMode).toHaveBeenCalledTimes(1);
+      expect(m.controller.calls.prepareSwitch).not.toHaveBeenCalled();
+      expect(q<HTMLDialogElement>(m, 'dialog.wg-live__dialog').hasAttribute('open')).toBe(false);
+      expect(document.activeElement).toBe(q(m, 'input.wg-live__mode-input[value="binaural"]'));
+    });
+
+    it('keeps the focus on the radio after the not-ready state clears and the action disappears', () => {
+      const m = mountView({ state: modeUnavailable() });
+      const trigger = visibleActions(m).find((b) => b.textContent === '切換模式') as HTMLElement;
+      trigger.focus();
+      trigger.click();
+      m.controller.set(readyState('binaural'));
+      expect(trigger.hidden).toBe(true);
+      expect(q<HTMLInputElement>(m, 'input.wg-live__mode-input[value="binaural"]').checked).toBe(true);
+      expect(document.activeElement).toBe(q(m, 'input.wg-live__mode-input[value="binaural"]'));
+    });
+
+    it('an unsupported Binaural start still opens the dialog, aimed at Atmos', () => {
+      const unsupported: PlayerError = { code: 'unsupported', mode: 'binaural', publicCode: 'E-SRC-01' };
+      const m = mountView({
+        state: makeState({ entitlement: 'entitled', player: { status: 'failed', selectedMode: 'binaural', error: unsupported } }),
+      });
+      (visibleActions(m).find((b) => b.textContent === '切換模式') as HTMLElement).click();
+      expect(q<HTMLDialogElement>(m, 'dialog.wg-live__dialog').hasAttribute('open')).toBe(true);
+      expect(m.controller.calls.prepareSwitch).toHaveBeenCalledWith('atmos');
+      expect(m.controller.calls.selectMode).not.toHaveBeenCalled();
+    });
+
+    it('after a failed switch to Binaural the dialog targets the last good mode, not the one that just failed', () => {
+      const m = mountView({
+        state: playingState('atmos', {
+          player: { status: 'failed', error: decode, selectedMode: 'binaural', confirmedPlaying: false },
+        }),
+      });
+      q(m, '.wg-live__switch').click();
+      expect(m.controller.calls.prepareSwitch).toHaveBeenCalledWith('atmos');
+      expect(text(q(m, 'dialog.wg-live__dialog'))).toContain('目前模式為「Binaural」');
+    });
+  });
+
+  describe('UI-05 the 60 s poll keeps unchanged info nodes', () => {
+    it('an equal but distinct event object replaces nothing', () => {
+      const m = mountView({ state: readyState() });
+      const list = q(m, '.wg-live__programme-list');
+      const paragraph = q(m, '.wg-live__info-text');
+      const when = q(m, '.wg-live__info-when time');
+      const state = m.controller.getState();
+      const data = state.event.data as PublicEvent;
+      const records: MutationRecord[] = [];
+      const observer = new MutationObserver((r) => records.push(...r));
+      observer.observe(q(m, '.wg-live__player-view'), { childList: true, subtree: true });
+      m.controller.set({ ...state, event: { ...state.event, data: structuredClone(data) } });
+      expect(q(m, '.wg-live__programme-list')).toBe(list);
+      expect(q(m, '.wg-live__info-text')).toBe(paragraph);
+      expect(q(m, '.wg-live__info-when time')).toBe(when);
+      expect(records.filter((r) => r.type === 'childList' && (r.target as Element).closest?.('.wg-live__info, .wg-live__player-meta'))).toEqual([]);
+      observer.disconnect();
+    });
+
+    it('a real change to the programme or the description still re-renders', () => {
+      const m = mountView({ state: readyState() });
+      const list = q(m, '.wg-live__programme-list');
+      const state = m.controller.getState();
+      const data = state.event.data as PublicEvent;
+      m.controller.set({ ...state, event: { ...state.event, data: { ...data, programme: ['新曲目'], description: '新的說明' } } });
+      expect(q(m, '.wg-live__programme-list')).not.toBe(list);
+      expect(Array.from(m.mount.querySelectorAll('.wg-live__programme-list li')).map((li) => li.textContent)).toEqual(['新曲目']);
+      expect(text(q(m, '.wg-live__info-text'))).toBe('新的說明');
+    });
+  });
+
+  describe('UI-06 event-status announcements', () => {
+    it('live -> intermission while playing is announced, once', () => {
+      const m = mountView({ state: playingState('binaural') });
+      m.controller.set(playingState('binaural', { event: { status: 'intermission' } }));
+      expect(m.announce).toHaveBeenCalledTimes(1);
+      expect(m.announce).toHaveBeenLastCalledWith('活動狀態更新：中場休息');
+      m.controller.set(playingState('binaural', { event: { status: 'intermission' }, player: { volume: 0.4 } }));
+      expect(m.announce).toHaveBeenCalledTimes(1);
+      m.controller.set(playingState('binaural', { event: { status: 'live' } }));
+      expect(m.announce).toHaveBeenLastCalledWith('活動狀態更新：演出中');
+      expect(m.announce).toHaveBeenCalledTimes(2);
+    });
+
+    it('picking another mode after a failure does not claim an event status update', () => {
+      const m = mountView({ state: failedStart() });
+      m.controller.set(readyState('atmos'));
+      m.controller.set(readyState('binaural'));
+      const messages = m.announce.mock.calls.map((c) => c[0]);
+      expect(messages.filter((message) => message.includes('活動狀態更新'))).toEqual([]);
+    });
+
+    it('a real status change while waiting is still announced', () => {
+      const m = mountView({ state: readyState('binaural', { event: { status: 'intermission' } }) });
+      m.controller.set(readyState('binaural'));
+      expect(m.announce).toHaveBeenLastCalledWith('活動狀態更新：演出中', undefined);
+    });
+  });
+
+  describe('UI-07 an event with no listening mode', () => {
+    it('does not tell the user to choose a mode (status heading and Start reason)', () => {
+      const none = makeEvent({ availableModes: [] });
+      const m = mountView({ event: none, state: makeState({ entitlement: 'entitled' }, none) });
+      expect(text(q(m, '.wg-live__status-title'))).toBe('聆聽模式即將公布');
+      expect(text(q(m, '.wg-live__start-reason'))).toBe('聆聽模式即將公布');
+      expect(m.mount.textContent).not.toContain('請先選擇聆聽模式');
+      expect(Array.from(m.mount.querySelectorAll<HTMLInputElement>('input.wg-live__mode-input')).every((i) => i.disabled)).toBe(true);
+    });
+  });
+
+  describe('UI-08 keyboard shortcut advertising', () => {
+    it('the group does not advertise Space; the primary button carries the shortcuts', () => {
+      const m = mountView({ state: playingState('binaural') });
+      expect(q(m, '.wg-live__player').hasAttribute('aria-keyshortcuts')).toBe(false);
+      expect(q(m, '.wg-live__play').getAttribute('aria-keyshortcuts')).toBe('Space K');
+    });
+  });
+});
+
+/* ------------------------------------------------------------------ */
+
 describe('source hygiene (plan D12)', () => {
   const files = [
     'src/views/player.ts',

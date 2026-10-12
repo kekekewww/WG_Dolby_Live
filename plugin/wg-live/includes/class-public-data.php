@@ -318,9 +318,10 @@ final class Public_Data {
 	/**
 	 * Encode a bootstrap for <script type="application/json"> (plan 3.1 flags).
 	 *
-	 * Two extra, still valid-JSON escapes protect the data from the_content filters that run after
+	 * Extra, still valid-JSON escapes protect the data from the_content filters that run after
 	 * shortcodes: literal spaces and no-break spaces become \u escapes, so convert_smilies()
-	 * (which needs whitespace around a smiley) cannot rewrite text inside the JSON.
+	 * (which needs whitespace around a smiley) cannot rewrite text inside the JSON, and square
+	 * brackets inside strings become \u005b and \u005d, so a second do_shortcode() pass finds no [tag].
 	 *
 	 * @param array $config Bootstrap.
 	 * @return string
@@ -333,7 +334,21 @@ final class Public_Data {
 		if ( ! is_string( $json ) ) {
 			return '{}';
 		}
-		return str_replace( array( ' ', chr( 0xC2 ) . chr( 0xA0 ) ), array( '\u0020', '\u00a0' ), $json );
+		$json = str_replace( array( ' ', chr( 0xC2 ) . chr( 0xA0 ) ), array( '\u0020', '\u00a0' ), $json );
+
+		// Page builders (Elementor) run do_shortcode() a second time over a Shortcode widget's output, which
+		// would expand a bare [tag] typed into a title or FAQ answer. Inside JSON string literals the brackets
+		// become \u005b and \u005d (valid JSON, same decoded value). JSON_HEX_QUOT guarantees that a string
+		// literal holds no raw double quote, so the pattern cannot run past the end of a string. The
+		// structural [ ] of arrays are outside string literals and stay as they are.
+		$escaped = preg_replace_callback(
+			'/"[^"]*"/',
+			static function ( array $m ) {
+				return str_replace( array( '[', ']' ), array( '\u005b', '\u005d' ), $m[0] );
+			},
+			$json
+		);
+		return is_string( $escaped ) ? $escaped : $json;
 	}
 
 	/**

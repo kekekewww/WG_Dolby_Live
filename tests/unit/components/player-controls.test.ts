@@ -55,6 +55,12 @@ describe('primaryAction', () => {
 });
 
 describe('startReason', () => {
+  it('UI-07: an event with no listening mode says so instead of asking for a choice', () => {
+    const state = makeState({ entitlement: 'entitled' }, makeEvent({ availableModes: [] }));
+    expect(startReason(state)).toBe('聆聽模式即將公布');
+  });
+
+
   it('is null when Start is enabled or not shown', () => {
     expect(startReason(readyState())).toBeNull();
     expect(startReason(statusState('playing'))).toBeNull();

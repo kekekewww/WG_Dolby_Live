@@ -66,6 +66,8 @@ export function startReason(state: AppState): string | null {
   const action = primaryAction(state);
   if (action.kind !== 'start' || !action.disabled) return null;
   const { selectedMode, preparedMode } = state.player;
+  // Both options are disabled (「即將開放」): do not ask for a choice nobody can make.
+  if (state.event.data !== null && state.event.data.availableModes.length === 0) return statusCopy.player.modesPending;
   if (selectedMode === null) return playerCopy.startReason.noMode;
 
   switch (selectGate(state).kind) {

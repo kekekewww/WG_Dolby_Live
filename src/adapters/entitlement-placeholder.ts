@@ -9,6 +9,12 @@ export interface EntitlementPlaceholder extends EntitlementProvider {
    * decides playback by itself (plan D6).
    */
   setOverride(status: EntitlementOverride | null): void;
+  /**
+   * Replace what the mirror knows about an event with fresher data (a poll). Without it the rule above
+   * would keep answering for the mount-time event, for example 'unavailable' after an admin turned an
+   * unconfigured event into a demo one, while the server would say 'entitled'.
+   */
+  setEvent(event: PublicEvent): void;
 }
 
 function abortError(): DOMException {
@@ -57,6 +63,10 @@ export function createEntitlementPlaceholder(events: PublicEvent[]): Entitlement
 
     setOverride(status: EntitlementOverride | null): void {
       override = status;
+    },
+
+    setEvent(event: PublicEvent): void {
+      byId.set(event.id, event);
     },
   };
 }

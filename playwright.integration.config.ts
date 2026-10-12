@@ -1,3 +1,5 @@
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { defineConfig, devices, type Project } from '@playwright/test';
 
 /**
@@ -16,6 +18,10 @@ import { defineConfig, devices, type Project } from '@playwright/test';
  *                                 project and the projects are chained (dependencies), so they run strictly
  *                                 one after another, after the first phase: chromium files, then webkit files.
  * `npm run test:integration -- --no-deps --project='chromium-state-*'` runs one phase alone.
+ *
+ * wp-env bind-mounts plugin/wg-live, including assets/dist. `npm run build` (also run by the e2e dist server of
+ * playwright.config.ts) EMPTIES that folder, so never run `test:e2e` / `test:e2e:dist` / `npm run build` while
+ * this suite is running (test:e2e:dev does not build).
  */
 const STATE_SPEC = '**/*.state.spec.ts';
 
@@ -23,7 +29,17 @@ const workers = process.env.CI ? 2 : 4;
 
 // The state specs change shared site state and must never overlap, not even with each other: one project per
 // file, chained with dependencies (chromium files first, then webkit).
-const STATE_FILES = ['disabled', 'settings', 'deactivate'];
+// STATE_ORDER is the run order. A tests/integration/*.state.spec.ts that is not listed would match no project and
+// silently never run, so the config refuses to load instead (TR-07).
+const STATE_ORDER = ['disabled', 'settings', 'deactivate'];
+const STATE_ON_DISK = readdirSync(join(import.meta.dirname, 'tests', 'integration'))
+  .filter((f) => f.endsWith('.state.spec.ts'))
+  .map((f) => f.replace(/\.state\.spec\.ts$/, ''));
+const UNLISTED = STATE_ON_DISK.filter((f) => !STATE_ORDER.includes(f));
+if (UNLISTED.length > 0) {
+  throw new Error(`playwright.integration.config.ts: add ${UNLISTED.map((f) => `"${f}"`).join(', ')} to STATE_ORDER (tests/integration/${UNLISTED[0]}.state.spec.ts would never run)`);
+}
+const STATE_FILES = STATE_ORDER.filter((f) => STATE_ON_DISK.includes(f));
 const BROWSERS = [
   { name: 'chromium', device: devices['Desktop Chrome'] },
   { name: 'webkit', device: devices['Desktop Safari'] },

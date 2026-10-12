@@ -24,7 +24,10 @@ These scripts exist in `package.json` (also `lint:php`, `test:integration`, `tes
 
 ```bash
 npm ci
-npm run wp:start        # project-local @wordpress/env (Docker); plugin mounted from ./plugin/wg-live, port 8888
+npm run check           # fast gate (~35 s): typecheck, lint, unit, build, package, check:artifact
+npm run wp:start:wsl    # PREFERRED: wp-env inside WSL2 (fast); see docs/implementation/WSL.md
+npm run test:integration:wsl  # sync to WSL, then Playwright integration specs against :8888/:8889
+npm run wp:start        # wp-env from the Windows checkout (slow: 5-25 s per WordPress request); never together with the WSL one
 npm run dev             # Vite dev server
 npm run typecheck
 npm run lint

@@ -1,5 +1,15 @@
 # E2E results (Playwright harness, M1)
 
+## Latest run: 2026-10-12, after the review fixes
+
+Command: `npx playwright test` (all 4 projects, 6 workers). Result: **622 passed, 2 skipped, 0 failed** in 13.0 min.
+- **The 2 skips** are the WebKit route-abort variants of F08, as before.
+- **3 transient infrastructure errors** occurred during the first run, while a wp-env image build saturated the machine: 1 Chromium "Target crashed" and 2 Firefox `NS_ERROR_CONNECTION_REFUSED` against the Vite dev server. All 3 passed on `--last-failed` (3/3 in 14.8 s), and none was an assertion failure.
+
+---
+
+## Earlier run (2026-10-10)
+
 Run: 2026-10-10, Windows 11, Node 22.17, `@playwright/test` 1.64.0, `npx playwright test --workers=6`.
 Scope: the Vite dev harness (`/dev/*.html`) in Chromium, Firefox and WebKit, and the built bundle (`/dev/dist/*.html`) in Chromium. Playwright WebKit is not Safari: real-device Safari results belong in `manual-devices.md`.
 HTML report: `playwright-report/index.html` (git-ignored, regenerate with `npx playwright test`).

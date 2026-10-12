@@ -23,7 +23,7 @@
 | 欄位 | 內容 |
 |---|---|
 | 外掛版本 | |
-| Git commit | |
+| Git commit（完整 40 碼；`build-info.json` 的 `dirty` 必須為 false） | |
 | ZIP 檔名 | |
 | ZIP SHA-256 | |
 | `build-info.json` 內三個檔案的 SHA-256（wg-live.js／wg-live.css／wg-live-featured.css） | |
@@ -71,7 +71,7 @@
 | 部署模式 | |
 | 活動頁／播放頁／說明頁 Page ID | |
 | 精選活動（代稱） | |
-| Account／Store／Contact 覆寫（只寫「自動」或網域） | |
+| Account／Store／Contact 覆寫（只寫「自動」或網域；Contact 沒有自動值，不可為「自動」） | |
 | 設定版本號、更新時間、更新者（「部署資訊」） | |
 | 網域不符警告 | ☐ 無　☐ 有（說明：＿＿） |
 | 開發面板 | 正式站必須是「關閉」；實際：＿＿ |

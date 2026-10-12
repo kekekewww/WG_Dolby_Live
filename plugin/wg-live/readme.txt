@@ -28,7 +28,7 @@ The plugin does not create accounts, checkout or payment flows and does not chan
 
 1. Upload the `wg-live` folder to `/wp-content/plugins/` or install the ZIP from Plugins > Add New > Upload Plugin.
 2. Activate the plugin. It starts in deployment mode "disabled".
-3. Open the WG Live admin menu, then Settings, create or bind the Live, Listen and Listening Guide pages, then switch the deployment mode to "demo" when ready.
+3. Open Live 活動 > 設定 (Settings), then Live 活動 > 建立建議頁面 (Create suggested pages), to create or bind the Live, Listen and Listening Guide pages. Set the contact link under the site-link overrides, then switch the deployment mode to "demo" when ready.
 4. Add the shortcodes to the bound pages (or to an Elementor Shortcode widget) and `[wg_live_featured]` to the homepage.
 
 Requirements: WordPress 6.3 or newer and PHP 7.4 or newer.

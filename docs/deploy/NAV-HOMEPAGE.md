@@ -93,7 +93,7 @@
 | 延遲載入（delay JS）、合併（combine）、壓縮重排 | 將 `wg-live*.js` **排除**。外掛的 JS 以 `defer` 載入並在 DOM 就緒時掛載；被延遲到使用者互動才載入，會讓畫面停在骨架 |
 | CSS 最佳化／合併／Critical CSS | 不要移除或改寫 `wg-live.css`、`wg-live-featured.css`；若有「未使用 CSS 移除」功能，把這兩個檔案排除 |
 | 查詢字串版本 | **保留 `?ver=<hash>`**。不要啟用「移除資源的查詢字串」。外掛靠它在更新時繞過舊快取 |
-| 頁面快取 | 活動公開介紹可以快取。`/wp-json/wg-live/v1/playback` 與任何含個人資格的回應不可被共用快取；確認快取外掛／CDN 沒有對 REST `playback` 路徑設定快取規則 |
+| 頁面快取 | 活動公開介紹可以快取，但 `/live/` 活動列表與首頁精選卡是頁面載入時的快照（只有播放頁會輪詢狀態）。快取存活時間請設短（建議 5 分鐘內），並在每次修改活動狀態、時間或取消後手動清除 `/live/`、播放頁與首頁的頁面快取。`/wp-json/wg-live/v1/playback` 與任何含個人資格的回應不可被共用快取；確認快取外掛／CDN 沒有對 REST `playback` 路徑設定快取規則 |
 | Service Worker／離線快取 | 不安裝會攔截整站請求的 Service Worker；不把串流分片或憑證放進自製快取 |
 
 驗證方式：開啟 Live 三頁，Network 面板確認 `wg-live.js` 是原檔（未合併、未改名）、有 `?ver=`；關掉快取外掛的延遲功能後行為與開啟時一致。
@@ -101,7 +101,7 @@
 ## 6. Account 與登入（規格 §16.4）
 
 - 所有登入按鈕回到現有的 WooCommerce Account 頁；不導向新的會員系統。
-- 外掛會自動採用 WooCommerce 的 Account 頁。若要覆寫，只在外掛設定頁填同網域的 Account 網址。
+- 外掛啟用 WooCommerce 且 My Account 頁已發布時，一律採用該頁（規格 §10.4）；只有在 WooCommerce 不可用或該頁未發布時，才會使用外掛設定頁填的同網域 Account 網址。Store 連結同理（商店頁優先）。
 - M1 的登入按鈕**不帶返回路徑**；不要加 `redirect_to` 網址，也不要為此改動 WooCommerce 登入流程。
 - M1 讓登出訪客在公開示範中完整操作。這只是 demo 的規則，不代表有驗票。購票與入場狀態的真實顯示要等 M2 接入後端結果。
 

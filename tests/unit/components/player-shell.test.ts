@@ -8,7 +8,9 @@ describe('createPlayerShell', () => {
     expect(shell.el.className).toBe('wg-live__player');
     expect(shell.el.getAttribute('role')).toBe('group');
     expect(shell.el.getAttribute('aria-label')).toBeTruthy();
-    expect(shell.el.getAttribute('aria-keyshortcuts')).toContain('Space');
+    // UI-08: Space never reaches the shortcut handler from inside the group (every focusable node is a control),
+    // so the group does not advertise it; the primary button carries the shortcuts.
+    expect(shell.el.hasAttribute('aria-keyshortcuts')).toBe(false);
     expect(shell.el.firstElementChild).toBe(shell.stage);
     expect(shell.stage.className).toContain('wg-live__stage');
     expect(shell.controlsSlot.className).toBe('wg-live__controls');

@@ -749,7 +749,7 @@ final class Settings {
 				$style[ $key ] = strtolower( $color );
 			} else {
 				$style[ $key ] = isset( $current['style_overrides'][ $key ] ) ? $current['style_overrides'][ $key ] : '';
-				self::notice( 'wg_live_style_' . $key, sprintf( '顏色「%s」不是有效的十六進位色碼（例如 #f0d62b），已保留原本的設定。', self::shorten( $raw, 20 ) ) );
+				self::notice( 'wg_live_style_' . $key, sprintf( '顏色「%s」不是有效的十六進位色碼（例如 #f0d62b），已保留原本的設定。', esc_html( self::shorten( $raw, 20 ) ) ) );
 			}
 		}
 		$out['style_overrides'] = $style;
@@ -982,6 +982,9 @@ final class Settings {
 			if ( 'publish' !== $event->post_status ) {
 				$label .= '（未發布）';
 			}
+			if ( '' === Events::get_event_data( $event )['starts_at_utc'] ) {
+				$label .= '（未設定開始時間，不會顯示）';
+			}
 			printf( '<option value="%1$d"%2$s>%3$s</option>', (int) $event->ID, selected( $selected, (int) $event->ID, false ), esc_html( $label ) );
 		}
 		echo '</select>';
@@ -989,7 +992,7 @@ final class Settings {
 
 	/** @return void */
 	public static function section_links(): void {
-		echo '<p>留空代表自動：帳號頁與商店使用 WooCommerce 對應頁面（已發布時），聯絡連結沒有自動值。填寫時必須是完整網址；staging 的網址不要帶到正式站。</p>';
+		echo '<p>帳號頁與商店：已啟用 WooCommerce 且對應頁面（我的帳號、商店）已發布時，一律使用該頁面；這裡填寫的網址只在沒有 WooCommerce、或該頁面未發布時使用。聯絡連結沒有自動值。填寫時必須是完整網址；staging 的網址不要帶到正式站。</p>';
 	}
 
 	/**
@@ -1479,17 +1482,20 @@ final class Settings {
 	}
 
 	/**
-	 * A page with this slug under this parent in any status except trash.
+	 * A page or media-library file with this slug under this parent in any status except trash.
+	 *
+	 * Attachments share the page slug namespace: wp_unique_post_slug() checks page and attachment together,
+	 * so an unattached "live" file would rename the published Live page to live-2. Pages win when both match.
 	 *
 	 * @param string $slug      Page slug.
 	 * @param int    $parent_id Parent page ID.
-	 * @return object|null Row with ID, post_title, post_status.
+	 * @return object|null Row with ID, post_title, post_status, post_type.
 	 */
 	private static function find_page( string $slug, int $parent_id ) {
 		global $wpdb;
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT ID, post_title, post_status FROM {$wpdb->posts} WHERE post_type = 'page' AND post_name = %s AND post_parent = %d AND post_status NOT IN ('trash', 'auto-draft') LIMIT 1",
+				"SELECT ID, post_title, post_status, post_type FROM {$wpdb->posts} WHERE post_type IN ('page', 'attachment') AND post_name = %s AND post_parent = %d AND post_status NOT IN ('trash', 'auto-draft') ORDER BY (post_type = 'page') DESC, ID ASC LIMIT 1",
 				$slug,
 				$parent_id
 			)
@@ -1538,11 +1544,12 @@ final class Settings {
 			if ( isset( $conflicts[ $page['key'] ] ) ) {
 				$existing = $conflicts[ $page['key'] ];
 				printf(
-					'<span class="wg-live-admin__flag wg-live-admin__flag--bad">已存在</span> <a href="%1$s">%2$s（#%3$d，%4$s）</a>',
+					'<span class="wg-live-admin__flag wg-live-admin__flag--bad">已存在</span> <a href="%1$s">%2$s（#%3$d，%4$s%5$s）</a>',
 					esc_url( (string) get_edit_post_link( (int) $existing->ID, 'raw' ) ),
 					esc_html( $existing->post_title ),
 					(int) $existing->ID,
-					esc_html( $existing->post_status )
+					esc_html( $existing->post_status ),
+					'attachment' === $existing->post_type ? esc_html( '，媒體庫檔案' ) : ''
 				);
 			} else {
 				echo '<span class="wg-live-admin__flag wg-live-admin__flag--ok">可建立</span>';
