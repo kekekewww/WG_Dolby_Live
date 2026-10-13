@@ -204,13 +204,31 @@ export function deletePosts(env: WpEnv, ids: number[]): void {
   wpPhp(env, `foreach ( ${JSON.stringify(ids)} as $id ) { wp_delete_post( (int) $id, true ); } return true;`);
 }
 
-/** Delete every wg_live_event whose post_name or title starts with the prefix (cleanup after a crashed run). */
+/**
+ * Delete every wg_live_event whose post_name starts with the prefix or whose title contains it (cleanup after
+ * a crashed run). Titles match anywhere: fixtures such as 【it-f13-webkit】春季音樂會 that were saved with an
+ * empty 代稱 have no post_name, and only the title identifies them. Every status is searched: 'any' leaves
+ * out trash and auto-draft, and a trashed fixture (post_name <slug>__trashed) would pile up run after run.
+ */
 export function deleteEventsByPrefix(env: WpEnv, prefix: string): void {
   const p = prefix.replace(/'/g, '');
+  if (p.length < 6) throw new Error(`deleteEventsByPrefix: prefix "${p}" is too short to be safe`);
   wpPhp(
     env,
-    `$ids = get_posts( array( 'post_type' => 'wg_live_event', 'post_status' => 'any', 'posts_per_page' => -1, 'fields' => 'ids', 'suppress_filters' => true ) );
-     foreach ( $ids as $id ) { $p = get_post( $id ); if ( 0 === strpos( $p->post_name, '${p}' ) || 0 === strpos( $p->post_title, '${p}' ) ) { wp_delete_post( $id, true ); } }
+    `$ids = get_posts( array( 'post_type' => 'wg_live_event', 'post_status' => array_keys( get_post_stati() ), 'posts_per_page' => -1, 'fields' => 'ids', 'suppress_filters' => true ) );
+     foreach ( $ids as $id ) { $p = get_post( $id ); if ( 0 === strpos( $p->post_name, '${p}' ) || false !== strpos( $p->post_title, '${p}' ) ) { wp_delete_post( $id, true ); } }
+     return true;`,
+  );
+}
+
+/** Delete the users whose login starts with the prefix (per-run test accounts left by a crashed run). */
+export function deleteUsersByLoginPrefix(env: WpEnv, prefix: string): void {
+  const p = prefix.replace(/'/g, '');
+  if (!/^it-[a-z0-9-]{4,}$/.test(p)) throw new Error(`deleteUsersByLoginPrefix: refusing prefix "${p}"`);
+  wpPhp(
+    env,
+    `require_once ABSPATH . 'wp-admin/includes/user.php';
+     foreach ( get_users( array( 'fields' => array( 'ID', 'user_login' ) ) ) as $u ) { if ( 0 === strpos( $u->user_login, '${p}' ) ) { wp_delete_user( (int) $u->ID, 1 ); } }
      return true;`,
   );
 }

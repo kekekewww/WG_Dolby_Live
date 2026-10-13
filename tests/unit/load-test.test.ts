@@ -355,7 +355,19 @@ function fastOpts(outDir: string, extra: string[] = []): Opts {
 }
 
 describe('run', () => {
-  const noSleepDeps = (site: ReturnType<typeof fakeSite>) => ({ fetchImpl: site.fetchImpl, log: () => undefined });
+  // Wall-clock steps made these tests flaky on a busy machine: a 120 ms step could end before a worker
+  // picked the URL under test. Each now() call is one tick instead, and sleeps return at once, so a step
+  // always covers the same number of iterations.
+  const noSleepDeps = (site: ReturnType<typeof fakeSite>, random?: () => number) => {
+    let tick = 0;
+    return {
+      fetchImpl: site.fetchImpl,
+      log: () => undefined,
+      now: () => tick++,
+      sleep: async () => undefined,
+      ...(random ? { random } : {}),
+    };
+  };
 
   it('runs the steps, only requests allowed URLs, and writes load-<timestamp>.json', async () => {
     const dir = tmp();
@@ -441,9 +453,15 @@ describe('run', () => {
       '/live/': () => new Response(null, { status: 302, headers: { location: 'https://evil.example.com/x' } }),
       '/live/help/': () => new Response(null, { status: 301, headers: { location: '/wp-json/wg-live/v1/playback?event=1&mode=atmos' } }),
     });
-    const { result } = await runLoadTest({ ...fastOpts(dir), steps: [3], discover: false }, noSleepDeps(site));
+    // One VU draws kind, page index, think time per request: alternate /live/ (index 1) and /live/help/ (index 3).
+    const draws = [0.1, 0.3, 0.5, 0.1, 0.9, 0.5];
+    let n = 0;
+    const random = () => draws[n++ % draws.length] as number;
+    const { result } = await runLoadTest({ ...fastOpts(dir), steps: [1], discover: false }, noSleepDeps(site, random));
     expect(site.seen.some((u) => u.includes('playback'))).toBe(false);
+    expect(site.raw.mock.calls.map(([u]) => String(u)).filter((u) => !u.startsWith(`${ORIGIN}/`))).toEqual([]);
     expect(result.totals?.statusCodes['302'] ?? 0).toBeGreaterThan(0);
+    expect(result.totals?.statusCodes['301'] ?? 0).toBeGreaterThan(0);
     expect(result.totals?.statusCodes.error ?? 0).toBe(0);
   });
 
@@ -464,6 +482,14 @@ describe('run', () => {
     expect(result.totals?.requests).toBe(7);
     expect(result.abortedReason).toMatch(/max-requests/);
     expect(exitCode).toBe(1);
+  });
+
+  it('never exceeds --max-requests when many VUs wait on the rate limiter at once', async () => {
+    const dir = tmp();
+    const site = fakeSite();
+    const { result } = await runLoadTest({ ...fastOpts(dir), steps: [25], maxRequests: 7, discover: false }, noSleepDeps(site));
+    expect(result.totals?.requests).toBe(7);
+    expect(site.raw).toHaveBeenCalledTimes(7);
   });
 
   it('main prints help and exits 0 without requests', async () => {

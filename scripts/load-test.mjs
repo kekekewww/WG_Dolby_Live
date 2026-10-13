@@ -649,13 +649,15 @@ export async function runLoadTest(opts, deps = {}) {
       const worker = async (index) => {
         await sleep((stagger * index) / vus);
         while (!state.stop && now() < deadline) {
+          await limiter.take();
+          if (state.stop || now() >= deadline) break;
+          // Checked after the limiter wait, with no await before issued++: workers that queued while the
+          // count was below the cap must not each send one more request.
           if (issued >= opts.maxRequests) {
             abortedReason ??= `reached --max-requests ${opts.maxRequests}`;
             state.stop = true;
             break;
           }
-          await limiter.take();
-          if (state.stop || now() >= deadline) break;
           issued++;
           const target = pickTarget();
           const sample = await requestOnce(target.url, target.kind, ctx);

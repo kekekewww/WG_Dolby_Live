@@ -13,7 +13,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { test, type BrowserContext, type Page } from '@playwright/test';
-import { bootConfigs, deleteEventsByPrefix, deletePosts, DEV, expect, fetchText, fillLoginForm, LISTEN_URL, MODE_NAME, rest, TONE, waitMounted, wpPhp, type Mode } from './wp';
+import { bootConfigs, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, LISTEN_URL, MODE_NAME, rest, TONE, waitMounted, wpPhp, type Mode } from './wp';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -33,6 +33,7 @@ const NEW_EVENT = '/wp-admin/post-new.php?post_type=wg_live_event';
 let context: BrowserContext;
 let page: Page;
 let prefix = '';
+let projectName = '';
 let adminUserId = 0;
 const created: number[] = [];
 
@@ -104,11 +105,15 @@ function row(id: number): { status: string; name: string; title: string; meta: R
 const noticeText = async (p: Page): Promise<string> => (await p.locator('#wpbody-content .notice').allTextContents()).join(' | ');
 
 test.beforeAll(async ({ browser }, testInfo) => {
-  prefix = `it-f13-${testInfo.project.name}`;
+  projectName = testInfo.project.name;
+  prefix = `it-f13-${projectName}`;
+  // Leftovers of a crashed run (afterAll never ran). The file is serial, so nothing else uses these names now.
   deleteEventsByPrefix(DEV, prefix);
+  deleteUsersByLoginPrefix(DEV, `it-admin-${projectName}-`);
+  deleteUsersByLoginPrefix(DEV, `it-editor-${projectName}-`);
   // A private administrator for this file: WordPress queues admin notices per user, so another test that
   // loads an admin page as the shared "admin" account at the same time could consume this file's notices.
-  const login = `it-admin-${testInfo.project.name}-${randomUUID().slice(0, 6)}`;
+  const login = `it-admin-${projectName}-${randomUUID().slice(0, 6)}`;
   const password = randomUUID();
   adminUserId = wpPhp<number>(DEV, `return wp_insert_user( array( 'user_login' => '${login}', 'user_pass' => '${password}', 'user_email' => '${login}@example.invalid', 'role' => 'administrator' ) );`);
   context = await browser.newContext({ baseURL: DEV.baseURL });
@@ -453,7 +458,7 @@ test.describe('spec F3/F4: publishing needs a title and a valid start time', () 
 
 test.describe('capabilities', () => {
   test('a user without the manage capability cannot open the event, settings, deployment or pages screens', async ({ browser }) => {
-    const login = `it-editor-${randomUUID().slice(0, 8)}`;
+    const login = `it-editor-${projectName}-${randomUUID().slice(0, 8)}`;
     const password = randomUUID();
     const userId = wpPhp<number>(DEV, `return wp_insert_user( array( 'user_login' => '${login}', 'user_pass' => '${password}', 'user_email' => '${login}@example.invalid', 'role' => 'editor' ) );`);
     const editor = await browser.newContext({ baseURL: DEV.baseURL });
