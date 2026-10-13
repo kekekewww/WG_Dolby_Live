@@ -171,7 +171,7 @@ describe('event resolution and controller dependencies', () => {
     expect(d.boot).toBe(m.boot);
     expect(d.root).toBe(m.root);
     expect(d.env).toEqual({ volumeSettable: true });
-    expect(d.host.media).toBeInstanceOf(HTMLAudioElement);
+    expect(d.host.media).toBeInstanceOf(HTMLVideoElement); // video is the default media kind
     expect(m.mount.querySelector('.wg-live__stage')?.contains(d.host.media)).toBe(true);
     expect(typeof d.adapterFactory).toBe('function');
     expect(typeof d.playbackProvider.resolve).toBe('function');
@@ -217,6 +217,41 @@ describe('event resolution and controller dependencies', () => {
   it('creates a <video> host for video events', () => {
     mountView({ event: makeEvent({ mediaKind: 'video', slug: 'demo-live-binaural-atmos' }) });
     expect(deps().host.media).toBeInstanceOf(HTMLVideoElement);
+  });
+
+  it('video is the default kind: the demo fixtures render one <video playsinline> in the 16:9 stage and no <audio>', () => {
+    const m = mountView();
+    expect(m.mount.querySelectorAll('audio')).toHaveLength(0);
+    const videos = m.mount.querySelectorAll('.wg-live__stage video');
+    expect(videos).toHaveLength(1);
+    const video = videos[0] as HTMLVideoElement;
+    expect(video.hasAttribute('playsinline')).toBe(true);
+    expect(video.getAttribute('preload')).toBe('none');
+    expect(video.hasAttribute('autoplay')).toBe(false);
+    expect(video.hasAttribute('controls')).toBe(false);
+    expect(video.getAttribute('poster')).not.toBeNull();
+    const stage = q(m, '.wg-live__stage');
+    expect(stage.classList.contains('wg-live__stage--video')).toBe(true);
+    expect(stage.dataset.mediaKind).toBe('video');
+    expect(q(m, '.wg-live__player-view').dataset.mediaKind).toBe('video');
+    expect(m.mount.querySelector('.wg-live__stage-art')).toBeNull();
+  });
+
+  it('an event of kind audio renders one <audio>, the cover art and no <video>', () => {
+    const m = mountView({ event: makeEvent({ mediaKind: 'audio' }) });
+    expect(m.mount.querySelectorAll('audio, video')).toHaveLength(1);
+    expect(m.mount.querySelectorAll('.wg-live__stage audio')).toHaveLength(1);
+    expect(deps().host.media).toBeInstanceOf(HTMLAudioElement);
+    expect(q(m, '.wg-live__player-view').dataset.mediaKind).toBe('audio');
+    expect(m.mount.querySelector('.wg-live__stage-art')).not.toBeNull();
+  });
+
+  it('shows the fullscreen button only for video once playback is engaged', () => {
+    const video = mountView({ state: playingState('binaural', { capabilities: { ...FULL_CAPS, fullscreen: true } }) });
+    expect((q(video, '.wg-live__fullscreen') as HTMLElement).hidden).toBe(false);
+    document.body.replaceChildren();
+    const audio = mountView({ event: makeEvent({ mediaKind: 'audio' }), state: playingState('binaural', { capabilities: { ...FULL_CAPS, fullscreen: true } }) });
+    expect((q(audio, '.wg-live__fullscreen') as HTMLElement).hidden).toBe(true);
   });
 
   it('registers the controller on the page registry and unregisters it on destroy', () => {
@@ -357,7 +392,7 @@ describe('layout and content', () => {
   });
 
   it('audio events get poster art in the stage; video events get a poster attribute on the video', () => {
-    const audio = mountView();
+    const audio = mountView({ event: makeEvent({ mediaKind: 'audio' }) });
     expect(audio.mount.querySelector('.wg-live__stage .wg-live__stage-art img')?.getAttribute('width')).toBe('1200');
     document.body.replaceChildren();
     const video = mountView({ event: makeEvent({ mediaKind: 'video', slug: 'demo-live-binaural-atmos', poster: null, posterUrl: '/p.jpg' }) });
@@ -585,7 +620,7 @@ describe('demo disclaimer', () => {
 describe('in-place rendering (plan 6.6)', () => {
   it('never recreates the media element, the stage, the player group or the main button', () => {
     const m = mountView({ state: readyState() });
-    const media = q(m, 'audio');
+    const media = q(m, 'video');
     const stage = q(m, '.wg-live__stage');
     const group = q(m, '.wg-live__player');
     const play = q(m, '.wg-live__play');
@@ -606,8 +641,9 @@ describe('in-place rendering (plan 6.6)', () => {
     ];
     for (const next of sequence) {
       m.controller.set(next);
-      expect(m.mount.querySelectorAll('audio')).toHaveLength(1);
-      expect(q(m, 'audio')).toBe(media);
+      expect(m.mount.querySelectorAll('audio, video')).toHaveLength(1);
+      expect(m.mount.querySelectorAll('audio')).toHaveLength(0);
+      expect(q(m, 'video')).toBe(media);
       expect(q(m, '.wg-live__stage')).toBe(stage);
       expect(q(m, '.wg-live__player')).toBe(group);
       expect(q(m, '.wg-live__play')).toBe(play);
@@ -620,7 +656,7 @@ describe('in-place rendering (plan 6.6)', () => {
   it('does not add controls, autoplay or source children to the media element', () => {
     const m = mountView({ state: readyState() });
     m.controller.set(playingState('binaural'));
-    const media = q<HTMLAudioElement>(m, 'audio');
+    const media = q<HTMLVideoElement>(m, 'video');
     expect(media.hasAttribute('controls')).toBe(false);
     expect(media.hasAttribute('autoplay')).toBe(false);
     expect(media.querySelector('source')).toBeNull();
@@ -937,7 +973,7 @@ describe('lifecycle', () => {
     const m = mountView({ state: playingState() });
     pollerOptions?.onGone?.();
     expect(m.controller.calls.destroy).toHaveBeenCalledTimes(1);
-    expect(m.mount.querySelector('audio')).toBeNull();
+    expect(m.mount.querySelector('audio, video')).toBeNull();
     expect(text(q(m, '.wg-live__status-title'))).toBe('找不到這場活動');
     expect(m.announce).toHaveBeenLastCalledWith('找不到這場活動', { immediate: true });
     expect(pageRegistry.size()).toBe(before);

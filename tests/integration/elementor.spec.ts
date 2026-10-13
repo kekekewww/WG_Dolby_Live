@@ -7,7 +7,7 @@
  */
 import { test } from '@playwright/test';
 import { previewState, openEditor } from './elementor';
-import { adminContext, createElementorPage, deletePosts, DEV, ELEMENTOR_URL, expect, MODE_NAME, SLUG_LIVE, SLUG_ENDED, TONE, waitMounted } from './wp';
+import { adminContext, createElementorPage, deletePosts, DEV, ELEMENTOR_URL, expect, MODE_NAME, SLUG_LIVE, SLUG_ENDED, DEMO_VIDEO, waitMounted } from './wp';
 
 interface PlayCounter {
   __plays: number;
@@ -16,7 +16,7 @@ declare global {
   interface Window {
     WGLive: { mountAll(): void; mountWithin(scope: unknown): void; version: string };
     __plays: number;
-    __oldAudio: HTMLAudioElement | undefined;
+    __oldAudio: HTMLMediaElement | undefined;
   }
 }
 
@@ -52,13 +52,13 @@ test.describe('F14 Elementor page, front end', () => {
     expect(await page.evaluate(() => typeof window.WGLive.mountAll)).toBe('function');
 
     // Play, tag the element, mount again in every way the API allows.
-    const audio = page.locator('.wg-live audio');
+    const audio = page.locator('.wg-live audio, .wg-live video');
     const primary = page.locator('.wg-live .wg-live__play');
     await page.getByRole('radio', { name: /選擇耳機模式/ }).check();
     await primary.click();
-    await expect.poll(() => audio.evaluate((a: HTMLAudioElement) => a.currentTime), { timeout: 30_000 }).toBeGreaterThan(0.3);
-    await audio.evaluate((a: HTMLAudioElement) => {
-      (a as HTMLAudioElement & { __tag?: string }).__tag = 'first';
+    await expect.poll(() => audio.evaluate((a: HTMLMediaElement) => a.currentTime), { timeout: 30_000 }).toBeGreaterThan(0.3);
+    await audio.evaluate((a: HTMLMediaElement) => {
+      (a as HTMLMediaElement & { __tag?: string }).__tag = 'first';
     });
     const playsBefore = await page.evaluate(() => window.__plays);
     expect(playsBefore).toBe(1);
@@ -74,18 +74,18 @@ test.describe('F14 Elementor page, front end', () => {
     await page.waitForTimeout(1500);
     await expect(page.locator('.wg-live')).toHaveCount(1);
     await expect(page.locator('audio, video')).toHaveCount(1);
-    expect(await audio.evaluate((a: HTMLAudioElement) => (a as HTMLAudioElement & { __tag?: string }).__tag)).toBe('first');
+    expect(await audio.evaluate((a: HTMLMediaElement) => (a as HTMLMediaElement & { __tag?: string }).__tag)).toBe('first');
     expect(await page.evaluate(() => window.__plays), 're-mounting must not call play() again').toBe(playsBefore);
     await expect(page.locator('.wg-live .wg-live__status-title')).toHaveText('播放中');
 
     // One pause and one resume produce exactly one pause and one play: no duplicate listeners.
     await primary.click();
     await expect(page.locator('.wg-live .wg-live__status-title')).toHaveText('已暫停');
-    expect(await audio.evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
+    expect(await audio.evaluate((a: HTMLMediaElement) => a.paused)).toBe(true);
     await primary.click();
     await expect(page.locator('.wg-live .wg-live__status-title')).toHaveText('播放中');
     expect(await page.evaluate(() => window.__plays)).toBe(playsBefore + 1);
-    await expect(page.locator('.wg-live audio')).toHaveCount(1);
+    await expect(page.locator('.wg-live audio, .wg-live video')).toHaveCount(1);
   });
 
   test('a simulated Elementor re-render replaces the widget DOM: the old instance is destroyed, no second source plays', async ({ page }) => {
@@ -95,13 +95,13 @@ test.describe('F14 Elementor page, front end', () => {
 
     await page.getByRole('radio', { name: /選擇耳機模式/ }).check();
     await page.locator('.wg-live .wg-live__play').click();
-    await expect.poll(() => page.locator('.wg-live audio').evaluate((a: HTMLAudioElement) => a.currentTime), { timeout: 30_000 }).toBeGreaterThan(0.3);
+    await expect.poll(() => page.locator('.wg-live audio, .wg-live video').evaluate((a: HTMLMediaElement) => a.currentTime), { timeout: 30_000 }).toBeGreaterThan(0.3);
 
     // What Elementor does when a widget re-renders: the old container leaves the DOM, a fresh server-rendered one comes in.
     await page.evaluate((markup) => {
       const fresh = new DOMParser().parseFromString(markup, 'text/html').querySelector('.wg-live') as HTMLElement;
       const old = document.querySelector('.wg-live') as HTMLElement;
-      window.__oldAudio = old.querySelector('audio') as HTMLAudioElement;
+      window.__oldAudio = old.querySelector('audio, video') as HTMLMediaElement;
       old.replaceWith(document.importNode(fresh, true));
       window.WGLive.mountAll();
     }, html);
@@ -112,11 +112,11 @@ test.describe('F14 Elementor page, front end', () => {
     const old = await page.evaluate(() => ({ connected: window.__oldAudio?.isConnected, paused: window.__oldAudio?.paused }));
     expect(old, 'the old element is gone and silent').toEqual({ connected: false, paused: true });
     // The fresh player starts idle (no autoplay) and plays on its own gesture, alone.
-    expect(await page.locator('.wg-live audio').evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
+    expect(await page.locator('.wg-live audio, .wg-live video').evaluate((a: HTMLMediaElement) => a.paused)).toBe(true);
     await page.getByRole('radio', { name: /選擇家庭劇院模式/ }).check();
     await page.locator('.wg-live .wg-live__play').click();
-    await expect.poll(() => page.locator('.wg-live audio').evaluate((a: HTMLAudioElement) => a.currentTime), { timeout: 30_000 }).toBeGreaterThan(0.3);
-    expect(await page.locator('.wg-live audio').evaluate((a: HTMLAudioElement) => a.currentSrc)).toContain(TONE.atmos);
+    await expect.poll(() => page.locator('.wg-live audio, .wg-live video').evaluate((a: HTMLMediaElement) => a.currentTime), { timeout: 30_000 }).toBeGreaterThan(0.3);
+    expect(await page.locator('.wg-live audio, .wg-live video').evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_VIDEO.atmos);
     expect(await page.evaluate(() => window.__oldAudio?.paused)).toBe(true);
     await expect(page.locator('.wg-live .wg-live__mode-label')).toHaveText(`目前播放：${MODE_NAME.atmos}`);
   });
@@ -154,14 +154,14 @@ test.describe('F14 Elementor editor preview (admin)', () => {
       await frame.waitForSelector('.wg-live[data-wg-live-mounted="1"]', { timeout: 120_000 });
 
       const first = await previewState(frame);
-      expect(first).toEqual({ roots: 1, mounted: 1, audio: 1, video: 0, devPanels: 1, scripts: 1, styles: 1 });
+      expect(first).toEqual({ roots: 1, mounted: 1, audio: 0, video: 1, devPanels: 1, scripts: 1, styles: 1 });
       await expect(frame.locator('.wg-live__player-title')).toContainText('【介面示範】直播中的線上音樂會');
 
       // 1. Re-render the widget view (what Elementor does for any change to the widget).
       await frame.evaluate(() => {
         const root = document.querySelector('.wg-live') as HTMLElement & { __old?: boolean };
         root.__old = true;
-        window.__oldAudio = root.querySelector('audio') as HTMLAudioElement;
+        window.__oldAudio = root.querySelector('audio, video') as HTMLMediaElement;
       });
       await page.evaluate(() => {
         // `elementor` is the editor's global in the parent window.
@@ -172,7 +172,7 @@ test.describe('F14 Elementor editor preview (admin)', () => {
         const root = document.querySelector('.wg-live') as (HTMLElement & { __old?: boolean }) | null;
         return root !== null && root.__old === undefined && root.getAttribute('data-wg-live-mounted') === '1';
       }, undefined, { timeout: 60_000 });
-      expect(await previewState(frame)).toEqual({ roots: 1, mounted: 1, audio: 1, video: 0, devPanels: 1, scripts: 1, styles: 1 });
+      expect(await previewState(frame)).toEqual({ roots: 1, mounted: 1, audio: 0, video: 1, devPanels: 1, scripts: 1, styles: 1 });
       expect(await frame.evaluate(() => window.__oldAudio?.isConnected)).toBe(false);
 
       // 2. Change the shortcode in the editor: the server renders the widget again and the new DOM mounts.
@@ -186,7 +186,7 @@ test.describe('F14 Elementor editor preview (admin)', () => {
       }, `[wg_live view="player" event="${SLUG_ENDED}"]`);
       await expect(frame.locator('.wg-live__player-title')).toContainText('已結束的線上音樂會', { timeout: 90_000 });
       await frame.waitForSelector('.wg-live[data-wg-live-mounted="1"]');
-      expect(await previewState(frame)).toEqual({ roots: 1, mounted: 1, audio: 1, video: 0, devPanels: 1, scripts: 1, styles: 1 });
+      expect(await previewState(frame)).toEqual({ roots: 1, mounted: 1, audio: 0, video: 1, devPanels: 1, scripts: 1, styles: 1 });
       expect(errors, errors.join('\n')).toEqual([]);
     } finally {
       await context.close();

@@ -20,7 +20,7 @@ Keep working on M1 while M2 is undecided. Never report M1 as "paid live streamin
 
 ## Commands (per §11.1)
 
-These scripts exist in `package.json` (also `lint:php`, `test:integration`, `test:e2e:dev`, `test:e2e:dist`, `serve:dist`, `demo:audio`). Run them before you claim a change works:
+These scripts exist in `package.json` (also `lint:php`, `test:integration`, `test:e2e:dev`, `test:e2e:dist`, `serve:dist`, `demo:audio`, `demo:video`). Run them before you claim a change works:
 
 ```bash
 npm ci

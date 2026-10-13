@@ -45,8 +45,9 @@ test.describe('F02 direct player link', () => {
     await expect(p.primary).toHaveAttribute('aria-keyshortcuts', 'Space K');
     // The skeleton is gone and the media element is the single stable one, without controls/autoplay.
     await expect(page.locator('.wg-live__skeleton')).toHaveCount(0);
-    await expect(page.locator('audio')).toHaveCount(1);
-    await expect(page.locator('video')).toHaveCount(0);
+    await expect(page.locator('audio, video')).toHaveCount(1);
+    await expect(page.locator('.wg-live__stage video')).toHaveCount(1); // every concert is streamed with video
+    await expect(page.locator('audio')).toHaveCount(0);
   });
 
   test('both modes are offered side by side with the spec 5.2 copy, nothing selected', async ({ page }) => {
@@ -79,7 +80,7 @@ test.describe('F02 direct player link', () => {
     await expectHref(root.getByRole('link', { name: '返回活動列表' }), '/dev/index.html');
     await expectHref(root.getByRole('link', { name: '聆聽說明' }), '/dev/help.html');
     await expect(root.locator('.wg-live__player-view--unavailable')).toHaveAttribute('data-gate', 'not_found');
-    await expect(root.locator('audio')).toHaveCount(0);
+    await expect(root.locator('audio, video')).toHaveCount(0);
     await expect(root.getByRole('radio')).toHaveCount(0);
     await page.waitForTimeout(300);
     expect(rest.count()).toBe(0);
@@ -100,7 +101,7 @@ test.describe('F02 direct player link', () => {
       await page.goto(url);
       await expect(page.locator('.wg-live[data-wg-live-mounted="1"]')).toBeAttached();
       await expect(page.locator('.wg-live').getByRole('heading', { name: '找不到這場活動' })).toBeVisible();
-      await expect(page.locator('audio')).toHaveCount(0);
+      await expect(page.locator('audio, video')).toHaveCount(0);
     });
   }
 
@@ -120,7 +121,7 @@ test.describe('F02 direct player link', () => {
     await expect(p.root.getByRole('heading', { name: '線上音樂會尚未開放' })).toBeVisible();
     await expectHref(p.root.getByRole('link', { name: '回首頁' }), '/dev/stub.html?page=home');
     await expectHref(p.root.getByRole('link', { name: '聯絡我們' }), '/dev/stub.html?page=contact');
-    await expect(p.audio).toHaveCount(0);
+    await expect(p.media).toHaveCount(0);
     await expect(p.root.getByRole('radio')).toHaveCount(0);
     await page.waitForTimeout(300);
     expect(rest.count()).toBe(0);
@@ -142,7 +143,7 @@ test.describe('F10 event states (real event data)', () => {
     await expect(p.modeLabel).toHaveText('已選擇：Dolby Atmos 音軌');
     await p.primary.click({ force: true });
     await expect(p.statusTitle).toHaveText('演出尚未開始'); // a click on the disabled button does nothing
-    expect(await p.audio.evaluate((a: HTMLAudioElement) => a.paused && !a.hasAttribute('src'))).toBe(true);
+    expect(await p.media.evaluate((a: HTMLMediaElement) => a.paused && !a.hasAttribute('src'))).toBe(true);
   });
 
   test('ended: 本場演出已結束 with a link back to the events, no controls, no replay', async ({ page }) => {
@@ -293,7 +294,7 @@ test.describe('F10 dev panel states', () => {
     await expect(p.primary).not.toHaveAttribute('aria-disabled', 'true');
     await page.waitForTimeout(500);
     expect(media.count()).toBe(0);
-    expect(await p.audio.evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
+    expect(await p.media.evaluate((a: HTMLMediaElement) => a.paused)).toBe(true);
   });
 
   test('playing then ended/cancelled stops the stream, closes the dialog and shows the gate copy', async ({ page }) => {
@@ -311,9 +312,9 @@ test.describe('F10 dev panel states', () => {
     });
     await expect(p.statusTitle).toHaveText('本場演出已結束');
     await expect(p.dialog).toBeHidden();
-    await expect.poll(() => p.audio.evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
-    expect(await p.audio.evaluate((a: HTMLAudioElement) => a.hasAttribute('src')), 'the source is released').toBe(false);
-    await expect(p.audio).toHaveCount(1);
+    await expect.poll(() => p.media.evaluate((a: HTMLMediaElement) => a.paused)).toBe(true);
+    expect(await p.media.evaluate((a: HTMLMediaElement) => a.hasAttribute('src')), 'the source is released').toBe(false);
+    await expect(p.media).toHaveCount(1);
   });
 
   test('playing then scheduled stops playback but keeps the selected mode; intermission changes nothing', async ({ page }) => {
@@ -326,11 +327,11 @@ test.describe('F10 dev panel states', () => {
     await expect(p.statusBadge).toHaveText('中場休息');
     await expect(p.statusTitle).toHaveText('播放中');
     await expect(p.statusDetail).toHaveText('演出中場休息');
-    expect(await p.audio.evaluate((a: HTMLAudioElement) => a.paused), 'intermission does not touch the adapter').toBe(false);
+    expect(await p.media.evaluate((a: HTMLMediaElement) => a.paused), 'intermission does not touch the adapter').toBe(false);
 
     await status.selectOption({ label: '尚未開始' });
     await expect(p.statusTitle).toHaveText('演出尚未開始');
-    await expect.poll(() => p.audio.evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
+    await expect.poll(() => p.media.evaluate((a: HTMLMediaElement) => a.paused)).toBe(true);
     await expect(p.radio('atmos')).toBeChecked();
     await expect(p.modeLabel).toHaveText('已選擇：Dolby Atmos 音軌');
     await expect(p.primary).toHaveAttribute('aria-disabled', 'true');
@@ -497,8 +498,8 @@ test.describe('F12 mode parameter', () => {
     await page.reload();
     await expect(page.locator('.wg-live[data-wg-live-mounted="1"]')).toBeAttached();
     await expect(p.radio('atmos')).toBeChecked();
-    await expect(p.audio).toHaveCount(1);
-    expect(await p.audio.evaluate((a: HTMLAudioElement) => a.paused), 'a remembered mode never autostarts').toBe(true);
+    await expect(p.media).toHaveCount(1);
+    expect(await p.media.evaluate((a: HTMLMediaElement) => a.paused), 'a remembered mode never autostarts').toBe(true);
 
     // An explicit valid parameter wins over the remembered one.
     await page.goto(`/dev/listen.html?wg_event=${SLUG_LIVE}&wg_mode=binaural`);

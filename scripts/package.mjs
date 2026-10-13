@@ -47,8 +47,13 @@ const PHP_DOT_SEGMENT = /\.php\./i;
 
 /** The fixed dist set (M1-PLAN 7.3 item 4): the three bundles plus build-info.json. */
 export const DIST_FILES = ['wg-live.js', 'wg-live.css', 'wg-live-featured.css', 'build-info.json'];
-/** Demo assets that ship: MP3 files, the poster and the license (no .m4a, M1-PLAN D7). */
-const DEMO_FILE = /^(?:[A-Za-z0-9_-]+\.mp3|poster-demo(?:-square)?\.svg|LICENSE-demo\.txt)$/;
+/**
+ * The two bundled demo videos (M1-PLAN D7): the ONLY .mp4 files that ship, and only at exactly this path.
+ * Every other mp4/webm/mov stays excluded by EXCLUDED_EXT.
+ */
+const DEMO_VIDEO = /^assets\/demo\/demo-video-\d\.mp4$/;
+/** Demo assets that ship: MP3 files, the two demo videos, the poster and the license (no .m4a, M1-PLAN D7). */
+const DEMO_FILE = /^(?:[A-Za-z0-9_-]+\.mp3|demo-video-\d\.mp4|poster-demo(?:-square)?\.svg|LICENSE-demo\.txt)$/;
 /** Admin screen assets (assets/admin/**): scripts and styles only. */
 const ADMIN_ASSET = /\.(?:js|css)$/i;
 const TOP_LEVEL_LICENSE = /^(license|licence|copying|notice|third-party|third_party)(?:\.txt|\.md)?$/i;
@@ -68,7 +73,7 @@ export function shouldShip(rel) {
   const parts = rel.split('/');
   if (parts.some((p) => p === '' || p === '.' || p === '..' || p.startsWith('.'))) return false; // dotfiles, .gitkeep
   if (parts.some((p) => EXCLUDED_SEGMENTS.has(p.toLowerCase()))) return false;
-  if (EXCLUDED_EXT.test(rel) || PHP_DOT_SEGMENT.test(rel)) return false;
+  if ((EXCLUDED_EXT.test(rel) && !DEMO_VIDEO.test(rel)) || PHP_DOT_SEGMENT.test(rel)) return false;
 
   const first = parts[0] ?? '';
   const name = parts[parts.length - 1] ?? '';

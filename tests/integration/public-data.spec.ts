@@ -11,7 +11,7 @@
  * run in parallel with the other read-only specs.
  */
 import { test } from '@playwright/test';
-import { adminContext, bootConfigs, createEvents, createElementorPage, deleteEventsByPrefix, deletePosts, DEV, expect, fetchText, getSettings, LISTEN_URL, LIVE_URL, phpJson, rest, SLUG_ENDED, SLUG_LIVE, SLUG_PENDING, TONE, wpPhp, type FixtureEvent } from './wp';
+import { adminContext, bootConfigs, createEvents, createElementorPage, deleteEventsByPrefix, deletePosts, DEV, expect, fetchText, getSettings, LISTEN_URL, LIVE_URL, phpJson, rest, SLUG_ENDED, SLUG_LIVE, SLUG_PENDING, DEMO_VIDEO, TONE, wpPhp, type FixtureEvent } from './wp';
 
 const ALLOWED_KEYS = [
   'id', 'slug', 'title', 'performers', 'description', 'startsAt', 'displayTimezone', 'status', 'posterUrl', 'mediaKind',
@@ -226,13 +226,24 @@ test.describe('REST whitelist, headers and the playback route', () => {
   test.describe.configure({ mode: 'serial' });
   let prefix = '';
   let binauralOnly = 0;
+  let audioEvent = 0;
+  let noKindEvent = 0;
+  let oddKindEvent = 0;
 
   // eslint-disable-next-line no-empty-pattern -- Playwright requires the destructuring pattern for the fixtures argument.
   test.beforeAll(async ({}, testInfo) => {
     prefix = `it-rest-${testInfo.project.name}`;
     deleteEventsByPrefix(DEV, prefix);
-    const created = createEvents(DEV, [{ slug: `${prefix}-binaural`, title: `${prefix} binaural only`, meta: { available_modes: ['binaural'] } }]);
+    const created = createEvents(DEV, [
+      { slug: `${prefix}-binaural`, title: `${prefix} binaural only`, meta: { available_modes: ['binaural'] } },
+      { slug: `${prefix}-audio`, title: `${prefix} audio event`, meta: { media_kind: 'audio' } },
+      { slug: `${prefix}-nokind`, title: `${prefix} empty media kind`, meta: { media_kind: '' } },
+      { slug: `${prefix}-oddkind`, title: `${prefix} unknown media kind`, meta: { media_kind: 'hologram' } },
+    ]);
     binauralOnly = created[`${prefix}-binaural`] as number;
+    audioEvent = created[`${prefix}-audio`] as number;
+    noKindEvent = created[`${prefix}-nokind`] as number;
+    oddKindEvent = created[`${prefix}-oddkind`] as number;
   });
 
   test.afterAll(() => deleteEventsByPrefix(DEV, prefix));
@@ -247,12 +258,12 @@ test.describe('REST whitelist, headers and the playback route', () => {
       if (e.poster !== null) expect(Object.keys(e.poster).sort()).toEqual(ALLOWED_POSTER_KEYS);
       expect(['not_configured', 'demo']).toContain(e.sourceKind);
     }
-    expect(text).not.toMatch(/source_type|_wg_live_|post_password|guid|post_author|\.mp3|"url":"[^"]*\/uploads\//);
+    expect(text).not.toMatch(/source_type|_wg_live_|post_password|guid|post_author|\.mp3|\.mp4|"url":"[^"]*\/uploads\//);
 
     const one = await rest(DEV, `events/${SLUG_LIVE}`);
     expect(Object.keys(one.json)).toEqual(['event']);
     expect(Object.keys(one.json.event).sort()).toEqual(ALLOWED_KEYS);
-    expect(one.text).not.toMatch(/source_type|_wg_live_|\.mp3/);
+    expect(one.text).not.toMatch(/source_type|_wg_live_|\.mp3|\.mp4/);
     // A demo event says it can play a demo source; the non-demo one says it cannot. Neither carries a URL.
     expect(one.json.event.sourceKind).toBe('demo');
     expect((await rest(DEV, `events/${SLUG_PENDING}`)).json.event.sourceKind).toBe('not_configured');
@@ -281,15 +292,15 @@ test.describe('REST whitelist, headers and the playback route', () => {
     }
   });
 
-  test('playback: a demo event resolves to the bundled demo file for each mode, with no-store headers', async () => {
+  test('playback: a video demo event (the default kind) resolves to the bundled demo video for each mode, with no-store headers', async () => {
     const live = (await rest(DEV, `events/${SLUG_LIVE}`)).json.event.id as number;
     for (const mode of ['binaural', 'atmos'] as const) {
       const res = await rest(DEV, `playback?event=${live}&mode=${mode}`);
       expect(res.status).toBe(200);
       expect(Object.keys(res.json).sort()).toEqual(['kind', 'mimeType', 'url']);
       expect(res.json.kind).toBe('demo');
-      expect(res.json.mimeType).toBe('audio/mpeg');
-      expect(res.json.url).toMatch(new RegExp(`^http://localhost:8888/wp-content/plugins/wg-live/assets/demo/${TONE[mode]}\\?ver=\\d+\\.\\d+\\.\\d+$`));
+      expect(res.json.mimeType).toBe('video/mp4');
+      expect(res.json.url).toMatch(new RegExp(`^http://localhost:8888/wp-content/plugins/wg-live/assets/demo/${DEMO_VIDEO[mode]}\\?ver=\\d+\\.\\d+\\.\\d+$`));
 
       const cc = res.headers.get('cache-control') ?? '';
       expect(cc).toMatch(/no-store/);
@@ -299,8 +310,38 @@ test.describe('REST whitelist, headers and the playback route', () => {
       // The URL is real, public test media.
       const media = await fetch(res.json.url as string, { method: 'GET', headers: { Range: 'bytes=0-1' } });
       expect([200, 206]).toContain(media.status);
-      expect(media.headers.get('content-type')).toMatch(/audio\/mpeg/);
+      expect(media.headers.get('content-type')).toMatch(/video\/mp4/);
     }
+  });
+
+  test('playback follows the event media kind: an audio event gets the bundled mp3 (audio/mpeg), a video event the mp4 (video/mp4)', async () => {
+    for (const mode of ['binaural', 'atmos'] as const) {
+      const audio = await rest(DEV, `playback?event=${audioEvent}&mode=${mode}`);
+      expect(audio.status).toBe(200);
+      expect(audio.json.kind).toBe('demo');
+      expect(audio.json.mimeType).toBe('audio/mpeg');
+      expect(audio.json.url).toMatch(new RegExp(`/assets/demo/${TONE[mode]}\\?ver=\\d+\\.\\d+\\.\\d+$`));
+      const audioMedia = await fetch(audio.json.url as string, { method: 'GET', headers: { Range: 'bytes=0-1' } });
+      expect([200, 206]).toContain(audioMedia.status);
+      expect(audioMedia.headers.get('content-type')).toMatch(/audio\/mpeg/);
+
+      // An event whose stored media kind is empty or unknown reads as video, the default.
+      for (const id of [noKindEvent, oddKindEvent, binauralOnly]) {
+        if (id === binauralOnly && mode === 'atmos') continue; // that fixture offers binaural only
+        const video = await rest(DEV, `playback?event=${id}&mode=${mode}`);
+        expect(video.json.mimeType, `event ${id}`).toBe('video/mp4');
+        expect(video.json.url, `event ${id}`).toMatch(new RegExp(`/assets/demo/${DEMO_VIDEO[mode]}\\?ver=`));
+      }
+    }
+  });
+
+  test('the public data says mediaKind video by default and audio only when the event is an audio event', async () => {
+    const kinds = async (slug: string): Promise<string> => (await rest(DEV, `events/${slug}`)).json.event.mediaKind as string;
+    expect(await kinds(SLUG_LIVE)).toBe('video');
+    expect(await kinds(`${prefix}-audio`)).toBe('audio');
+    expect(await kinds(`${prefix}-nokind`)).toBe('video');
+    expect(await kinds(`${prefix}-oddkind`)).toBe('video');
+    expect(await kinds(`${prefix}-binaural`)).toBe('video');
   });
 
   test('playback resolution order: mode, entitlement, source', async () => {
@@ -314,7 +355,7 @@ test.describe('REST whitelist, headers and the playback route', () => {
     // A non-demo event has no entitlement result in M1: denied, never fail-open, never a URL.
     const denied = await rest(DEV, `playback?event=${pending}&mode=binaural`);
     expect(denied.json).toEqual({ kind: 'not_ready', reason: 'entitlement_unavailable' });
-    expect(denied.text).not.toMatch(/http|\.mp3/);
+    expect(denied.text).not.toMatch(/http|\.mp3|\.mp4/);
     // Demo media is public test material, so an ended demo event still resolves (the client gates by status).
     expect((await rest(DEV, `playback?event=${ended}&mode=binaural`)).json.kind).toBe('demo');
     // Responses never depend on query tricks.

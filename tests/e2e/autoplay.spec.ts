@@ -4,7 +4,7 @@
  * resumes the already loaded source without a new descriptor request.
  */
 import { test } from '@playwright/test';
-import { blockFirstPlay, expect, gotoPlayer, isMediaUrl, mediaRequestsObservable, recordRequests, TONE, watchErrors } from './helpers';
+import { blockFirstPlay, expect, gotoPlayer, isMediaUrl, mediaRequestsObservable, recordRequests, DEMO_MEDIA, watchErrors } from './helpers';
 
 test.describe.configure({ timeout: 90_000 });
 
@@ -24,7 +24,7 @@ test('F09 a blocked play() shows 請點擊開始聆聽 and one click resumes', a
   await expect(p.modeLabel).toHaveText('已選擇：Binaural'); // never 目前播放 for audio that is not playing
   // Announced at once (urgent), not coalesced.
   await expect(p.srStatus).toHaveText('請點擊開始聆聽');
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.paused)).toBe(true);
 
   // No automatic retry follows a user-gesture problem.
   await page.waitForTimeout(2600);
@@ -37,9 +37,9 @@ test('F09 a blocked play() shows 請點擊開始聆聽 and one click resumes', a
   await expect(p.modeLabel).toHaveText('目前播放：Binaural');
   await expect(p.errorCode).toBeHidden();
   expect(descriptors.count(), 'resume calls play() on the loaded element; it does not resolve again').toBe(1);
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc)).toContain(TONE.binaural);
-  if (mediaRequestsObservable(browserName)) expect(media.count(TONE.binaural)).toBe(1);
-  await expect(p.audio).toHaveCount(1);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_MEDIA.binaural);
+  if (mediaRequestsObservable(browserName)) expect(media.count(DEMO_MEDIA.binaural)).toBe(1);
+  await expect(p.media).toHaveCount(1);
   expect(errors).toEqual([]);
 });
 
@@ -77,5 +77,5 @@ test('F09 blocked play() while switching keeps the page consistent (one element,
   await p.primary.click();
   await p.expectAdvancing(0.2);
   await expect(p.modeLabel).toHaveText('目前播放：Dolby Atmos 音軌');
-  await expect(p.audio).toHaveCount(1);
+  await expect(p.media).toHaveCount(1);
 });

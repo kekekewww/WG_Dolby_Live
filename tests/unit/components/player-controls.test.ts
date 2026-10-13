@@ -366,6 +366,6 @@ describe('event data stays out of the controls', () => {
     const controls = createPlayerControls({ controller, mediaKind: 'audio', stage: shell.stage, media: shell.host.media });
     controls.update(state);
     expect(controls.el.querySelector('canvas, svg, progress, meter, time')).toBeNull();
-    expect(makeEvent().mediaKind).toBe('audio');
+    expect(makeEvent().mediaKind).toBe('video'); // video is the default; the audio shell above is the audio-only case
   });
 });

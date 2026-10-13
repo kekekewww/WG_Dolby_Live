@@ -100,8 +100,8 @@ test.describe('production site (:8889): dev tools never', () => {
       const page = await context.newPage();
       const { frame } = await openEditor(page, pageId);
       await frame.waitForSelector('.wg-live[data-wg-live-mounted="1"]', { timeout: 120_000 });
-      // The player rendered (one audio element), the assets are there, and the panel is not.
-      expect(await previewState(frame)).toEqual({ roots: 1, mounted: 1, audio: 1, video: 0, devPanels: 0, scripts: 1, styles: 1 });
+      // The player rendered (one video element, the default media kind), the assets are there, and the panel is not.
+      expect(await previewState(frame)).toEqual({ roots: 1, mounted: 1, audio: 0, video: 1, devPanels: 0, scripts: 1, styles: 1 });
       await expect(frame.locator('.wg-live__player-title')).toContainText('直播中');
     } finally {
       await context.close();

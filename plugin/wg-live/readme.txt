@@ -12,14 +12,14 @@ Live / 線上音樂會: event pages and a Binaural / Dolby Atmos listening-mode 
 
 WG Studio Live adds a Live area to the site: an events page, a player page and a listening guide, plus a small featured-event card for the homepage.
 
-This is milestone M1. It delivers the interface, the admin event management and a demo player that plays short test audio. It does not check tickets, does not authorize playback and does not protect streams. No real concert stream is connected in this version, and the compatibility table in the listening guide stays "pending" until devices are actually tested.
+This is milestone M1. It delivers the interface, the admin event management and a demo player that plays short test video (events of kind audio play short test audio). It does not check tickets, does not authorize playback and does not protect streams. No real concert stream is connected in this version, and the compatibility table in the listening guide stays "pending" until devices are actually tested.
 
 Features in this version:
 
 * Custom event type with an explicit, validated event slug, start time and time zone, status, supported listening modes, programme, poster and optional product link.
 * Shortcodes: `[wg_live view="events|player|help"]` (optional `event="slug"` and `heading="h1|h2"`) and `[wg_live_featured]`.
 * Page assets load only on the bound Live pages, the homepage card and the Elementor preview. The homepage card is rendered in PHP and loads no script.
-* Deployment mode "disabled" (default) hides every public part of the plugin. Mode "demo" shows the interface with the bundled demo audio.
+* Deployment mode "disabled" (default) hides every public part of the plugin. Mode "demo" shows the interface with the bundled demo video and audio.
 * A public read-only REST API under `wg-live/v1` (events, event, playback) that never returns source files for real events and never varies by user.
 
 The plugin does not create accounts, checkout or payment flows and does not change the theme, menus or the homepage.
@@ -39,7 +39,7 @@ The interface targets these minimum browsers: Safari and iOS Safari 15.4, Chrome
 
 == Demo assets and third-party notices ==
 
-The two demo audio files (`assets/demo/demo-tone-1.mp3`, `assets/demo/demo-tone-2.mp3`) and the demo poster (`assets/demo/poster-demo.svg`) were created for this project. They contain no recordings, samples, fonts or artwork from any other party, and ship under the same license as the plugin. See `assets/demo/LICENSE-demo.txt`. The demo audio is a way to try the interface only: it is not Binaural or Dolby Atmos validation material.
+The two demo video files (`assets/demo/demo-video-1.mp4`, `assets/demo/demo-video-2.mp4`), the two demo audio files (`assets/demo/demo-tone-1.mp3`, `assets/demo/demo-tone-2.mp3`) and the demo poster (`assets/demo/poster-demo.svg`) were created for this project. They contain no recordings, samples or artwork from any other party and no font files (the video captions are rendered with Noto Sans TC, SIL Open Font License 1.1), and ship under the same license as the plugin. See `assets/demo/LICENSE-demo.txt`. The demo video and audio are a way to try the interface only: it is not Binaural or Dolby Atmos validation material.
 
 The plugin bundles no third-party code. The built script and stylesheet in `assets/dist` are compiled from this project's own source.
 

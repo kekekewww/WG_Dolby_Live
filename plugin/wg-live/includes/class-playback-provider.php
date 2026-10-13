@@ -19,13 +19,23 @@ defined( 'ABSPATH' ) || exit;
 final class Playback_Provider {
 
 	/**
-	 * Bundled demo files per mode (plan D7).
+	 * Bundled demo audio files per mode (plan D7). Used by audio events.
 	 *
 	 * @var array<string,string>
 	 */
 	const BUNDLED = array(
 		'binaural' => 'demo-tone-1.mp3',
 		'atmos'    => 'demo-tone-2.mp3',
+	);
+
+	/**
+	 * Bundled demo video files per mode (plan D7). Used by video events, the default media kind.
+	 *
+	 * @var array<string,string>
+	 */
+	const BUNDLED_VIDEO = array(
+		'binaural' => 'demo-video-1.mp4',
+		'atmos'    => 'demo-video-2.mp4',
 	);
 
 	/**
@@ -83,7 +93,8 @@ final class Playback_Provider {
 		}
 
 		// 7. The demo source.
-		$source = self::demo_source( $mode );
+		$media_kind = isset( $data['media_kind'] ) && 'audio' === $data['media_kind'] ? 'audio' : 'video';
+		$source     = self::demo_source( $mode, $media_kind );
 		if ( null === $source ) {
 			return self::not_ready( 'source_not_configured' );
 		}
@@ -108,29 +119,38 @@ final class Playback_Provider {
 	}
 
 	/**
-	 * The approved attachment for a mode, else the bundled file.
+	 * The demo source for a mode and media kind. Audio events: the approved media-library attachment
+	 * (settings demo_audio_*), else the bundled mp3. Video events: always the bundled mp4 (the audio
+	 * pickers do not apply to them).
 	 *
-	 * @param string $mode binaural|atmos.
+	 * @param string $mode       binaural|atmos.
+	 * @param string $media_kind audio|video.
 	 * @return array{url:string,mimeType:string}|null
 	 */
-	private static function demo_source( $mode ) {
-		$settings = Settings::get();
-		$key      = 'demo_audio_' . $mode;
-		$id       = isset( $settings[ $key ] ) ? (int) $settings[ $key ] : 0;
-		if ( $id > 0 ) {
-			$attachment = self::approved_attachment( $id );
-			if ( null !== $attachment ) {
-				return $attachment;
+	private static function demo_source( $mode, $media_kind ) {
+		if ( 'audio' === $media_kind ) {
+			$settings = Settings::get();
+			$key      = 'demo_audio_' . $mode;
+			$id       = isset( $settings[ $key ] ) ? (int) $settings[ $key ] : 0;
+			if ( $id > 0 ) {
+				$attachment = self::approved_attachment( $id );
+				if ( null !== $attachment ) {
+					return $attachment;
+				}
 			}
+			$file = self::BUNDLED[ $mode ];
+			$mime = 'audio/mpeg';
+		} else {
+			$file = self::BUNDLED_VIDEO[ $mode ];
+			$mime = 'video/mp4';
 		}
 
-		$file = self::BUNDLED[ $mode ];
 		if ( ! is_readable( WG_LIVE_DIR . 'assets/demo/' . $file ) ) {
 			return null;
 		}
 		return array(
 			'url'      => add_query_arg( 'ver', WG_LIVE_VERSION, WG_LIVE_URL . 'assets/demo/' . $file ),
-			'mimeType' => 'audio/mpeg',
+			'mimeType' => $mime,
 		);
 	}
 

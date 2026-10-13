@@ -4,11 +4,11 @@
  * dialog closes with Escape and focus returns, and the whole flow works from the keyboard.
  */
 import { test } from '@playwright/test';
-import { expect, gotoPlayer, TONE } from './helpers';
+import { expect, gotoPlayer, DEMO_MEDIA } from './helpers';
 
 test.describe.configure({ timeout: 90_000 });
 
-const isPaused = async (audio: import('@playwright/test').Locator): Promise<boolean> => audio.evaluate((a: HTMLAudioElement) => a.paused);
+const isPaused = async (audio: import('@playwright/test').Locator): Promise<boolean> => audio.evaluate((a: HTMLMediaElement) => a.paused);
 
 test('Space on the focused 暫停 button toggles exactly once (the button, not the shortcut)', async ({ page }) => {
   const p = await gotoPlayer(page);
@@ -17,14 +17,14 @@ test('Space on the focused 暫停 button toggles exactly once (the button, not t
   await p.primary.focus();
   await page.keyboard.press('Space');
   await expect(p.statusTitle).toHaveText('已暫停');
-  expect(await isPaused(p.audio)).toBe(true);
+  expect(await isPaused(p.media)).toBe(true);
   // A double toggle (button + shortcut) would have resumed playback again.
   await page.waitForTimeout(600);
   await expect(p.statusTitle).toHaveText('已暫停');
-  expect(await isPaused(p.audio)).toBe(true);
+  expect(await isPaused(p.media)).toBe(true);
   await page.keyboard.press('Space');
   await expect(p.statusTitle).toHaveText('播放中');
-  await expect.poll(() => isPaused(p.audio)).toBe(false);
+  await expect.poll(() => isPaused(p.media)).toBe(false);
 });
 
 test('Enter on the primary button also toggles once', async ({ page }) => {
@@ -46,7 +46,7 @@ test('K on the player region toggles playback (focus on a button inside the play
   await page.keyboard.press('k');
   await expect(p.statusTitle).toHaveText('已暫停');
   await page.waitForTimeout(400);
-  expect(await isPaused(p.audio)).toBe(true);
+  expect(await isPaused(p.media)).toBe(true);
   await page.keyboard.press('k');
   await expect(p.statusTitle).toHaveText('播放中');
 });
@@ -108,7 +108,7 @@ test('shortcuts ignore modifier keys, key repeat and the volume slider; Space el
   await page.keyboard.press('k');
   await page.waitForTimeout(300);
   await expect(p.statusTitle).toHaveText('播放中');
-  expect(await isPaused(p.audio)).toBe(false);
+  expect(await isPaused(p.media)).toBe(false);
   const prevented = await page.evaluate(() => (window as unknown as { __prevented: boolean[] }).__prevented);
   expect(prevented.length).toBeGreaterThanOrEqual(3);
   expect(prevented.every((v) => v === false), 'the player never calls preventDefault outside its own region').toBe(true);
@@ -124,8 +124,8 @@ test('before playback starts, Space and K do not start or load anything', async 
   await page.keyboard.press('k');
   await page.keyboard.press('Space');
   await page.waitForTimeout(400);
-  expect(await isPaused(p.audio)).toBe(true);
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.hasAttribute('src'))).toBe(false);
+  expect(await isPaused(p.media)).toBe(true);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.hasAttribute('src'))).toBe(false);
   await expect(p.statusTitle).toHaveText('按下「開始聆聽」即可播放');
 });
 
@@ -165,8 +165,8 @@ test('the switch dialog: opens from the keyboard, traps focus, Escape closes it 
   await expect(p.switchButton).toBeFocused();
   // Escape only closes: still playing the same source, no request for the other mode.
   await expect(p.modeLabel).toHaveText('目前播放：Binaural');
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc)).toContain(TONE.binaural);
-  expect(await isPaused(p.audio)).toBe(false);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_MEDIA.binaural);
+  expect(await isPaused(p.media)).toBe(false);
 });
 
 test('the switch dialog confirmed with the keyboard: focus ends on the trigger or the status heading, never on <body>', async ({ page }) => {
@@ -232,7 +232,7 @@ test('Space on a mode radio selects it and does not toggle playback', async ({ p
   await page.keyboard.press('Space');
   await expect(p.radio('atmos')).toBeChecked();
   await expect(p.statusTitle).not.toHaveText('播放中');
-  expect(await isPaused(p.audio)).toBe(true);
+  expect(await isPaused(p.media)).toBe(true);
 });
 
 test('keyboard focus is visible on the radio cards, the primary button and the switch button', async ({ page }) => {

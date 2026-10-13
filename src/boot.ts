@@ -118,7 +118,7 @@ export function parsePublicEvent(raw: unknown): PublicEvent | null {
     displayTimezone: zone(raw.displayTimezone),
     status,
     posterUrl: url(raw.posterUrl),
-    mediaKind: raw.mediaKind === 'video' ? 'video' : 'audio',
+    mediaKind: raw.mediaKind === 'audio' ? 'audio' : 'video',
     availableModes: modes,
     programme: strList(raw.programme),
     productUrl: url(raw.productUrl),

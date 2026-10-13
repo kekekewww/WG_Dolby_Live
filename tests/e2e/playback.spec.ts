@@ -1,10 +1,10 @@
 /**
  * Plan 7.4: F03/F04 select a mode and play, F05 switch via the dialog, F07 pause/resume.
  * Runs on the Vite dev harness in Chromium, Firefox and WebKit. Playback is the real DemoAdapter
- * over the two generated MP3 files.
+ * over the two bundled demo videos (video is the default media kind; demo-video-N.mp4 in one <video>).
  */
 import { test } from '@playwright/test';
-import { expect, gotoPlayer, isMediaUrl, MODE_NAME, mediaRequestsObservable, recordRequests, TONE, type Mode } from './helpers';
+import { expect, gotoPlayer, isMediaUrl, MODE_NAME, mediaRequestsObservable, recordRequests, DEMO_MEDIA, type Mode } from './helpers';
 
 test.describe.configure({ timeout: 90_000 });
 
@@ -35,9 +35,9 @@ for (const mode of ['binaural', 'atmos'] as const satisfies readonly Mode[]) {
     await expect(p.statusTitle).toHaveText('播放中');
     await expect(p.modeLabel).toHaveText(`目前播放：${MODE_NAME[mode]}`);
     await expect(p.primary).toHaveText('暫停');
-    await expect(p.audio).toHaveCount(1);
-    expect(await p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc)).toContain(TONE[mode]);
-    expect(await p.audio.evaluate((a: HTMLAudioElement) => a.loop)).toBe(true); // demo sources loop
+    await expect(p.media).toHaveCount(1);
+    expect(await p.media.evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_MEDIA[mode]);
+    expect(await p.media.evaluate((a: HTMLMediaElement) => a.loop)).toBe(true); // demo sources loop
     await expect(p.demoNotice).toBeVisible();
     await expect(p.demoNotice).toHaveText(DEMO_NOTICE);
     // The announcement goes to the live region only (coalesced), and says what is now playing.
@@ -60,10 +60,10 @@ test('a valid wg_mode preselects the mode but never starts playback', async ({ p
   await expect(p.primary).not.toHaveAttribute('aria-disabled', 'true');
   await page.waitForTimeout(500);
   if (mediaRequestsObservable(browserName)) expect(media.count()).toBe(0);
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.preload)).toBe('none');
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.autoplay)).toBe(false);
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.hasAttribute('controls'))).toBe(false);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.paused)).toBe(true);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.preload)).toBe('none');
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.autoplay)).toBe(false);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.hasAttribute('controls'))).toBe(false);
 });
 
 test('F07 pause and resume keep the mode and the source', async ({ page, browserName }) => {
@@ -71,27 +71,27 @@ test('F07 pause and resume keep the mode and the source', async ({ page, browser
   const p = await gotoPlayer(page);
   await p.start('atmos');
   await p.expectAdvancing();
-  const src = await p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc);
+  const src = await p.media.evaluate((a: HTMLMediaElement) => a.currentSrc);
 
   await p.primary.click(); // 暫停
   await expect(p.statusTitle).toHaveText('已暫停');
   await expect(p.primary).toHaveText('繼續播放');
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.paused)).toBe(true);
   await expect(p.modeLabel).toContainText('Dolby Atmos 音軌');
-  const pausedAt = await p.audio.evaluate((a: HTMLAudioElement) => a.currentTime);
+  const pausedAt = await p.media.evaluate((a: HTMLMediaElement) => a.currentTime);
   await page.waitForTimeout(700);
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.currentTime), 'paused audio does not advance').toBeCloseTo(pausedAt, 1);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.currentTime), 'paused audio does not advance').toBeCloseTo(pausedAt, 1);
 
   await p.primary.click(); // 繼續播放
   await expect(p.statusTitle).toHaveText('播放中');
-  await expect.poll(() => p.audio.evaluate((a: HTMLAudioElement) => a.currentTime)).toBeGreaterThan(pausedAt + 0.2);
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc), 'resume does not reload the source').toBe(src);
+  await expect.poll(() => p.media.evaluate((a: HTMLMediaElement) => a.currentTime)).toBeGreaterThan(pausedAt + 0.2);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.currentSrc), 'resume does not reload the source').toBe(src);
   await expect(p.modeLabel).toHaveText('目前播放：Dolby Atmos 音軌');
   if (mediaRequestsObservable(browserName)) {
-    expect(media.count(TONE.atmos), 'one media request for the whole pause/resume').toBe(1);
-    expect(media.count(TONE.binaural)).toBe(0);
+    expect(media.count(DEMO_MEDIA.atmos), 'one media request for the whole pause/resume').toBe(1);
+    expect(media.count(DEMO_MEDIA.binaural)).toBe(0);
   }
-  await expect(p.audio).toHaveCount(1);
+  await expect(p.media).toHaveCount(1);
 });
 
 test('F05 switch via the dialog: source changes, old URL gets no more requests, events emptied -> loadstart -> playing', async ({ page, browserName }) => {
@@ -99,8 +99,8 @@ test('F05 switch via the dialog: source changes, old URL gets no more requests, 
   const p = await gotoPlayer(page);
   await p.start('binaural');
   await p.expectAdvancing();
-  const oldSrc = await p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc);
-  expect(oldSrc).toContain(TONE.binaural);
+  const oldSrc = await p.media.evaluate((a: HTMLMediaElement) => a.currentSrc);
+  expect(oldSrc).toContain(DEMO_MEDIA.binaural);
 
   // The switch button appears once playback is engaged.
   await expect(p.switchButton).toBeVisible();
@@ -114,24 +114,24 @@ test('F05 switch via the dialog: source changes, old URL gets no more requests, 
   await expect(p.dialog).toContainText('切換時播放可能會短暫中斷');
 
   // Record media events from now on, in order.
-  await p.audio.evaluate((a: HTMLAudioElement) => {
+  await p.media.evaluate((a: HTMLMediaElement) => {
     const w = window as unknown as { __events: string[] };
     w.__events = [];
     for (const name of ['emptied', 'loadstart', 'playing', 'pause', 'error']) {
       a.addEventListener(name, () => w.__events.push(name));
     }
   });
-  const oldRequestsBefore = media.count(TONE.binaural);
+  const oldRequestsBefore = media.count(DEMO_MEDIA.binaural);
 
   await p.dialog.getByRole('button', { name: /確認切換/ }).click();
   await expect(p.dialog).toBeHidden();
 
   await expect(p.modeLabel).toHaveText('目前播放：Dolby Atmos 音軌', { timeout: 15_000 });
   await p.expectAdvancing();
-  const newSrc = await p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc);
-  expect(newSrc).toContain(TONE.atmos);
+  const newSrc = await p.media.evaluate((a: HTMLMediaElement) => a.currentSrc);
+  expect(newSrc).toContain(DEMO_MEDIA.atmos);
   expect(newSrc).not.toBe(oldSrc);
-  await expect(p.audio, 'still exactly one media element').toHaveCount(1);
+  await expect(p.media, 'still exactly one media element').toHaveCount(1);
 
   const events = await page.evaluate(() => (window as unknown as { __events: string[] }).__events);
   const iEmptied = events.indexOf('emptied');
@@ -143,18 +143,18 @@ test('F05 switch via the dialog: source changes, old URL gets no more requests, 
   expect(events, 'no error event during a clean switch').not.toContain('error');
 
   // The old URL is never requested again, not even a range request, after the switch settled.
-  const oldAfterSwitch = media.count(TONE.binaural);
+  const oldAfterSwitch = media.count(DEMO_MEDIA.binaural);
   await page.waitForTimeout(1500);
   if (mediaRequestsObservable(browserName)) {
     expect(oldRequestsBefore, 'the first source was requested (so request recording works)').toBeGreaterThanOrEqual(1);
-    expect(media.count(TONE.binaural)).toBe(oldAfterSwitch);
+    expect(media.count(DEMO_MEDIA.binaural)).toBe(oldAfterSwitch);
     expect(oldAfterSwitch).toBe(oldRequestsBefore);
-    expect(media.count(TONE.atmos)).toBeGreaterThanOrEqual(1);
+    expect(media.count(DEMO_MEDIA.atmos)).toBeGreaterThanOrEqual(1);
   }
 
   await expect(p.demoNotice, 'the demo notice stays in the other mode').toBeVisible();
   await expect(p.srStatus).toContainText('目前播放：Dolby Atmos 音軌');
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.currentTime), 'currentTime is not copied across sources').toBeLessThan(10);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.currentTime), 'currentTime is not copied across sources').toBeLessThan(10);
 });
 
 test('F05 switch back and forth keeps one element and the label follows the source', async ({ page }) => {
@@ -165,9 +165,9 @@ test('F05 switch back and forth keeps one element and the label follows the sour
     await p.switchButton.click();
     await p.dialog.getByRole('button', { name: /確認切換/ }).click();
     await expect(p.modeLabel).toHaveText(`目前播放：${MODE_NAME[next]}`, { timeout: 15_000 });
-    await expect.poll(() => p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc)).toContain(TONE[next]);
+    await expect.poll(() => p.media.evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_MEDIA[next]);
     await p.expectAdvancing(0.2);
-    await expect(p.audio).toHaveCount(1);
+    await expect(p.media).toHaveCount(1);
   }
 });
 
@@ -182,7 +182,7 @@ test('the dialog cancel button leaves playback untouched', async ({ page, browse
   await expect(p.dialog).toBeHidden();
   await expect(p.switchButton).toBeFocused();
   await expect(p.modeLabel).toHaveText('目前播放：Binaural');
-  if (mediaRequestsObservable(browserName)) expect(media.count(TONE.atmos)).toBe(0);
+  if (mediaRequestsObservable(browserName)) expect(media.count(DEMO_MEDIA.atmos)).toBe(0);
   await p.expectAdvancing(0.2);
 });
 
@@ -191,7 +191,7 @@ test('leaving the page (pagehide) stops playback', async ({ page }) => {
   await p.start('binaural');
   await p.expectAdvancing();
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
-  await expect.poll(() => p.audio.evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
+  await expect.poll(() => p.media.evaluate((a: HTMLMediaElement) => a.paused)).toBe(true);
   await expect(p.modeLabel).toHaveText('已選擇：Binaural');
   await expect(p.primary).toHaveText('開始聆聽');
 });
@@ -204,12 +204,12 @@ test('mute and volume controls appear only after playback is engaged and act on 
   const mute = p.root.locator('.wg-live__mute');
   if (await mute.isVisible()) {
     await mute.click();
-    expect(await p.audio.evaluate((a: HTMLAudioElement) => a.muted)).toBe(true);
+    expect(await p.media.evaluate((a: HTMLMediaElement) => a.muted)).toBe(true);
     await expect(mute).toHaveAttribute('aria-pressed', 'true');
     await mute.click();
-    expect(await p.audio.evaluate((a: HTMLAudioElement) => a.muted)).toBe(false);
+    expect(await p.media.evaluate((a: HTMLMediaElement) => a.muted)).toBe(false);
   }
-  // Fullscreen is video-only; an audio event never shows it, and the seek-to-live control is not faked.
-  await expect(p.root.locator('.wg-live__fullscreen')).toBeHidden();
+  // Fullscreen is video-only (this is a video event); the seek-to-live control is not faked.
+  await expect(p.root.locator('.wg-live__fullscreen')).toBeVisible();
   await expect(p.root.locator('.wg-live__live')).toBeHidden();
 });

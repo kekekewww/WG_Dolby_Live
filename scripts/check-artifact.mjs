@@ -44,6 +44,8 @@ const FORBIDDEN_DIRS = new Set([
   'test',
   '__tests__',
 ]);
+/** The two bundled demo videos: the only .mp4 files allowed, at exactly this path below wg-live/. */
+const DEMO_VIDEO = /^assets\/demo\/demo-video-\d\.mp4$/;
 const FORBIDDEN_EXT = /(?:\.(?:ts|tsx|map|woff2?|ttf|otf|eot|zip|sql|log|gz|tgz|tar|7z|bak|orig|swp|sqlite|db|webm|mp4|mov|pem|key|env|phar)|~)$/i;
 
 /**
@@ -58,7 +60,7 @@ const ALLOWED_PATHS = [
   /^licenses\/[A-Za-z0-9._-]+\.(?:txt|md)$/i,
   /^assets\/dist\/(?:wg-live\.js|wg-live\.css|wg-live-featured\.css|build-info\.json)$/,
   /^assets\/admin\/[A-Za-z0-9._-]+\.(?:js|css)$/i,
-  /^assets\/demo\/(?:[A-Za-z0-9_-]+\.mp3|poster-demo(?:-square)?\.svg|LICENSE-demo\.txt)$/,
+  /^assets\/demo\/(?:[A-Za-z0-9_-]+\.mp3|demo-video-\d\.mp4|poster-demo(?:-square)?\.svg|LICENSE-demo\.txt)$/,
 ];
 /** @param {string} rel path below wg-live/ */
 const isAllowedPath = (rel) => ALLOWED_PATHS.some((re) => re.test(rel));
@@ -75,6 +77,8 @@ export const REQUIRED_FILES = [
   'templates/partials/container.php',
   'assets/demo/demo-tone-1.mp3',
   'assets/demo/demo-tone-2.mp3',
+  'assets/demo/demo-video-1.mp4',
+  'assets/demo/demo-video-2.mp4',
   'assets/demo/poster-demo.svg',
   'assets/demo/LICENSE-demo.txt',
   'assets/admin/admin.js',
@@ -106,7 +110,8 @@ function forbiddenReason(name) {
     if (p === '.DS_Store') return '.DS_Store';
     if (p.startsWith('.')) return 'dotfile';
   }
-  if (FORBIDDEN_EXT.test(base)) return `forbidden file type "${/\.[^.]+$/.exec(base)?.[0] ?? ''}"`;
+  const belowRoot = parts.slice(1).join('/'); // parts[0] is the wg-live/ root
+  if (FORBIDDEN_EXT.test(base) && !DEMO_VIDEO.test(belowRoot)) return `forbidden file type "${/\.[^.]+$/.exec(base)?.[0] ?? ''}"`;
   if (/^screenshot/i.test(base)) return 'screenshot';
   return null;
 }

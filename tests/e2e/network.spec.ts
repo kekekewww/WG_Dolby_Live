@@ -9,12 +9,12 @@
  * Chromium and Firefox additionally get the literal "route abort on the media URL" variant.
  */
 import { test, type Page } from '@playwright/test';
-import { breakModeUrl, EXPECTED_LOAD_FAILURES, expect, gotoPlayer, isMediaUrl, mediaRequestsObservable, recordRequests, TONE, watchErrors, type Player } from './helpers';
+import { breakModeUrl, EXPECTED_LOAD_FAILURES, expect, gotoPlayer, isMediaUrl, mediaRequestsObservable, recordRequests, DEMO_MEDIA, watchErrors, type Player } from './helpers';
 
 test.describe.configure({ timeout: 120_000 });
 
 const RECONNECTING = '連線暫時中斷，正在重新連線';
-const MISSING = 'missing-tone.mp3';
+const MISSING = 'missing-video.mp4';
 
 /** Run the three automatic retries (after 2 s, 5 s and 10 s) on the fake clock. */
 async function runRetryLadder(page: Page, p: Player): Promise<void> {
@@ -49,7 +49,7 @@ test('F08 a media URL that fails: reconnecting, 3 bounded retries, then failed w
   await expect(p.errorCode).not.toContainText('http');
   await expect(p.action('重試')).toBeVisible();
   await expect(p.srStatus).toHaveText('無法播放，請重試');
-  await expect(p.audio).toHaveCount(1);
+  await expect(p.media).toHaveCount(1);
   await expect(p.modeLabel).toHaveText('已選擇：Binaural');
   if (mediaRequestsObservable(browserName)) {
     // 1 initial attempt + exactly 3 automatic retries, and nothing after that.
@@ -84,16 +84,16 @@ test('F08 a failed Atmos start offers 改用耳機 Binaural and never switches s
 
   await expect(p.action('重試')).toBeVisible();
   await expect(p.action('改用耳機 Binaural')).toBeVisible();
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.hasAttribute('src')), 'the broken source is released').toBe(false);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.hasAttribute('src')), 'the broken source is released').toBe(false);
   await expect(p.modeLabel, 'still the chosen mode, not changed by the failure').toHaveText('已選擇：Dolby Atmos 音軌');
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.paused)).toBe(true);
 
   // The explicit click on the fallback is the only thing that changes the track.
   await p.action('改用耳機 Binaural').click();
   await p.expectAdvancing(0.2);
   await expect(p.modeLabel).toHaveText('目前播放：Binaural');
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc)).toContain(TONE.binaural);
-  await expect(p.audio).toHaveCount(1);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_MEDIA.binaural);
+  await expect(p.media).toHaveCount(1);
 });
 
 test('F08 manual 重試 after the retries are used up starts a fresh bounded attempt', async ({ page, browserName }) => {
@@ -130,13 +130,13 @@ test('F08 a failed switch keeps the last good mode and offers 重新載入 Binau
   await expect(p.action('重新載入Binaural')).toBeVisible();
   await expect(p.action('改用耳機 Binaural')).toBeVisible();
   await expect(p.srStatus).toContainText('切換失敗，仍保留原模式：Binaural');
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.paused), 'nothing plays after the failed switch').toBe(true);
-  await expect(p.audio).toHaveCount(1);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.paused), 'nothing plays after the failed switch').toBe(true);
+  await expect(p.media).toHaveCount(1);
 
   await p.action('重新載入Binaural').click();
   await p.expectAdvancing(0.2);
   await expect(p.modeLabel).toHaveText('目前播放：Binaural');
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc)).toContain(TONE.binaural);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_MEDIA.binaural);
   await expect(p.action('重新載入Binaural')).toBeHidden();
 });
 
@@ -150,7 +150,7 @@ test('F08 dev panel network fault: the first attempt fails, the automatic retry 
   await p.expectAdvancing(0.2); // the 2 s retry succeeds because the fault is one-shot
   await expect(p.statusTitle).toHaveText('播放中');
   await expect(p.modeLabel).toHaveText('目前播放：Binaural');
-  await expect(p.audio).toHaveCount(1);
+  await expect(p.media).toHaveCount(1);
 });
 
 test('F08 dev panel decode / unsupported faults fail at once without retries', async ({ page }) => {
@@ -178,7 +178,7 @@ test.describe('route abort on the media URL (Chromium and Firefox)', () => {
     await page.clock.install();
     const errors = watchErrors(page, EXPECTED_LOAD_FAILURES);
     let aborted = 0;
-    await page.route(/\/demo\/demo-tone-1\.mp3/, async (route) => {
+    await page.route(/\/demo\/demo-video-1\.mp4/, async (route) => {
       aborted += 1;
       await route.abort('failed');
     });
@@ -190,22 +190,22 @@ test.describe('route abort on the media URL (Chromium and Firefox)', () => {
     await expect(p.statusTitle).toHaveText(RECONNECTING);
     await runRetryLadder(page, p);
     expect(aborted, '1 attempt + 3 retries').toBe(4);
-    expect(media.count(TONE.atmos)).toBe(0);
+    expect(media.count(DEMO_MEDIA.atmos)).toBe(0);
     await expect(p.errorCode).toHaveText('錯誤代碼：E-NET-01');
 
     // The network comes back: 重試 plays the same mode, from the start.
-    await page.unroute(/\/demo\/demo-tone-1\.mp3/);
+    await page.unroute(/\/demo\/demo-video-1\.mp4/);
     await p.action('重試').click();
     await p.expectAdvancing(0.2);
     await expect(p.modeLabel).toHaveText('目前播放：Binaural');
-    await expect(p.audio).toHaveCount(1);
+    await expect(p.media).toHaveCount(1);
     expect(errors).toEqual([]);
   });
 
   test('F08 the network returns during the ladder: the retry plays and the budget does not leak', async ({ page }) => {
     await page.clock.install();
     let failures = 0;
-    await page.route(/\/demo\/demo-tone-2\.mp3/, async (route) => {
+    await page.route(/\/demo\/demo-video-2\.mp4/, async (route) => {
       failures += 1;
       if (failures <= 2) await route.abort('connectionreset');
       else await route.continue();

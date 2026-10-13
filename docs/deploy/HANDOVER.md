@@ -176,7 +176,7 @@ M2 要接入的接點只有四類（規格 §17）：錄音室播放 provider、
 
 | 項目 | 說明 |
 |---|---|
-| M1 示範音訊 | 自製測試音，不是 Binaural／Atmos 驗證素材 |
+| M1 示範影音 | 自製測試影片（影片活動，預設）與測試音（音訊活動），不是 Binaural／Atmos 驗證素材 |
 | 開發面板 | 只在 `local`／`development`，或 `staging` 的登入管理者；`production` 永遠不顯示 |
 | 登入按鈕 | 連到現站 Account 頁，不帶返回路徑 |
 | 其他 | |

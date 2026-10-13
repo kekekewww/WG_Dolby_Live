@@ -4,7 +4,7 @@
  * bottom sheet at <= 768 px, and layout does not jump when the view mounts (CLS, lab only).
  */
 import { test, type Locator, type Page } from '@playwright/test';
-import { expect, gotoPlayer, gotoView, horizontalOverflow, rewriteBootConfig, SLUG_ENDED, SLUG_LIVE, SLUG_PENDING, SLUG_SCHEDULED } from './helpers';
+import { asAudioEvent, expect, gotoPlayer, gotoView, horizontalOverflow, rewriteBootConfig, SLUG_ENDED, SLUG_LIVE, SLUG_PENDING, SLUG_SCHEDULED } from './helpers';
 
 test.describe.configure({ timeout: 90_000 });
 
@@ -218,9 +218,9 @@ test.describe('wide screens', () => {
 });
 
 /**
- * Spec 5.3: audio-only uses a compact cover + text layout instead of a forced 16:9 blank. The mode panels and
- * the one Start button must be visible without scrolling at a common desktop size (1440x1000), and on a phone
- * (390x844) the first mode panel must start inside the first viewport. Video keeps its 16:9 stage.
+ * Spec 5.3: the mode panels and the one Start button must be visible without scrolling at a common desktop size
+ * (1440x1000), and on a phone (390x844) the first mode panel must start inside the first viewport. This holds for
+ * both media kinds: video (the default; stage + head share one row from 1024px) and audio-only (a compact cover).
  */
 async function box(locator: Locator): Promise<{ top: number; bottom: number; left: number; width: number; height: number }> {
   const b = await locator.boundingBox();
@@ -229,12 +229,135 @@ async function box(locator: Locator): Promise<{ top: number; bottom: number; lef
   return { top: r.y, bottom: r.y + r.height, left: r.x, width: r.width, height: r.height };
 }
 
+/** The fixed site banner of the harness (the live site's Backer Plan bar), if it is showing. */
+async function bannerTop(page: Page): Promise<number | null> {
+  const banner = page.locator('#wgm-banner');
+  if ((await banner.count()) === 0 || !(await banner.isVisible())) return null;
+  return (await box(banner)).top;
+}
+
+test.describe('video player: stage + head row keeps the mode choice above the fold', () => {
+  test.describe('desktop 1440x1000', () => {
+    test.use({ viewport: { width: 1440, height: 1000 } });
+
+    test('both mode panels and the Start button are fully inside the first viewport, beside-the-stage layout', async ({ page }) => {
+      const p = await gotoPlayer(page);
+      await expect(p.view).toHaveAttribute('data-media-kind', 'video');
+      const cards = p.root.locator('.wg-live__mode-card');
+      await expect(cards).toHaveCount(2);
+      const stage = await box(p.root.locator('.wg-live__stage'));
+      const content = await box(p.view);
+      // The hero: a 16:9 stage of about 60-65% of the content width, on the left.
+      expect(stage.width / stage.height).toBeGreaterThan(1.7);
+      expect(stage.width / stage.height).toBeLessThan(1.85);
+      expect(stage.width / content.width).toBeGreaterThanOrEqual(0.58);
+      expect(stage.width / content.width).toBeLessThanOrEqual(0.66);
+      // The head (status badge, title, performers / date, status line) sits to the right of the stage, in the same row.
+      const title = await box(p.title);
+      expect(title.left).toBeGreaterThan(stage.left + stage.width - 1);
+      expect(title.top).toBeLessThan(stage.bottom);
+      for (const card of await cards.all()) {
+        const c = await box(card);
+        expect(c.top, 'panel top is below the stage row').toBeGreaterThanOrEqual(stage.bottom - 1);
+        expect(c.bottom, 'panel fully inside the viewport').toBeLessThanOrEqual(1000);
+      }
+      for (const mode of ['binaural', 'atmos'] as const) expect((await box(p.radio(mode))).top).toBeLessThan(1000);
+      const start = await box(p.primary);
+      expect(start.top, 'Start top inside the viewport').toBeLessThan(1000);
+      expect(start.bottom, 'Start fully inside the viewport').toBeLessThanOrEqual(1000);
+      // ... and not hidden behind the fixed site banner.
+      const banner = await bannerTop(page);
+      if (banner !== null) expect(start.bottom, 'Start is above the fixed banner').toBeLessThanOrEqual(banner);
+      // The stage stays the largest element of the view.
+      const area = (b: { width: number; height: number }): number => b.width * b.height;
+      for (const card of await cards.all()) expect(area(stage)).toBeGreaterThan(area(await box(card)));
+      expect(area(stage)).toBeGreaterThan(area(await box(p.root.locator('.wg-live__player-head'))));
+      await expectNoHorizontalScroll(page, 'video 1440');
+    });
+
+    test('after Start the one control bar sits right under the stage + head row', async ({ page }) => {
+      const p = await gotoPlayer(page);
+      await p.start('binaural');
+      await expect(p.view).toHaveAttribute('data-status', /loading|playing/);
+      const stage = await box(p.root.locator('.wg-live__stage'));
+      const head = await box(p.root.locator('.wg-live__player-head'));
+      const bar = await box(p.root.locator('.wg-live__controls'));
+      const rowBottom = Math.max(stage.bottom, head.bottom);
+      expect(bar.top).toBeGreaterThanOrEqual(rowBottom - 1);
+      expect(bar.top - rowBottom).toBeLessThanOrEqual(40);
+      expect(bar.bottom, 'the bar is inside the first viewport').toBeLessThanOrEqual(1000);
+      // The stage did not move or change size when playback started (no layout jump).
+      const after = await box(p.root.locator('.wg-live__stage'));
+      expect(Math.abs(after.top - stage.top)).toBeLessThanOrEqual(1);
+      expect(Math.abs(after.width - stage.width)).toBeLessThanOrEqual(1);
+    });
+  });
+
+  test.describe('desktop 1024x768: the row layout starts at 1024px', () => {
+    test.use({ viewport: { width: 1024, height: 768 } });
+
+    test('stage left, head right, panels directly below', async ({ page }) => {
+      const p = await gotoPlayer(page);
+      const stage = await box(p.root.locator('.wg-live__stage'));
+      const title = await box(p.title);
+      expect(title.left).toBeGreaterThan(stage.left + stage.width - 1);
+      const first = await box(p.root.locator('.wg-live__mode-card').first());
+      expect(first.top).toBeGreaterThanOrEqual(stage.bottom - 1);
+      expect(first.top).toBeLessThan(768);
+      await expectNoHorizontalScroll(page, 'video 1024');
+    });
+  });
+
+  test.describe('tablet 768x1024: the stage is full width, under the head', () => {
+    test.use({ viewport: { width: 768, height: 1024 } });
+
+    test('the first mode panel starts inside the first viewport', async ({ page }) => {
+      const p = await gotoPlayer(page);
+      const stage = await box(p.root.locator('.wg-live__stage'));
+      const content = await box(p.view);
+      expect(stage.width).toBeGreaterThanOrEqual(content.width - 1);
+      expect(stage.width / stage.height).toBeGreaterThan(1.7);
+      expect(stage.width / stage.height).toBeLessThan(1.85);
+      const first = await box(p.root.locator('.wg-live__mode-card').first());
+      expect(first.top, 'first mode panel top inside the viewport').toBeLessThan(1024);
+      await expectNoHorizontalScroll(page, 'video 768');
+    });
+  });
+
+  for (const vp of [
+    { width: 390, height: 844 },
+    { width: 360, height: 800 },
+  ]) {
+    test.describe(`phone ${vp.width}x${vp.height}`, () => {
+      test.use({ viewport: vp });
+
+      test('keeps the spec 5.3 order and the first mode panel starts inside the first viewport', async ({ page }) => {
+        const p = await gotoPlayer(page);
+        const first = await box(p.root.locator('.wg-live__mode-card').first());
+        expect(first.top, 'first mode panel top inside the viewport').toBeLessThan(vp.height);
+        const stage = await box(p.root.locator('.wg-live__stage'));
+        const title = await box(p.title);
+        // Title and status, then the stage, then the controls (the mode panels).
+        expect(title.top).toBeLessThan(stage.top);
+        expect(stage.bottom).toBeLessThanOrEqual(first.top + 1);
+        const content = await box(p.view);
+        expect(stage.width).toBeGreaterThanOrEqual(content.width - 1);
+        expect(stage.width / stage.height).toBeGreaterThan(1.7);
+        expect(stage.width / stage.height).toBeLessThan(1.85);
+        await expectNoHorizontalScroll(page, `video ${vp.width}`);
+      });
+    });
+  }
+});
+
 test.describe('audio player: compact cover keeps the mode choice above the fold', () => {
   test.describe('desktop 1440x1000', () => {
     test.use({ viewport: { width: 1440, height: 1000 } });
 
     test('both mode panels and the Start button start inside the first viewport', async ({ page }) => {
+      await asAudioEvent(page);
       const p = await gotoPlayer(page);
+      await expect(p.view).toHaveAttribute('data-media-kind', 'audio');
       const cards = p.root.locator('.wg-live__mode-card');
       await expect(cards).toHaveCount(2);
       const stage = await box(p.root.locator('.wg-live__stage'));
@@ -257,6 +380,7 @@ test.describe('audio player: compact cover keeps the mode choice above the fold'
     });
 
     test('after Start the one control bar sits right under the cover + title row', async ({ page }) => {
+      await asAudioEvent(page);
       const p = await gotoPlayer(page);
       await p.start('binaural');
       await expect(p.view).toHaveAttribute('data-status', /loading|playing/);
@@ -267,23 +391,13 @@ test.describe('audio player: compact cover keeps the mode choice above the fold'
       expect(bar.top).toBeGreaterThanOrEqual(rowBottom - 1);
       expect(bar.top - rowBottom).toBeLessThanOrEqual(40);
     });
-
-    test('video events keep the 16:9 stage', async ({ page }) => {
-      await rewriteBootConfig(page, /\/dev\/listen\.html/, (config) => {
-        for (const e of config.events) if (e.slug === SLUG_LIVE) e.mediaKind = 'video';
-      });
-      await gotoPlayer(page);
-      const stage = await box(page.locator('.wg-live__stage'));
-      expect(stage.width / stage.height).toBeGreaterThan(1.7);
-      expect(stage.width / stage.height).toBeLessThan(1.85);
-      expect(stage.width).toBeGreaterThan(900);
-    });
   });
 
   test.describe('phone 390x844', () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
     test('the first mode panel starts inside the first viewport, beside a compact cover', async ({ page }) => {
+      await asAudioEvent(page);
       const p = await gotoPlayer(page);
       const first = await box(p.root.locator('.wg-live__mode-card').first());
       expect(first.top, 'first mode panel top inside the viewport').toBeLessThan(844);

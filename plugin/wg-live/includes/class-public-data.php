@@ -197,7 +197,7 @@ final class Public_Data {
 			'displayTimezone' => $zone,
 			'status'          => $status,
 			'posterUrl'       => null === $poster ? null : $poster['url'],
-			'mediaKind'       => ( isset( $data['media_kind'] ) && 'video' === $data['media_kind'] ) ? 'video' : 'audio',
+			'mediaKind'       => ( isset( $data['media_kind'] ) && 'audio' === $data['media_kind'] ) ? 'audio' : 'video',
 			'availableModes'  => $modes,
 			'programme'       => self::plain_list( isset( $data['programme'] ) ? $data['programme'] : array() ),
 			'productUrl'      => self::product_url( $data ),

@@ -958,6 +958,57 @@
   }
 }
 
+/*
+ * ------------------------------------------------------------------ video: stage + text row (spec 5.3)
+ * Every concert is streamed with video, so the 16:9 stage is the usual case. A full-width stage pushes the mode
+ * panels and Start below the fold (the user rejected exactly this for audio). From 1024px the stage and the head
+ * (status badge, title, performers / date, status line) share ONE row: the stage is the hero on the left (about
+ * 60% of the content width), the head sits beside it, and the mode panels + the one yellow Start (or, once
+ * playing, the one dark bar) follow directly below, as for audio. 768-1023px keeps the stacked, full-width stage
+ * (the first mode panel is still inside a 768x1024 viewport); a phone keeps the spec 5.3 order.
+ */
+@media (min-width: 1024px) {
+  .wg-live .wg-live__player-view[data-media-kind='video'] .wg-live__player {
+    display: grid;
+    grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+    align-items: start;
+    column-gap: clamp(32px, 3vw, 40px);
+  }
+
+  .wg-live .wg-live__player-view[data-media-kind='video'] .wg-live__stage {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .wg-live .wg-live__player-view[data-media-kind='video'] .wg-live__player-head {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    padding: 0;
+  }
+
+  .wg-live .wg-live__player-view[data-media-kind='video'] .wg-live__controls {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    row-gap: 16px;
+    padding-top: 20px;
+  }
+
+  /* Engaged: the one dark bar sits right under the stage + head row. */
+  .wg-live
+    .wg-live__player-view[data-media-kind='video']:is(
+      [data-status='loading'],
+      [data-status='playing'],
+      [data-status='paused'],
+      [data-status='switching'],
+      [data-status='reconnecting']
+    )
+    .wg-live__controls {
+    margin-top: 32px;
+    padding-top: 16px; /* the bar's own padding (the idle rule above sets 20px) */
+  }
+}
+
 /* Tablet. */
 @media (max-width: 1023px) {
   .wg-live .wg-live__player-view {

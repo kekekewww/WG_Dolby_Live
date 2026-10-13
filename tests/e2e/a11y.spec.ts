@@ -257,7 +257,7 @@ test.describe('structure and semantics', () => {
       return bad;
     });
     expect(unnamed).toEqual([]);
-    expect(await p.audio.evaluate((a: HTMLAudioElement) => a.hasAttribute('controls'))).toBe(false);
+    expect(await p.media.evaluate((a: HTMLMediaElement) => a.hasAttribute('controls'))).toBe(false);
   });
 
   test('target sizes: primary controls are at least 48x48 and secondary controls at least 44x44', async ({ page }) => {

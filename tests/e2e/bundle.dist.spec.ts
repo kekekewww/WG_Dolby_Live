@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test, type Page } from '@playwright/test';
 import { inspectPlugin, scanScopedRules } from './css-probe';
-import { expect, gotoPlayer, gotoView, isMediaUrl, recordRequests, scanWgLive, SLUG_LIVE, TONE, trackMediaElements, mediaStats, watchErrors } from './helpers';
+import { expect, gotoPlayer, gotoView, isMediaUrl, recordRequests, scanWgLive, SLUG_LIVE, DEMO_MEDIA, trackMediaElements, mediaStats, watchErrors } from './helpers';
 
 test.describe.configure({ timeout: 90_000 });
 
@@ -45,7 +45,7 @@ test.describe('player page, built bundle', () => {
     await expect(rootEl.locator('.wg-live__mount')).toHaveAttribute('aria-busy', 'false');
     await expect(rootEl.locator('.wg-live__skeleton')).toHaveCount(0);
     await expect(rootEl.locator('.wg-live__player-view')).toHaveCount(1);
-    await expect(rootEl.locator('audio')).toHaveCount(1);
+    await expect(rootEl.locator('audio, video')).toHaveCount(1);
   });
 
   test('remounting is idempotent: WGLive.mountAll() twice leaves one media element and one listener set', async ({ page }) => {
@@ -59,7 +59,7 @@ test.describe('player page, built bundle', () => {
       api.mountAll();
       api.mountWithin(document.querySelector('.wg-live'));
     });
-    await expect(page.locator('audio')).toHaveCount(1);
+    await expect(page.locator('audio, video')).toHaveCount(1);
     await expect(page.locator('.wg-live__player-view')).toHaveCount(1);
     await p.start('binaural');
     await p.expectAdvancing();
@@ -92,7 +92,7 @@ test.describe('player page, built bundle', () => {
       (window as unknown as { WGLive: WGLiveGlobal }).WGLive.mountWithin(fresh);
     });
     await expect(page.locator('#wg-live-2')).toHaveAttribute('data-wg-live-mounted', '1');
-    await expect(page.locator('audio')).toHaveCount(1);
+    await expect(page.locator('audio, video')).toHaveCount(1);
     const stats = await mediaStats(page);
     expect(stats.inDom).toBe(1);
     expect(stats.audibleNow).toBe(0);
@@ -134,17 +134,17 @@ test.describe('player page, built bundle', () => {
     await p.expectAdvancing();
     await expect(p.modeLabel).toHaveText('目前播放：Binaural');
     await expect(p.demoNotice).toHaveText('操作示範音訊，非 Binaural／Atmos 驗證素材');
-    expect(await p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc)).toContain(TONE.binaural);
+    expect(await p.media.evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_MEDIA.binaural);
 
     await p.switchButton.click();
     await p.dialog.getByRole('button', { name: /確認切換/ }).click();
     await expect(p.modeLabel).toHaveText('目前播放：Dolby Atmos 音軌', { timeout: 20_000 });
     await p.expectAdvancing(0.2);
-    expect(await p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc)).toContain(TONE.atmos);
-    await expect(p.audio).toHaveCount(1);
-    const oldCount = media.count(TONE.binaural);
+    expect(await p.media.evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_MEDIA.atmos);
+    await expect(p.media).toHaveCount(1);
+    const oldCount = media.count(DEMO_MEDIA.binaural);
     await page.waitForTimeout(1200);
-    expect(media.count(TONE.binaural), 'the old URL gets no further requests').toBe(oldCount);
+    expect(media.count(DEMO_MEDIA.binaural), 'the old URL gets no further requests').toBe(oldCount);
 
     await p.primary.click();
     await expect(p.statusTitle).toHaveText('已暫停');
@@ -233,7 +233,7 @@ test.describe('homepage featured card, built CSS only', () => {
     await expect(page.locator('link[rel="stylesheet"][href*="wg-live-featured.css"]')).toHaveCount(1);
     expect(requests.some((u) => u.includes('wg-live.js'))).toBe(false);
     expect(requests.some((u) => u.includes('wg-live.css'))).toBe(false);
-    expect(requests.some((u) => /hls|\.mp3/.test(u))).toBe(false);
+    expect(requests.some((u) => /hls|\.mp3|\.mp4/.test(u))).toBe(false);
     // The only script is the site mock's own chrome script (dev/site-mock.js), never one of ours.
     await expect(page.locator('script:not([data-site-mock])')).toHaveCount(0);
     await expect(page.locator('script')).toHaveCount(1);

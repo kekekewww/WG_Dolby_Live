@@ -25,6 +25,7 @@
     "check:artifact": "node scripts/check-artifact.mjs",
     "test:zip-install": "bash scripts/zip-install-check.sh",
     "demo:audio": "node scripts/generate-demo-audio.mjs",
+    "demo:video": "node scripts/generate-demo-video.mjs",
     "measure:site": "node scripts/measure-site.mjs",
     "test:e2e:dist": "playwright test --project=harness-dist",
     "test:e2e:dev": "playwright test --project=harness-dev-chromium --project=harness-dev-firefox --project=harness-dev-webkit",

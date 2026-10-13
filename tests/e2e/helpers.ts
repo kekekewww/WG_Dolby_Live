@@ -6,10 +6,13 @@
  * the *.dist.spec.ts files use the `dist` base.
  *
  * Harness events (dev/core.mjs), all test data:
- *   demo-live-binaural-atmos  live, demo, both modes  (featured, the one that plays)
+ *   demo-live-binaural-atmos  live, demo, both modes, VIDEO  (featured, the one that plays)
  *   demo-scheduled            scheduled (+3 days), demo
  *   demo-ended                ended, demo, binaural only
  *   pending-source-live       live, NOT demo, source not configured, has productUrl
+ *
+ * Every harness event is a video event (the default media kind): the demo plays demo-video-N.mp4 in ONE <video>.
+ * `asAudioEvent()` turns one of them into an audio event (boot config + playback descriptor) for the audio-only specs.
  */
 import AxeBuilder from '@axe-core/playwright';
 import { expect as baseExpect, type Locator, type Page, type Request, type Route } from '@playwright/test';
@@ -27,6 +30,9 @@ export const SLUG_PENDING = 'pending-source-live';
 
 export type Mode = 'binaural' | 'atmos';
 
+/** The demo media of a video event (the default kind), per mode. */
+export const DEMO_MEDIA: Record<Mode, string> = { binaural: 'demo-video-1.mp4', atmos: 'demo-video-2.mp4' };
+/** The demo media of an audio event, per mode. */
 export const TONE: Record<Mode, string> = { binaural: 'demo-tone-1.mp3', atmos: 'demo-tone-2.mp3' };
 export const MODE_NAME: Record<Mode, string> = { binaural: 'Binaural', atmos: 'Dolby Atmos 音軌' };
 
@@ -104,7 +110,8 @@ export interface Player {
   switchButton: Locator;
   dialog: Locator;
   srStatus: Locator;
-  audio: Locator;
+  /** The one media element: <video> for video events (the default), <audio> for audio events. */
+  media: Locator;
   entitlement: Locator;
   devPanel: Locator;
   radio(mode: Mode): Locator;
@@ -113,10 +120,34 @@ export interface Player {
   choose(mode: Mode): Promise<void>;
   /** choose() + click 開始聆聽. */
   start(mode: Mode): Promise<void>;
-  /** Wait for audible progress: currentTime above `min` seconds and increasing. */
+  /** Wait for progress: currentTime above `min` seconds and increasing. */
   expectAdvancing(min?: number): Promise<void>;
   /** The dev panel: open the <details> and return its selects. */
   openDevPanel(): Promise<{ status: Locator; entitlement: Locator; fault: Locator; reset: Locator }>;
+}
+
+/**
+ * Make the harness event `slug` an AUDIO event for this page: the boot config says mediaKind 'audio' and the
+ * playback descriptor answers with the bundled mp3 (what the PHP provider does for an audio event). The harness
+ * events are all video events, so the audio-only layout and element specs go through here.
+ */
+export async function asAudioEvent(page: Page, urlPattern: string | RegExp = /\/dev\/(?:dist\/)?listen\.html/, slug: string = SLUG_LIVE): Promise<void> {
+  await rewriteBootConfig(page, urlPattern, (config) => {
+    for (const e of config.events) if (e.slug === slug) e.mediaKind = 'audio';
+  });
+  await page.route(/wg-live\/v1\/playback/, async (route) => {
+    const mode = new URL(route.request().url()).searchParams.get('mode');
+    if (mode !== 'binaural' && mode !== 'atmos') {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'Cache-Control': 'no-store' },
+      body: JSON.stringify({ kind: 'demo', url: `/demo/${TONE[mode]}`, mimeType: 'audio/mpeg' }),
+    });
+  });
 }
 
 export function player(page: Page): Player {
@@ -138,7 +169,7 @@ export function player(page: Page): Player {
     switchButton: root.locator('.wg-live__modebar .wg-live__switch'),
     dialog: root.locator('dialog.wg-live__dialog'),
     srStatus: root.locator('.wg-live__sr-status'),
-    audio: root.locator('audio'),
+    media: root.locator('audio, video'),
     entitlement: root.locator('.wg-live__entitlement'),
     devPanel: root.locator('details.wg-live__dev'),
     radio(mode) {
@@ -157,9 +188,9 @@ export function player(page: Page): Player {
       await p.primary.click();
     },
     async expectAdvancing(min = 0.3) {
-      await expect.poll(() => p.audio.evaluate((a: HTMLAudioElement) => a.currentTime), { timeout: 15_000 }).toBeGreaterThan(min);
-      const t1 = await p.audio.evaluate((a: HTMLAudioElement) => a.currentTime);
-      await expect.poll(() => p.audio.evaluate((a: HTMLAudioElement) => a.currentTime), { timeout: 10_000 }).toBeGreaterThan(t1);
+      await expect.poll(() => p.media.evaluate((a: HTMLMediaElement) => a.currentTime), { timeout: 15_000 }).toBeGreaterThan(min);
+      const t1 = await p.media.evaluate((a: HTMLMediaElement) => a.currentTime);
+      await expect.poll(() => p.media.evaluate((a: HTMLMediaElement) => a.currentTime), { timeout: 10_000 }).toBeGreaterThan(t1);
     },
     async openDevPanel() {
       await expect(p.devPanel).toBeVisible();
@@ -202,7 +233,7 @@ export function mediaRequestsObservable(browserName: string): boolean {
   return browserName !== 'webkit';
 }
 
-export const isMediaUrl = (url: string): boolean => /\/demo\/demo-tone-[12]\.mp3/.test(url);
+export const isMediaUrl = (url: string): boolean => /\/demo\/(?:demo-tone-[12]\.mp3|demo-video-[12]\.mp4)/.test(url);
 export const isRestUrl = (url: string): boolean => /wg-live\/v1\//.test(url);
 
 /** Collect request URLs matching `filter` for the rest of the test. */
@@ -315,13 +346,13 @@ export const EXPECTED_LOAD_FAILURES = [/Failed to load resource/i, /status of 40
  * request fails with a real 404 in Chromium, Firefox and WebKit. (WebKit media requests cannot be
  * intercepted with page.route.)
  */
-export async function breakModeUrl(page: Page, mode: Mode, missing = '/demo/missing-tone.mp3'): Promise<void> {
+export async function breakModeUrl(page: Page, mode: Mode, missing = '/demo/missing-video.mp4'): Promise<void> {
   await page.route(new RegExp(`wg-live/v1/playback.*mode=${mode}`), async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       headers: { 'Cache-Control': 'no-store' },
-      body: JSON.stringify({ kind: 'demo', url: missing, mimeType: 'audio/mpeg' }),
+      body: JSON.stringify({ kind: 'demo', url: missing, mimeType: missing.endsWith('.mp3') ? 'audio/mpeg' : 'video/mp4' }),
     });
   });
 }

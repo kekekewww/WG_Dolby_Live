@@ -48,7 +48,10 @@ export const LISTEN_URL = '/live/listen/';
 export const HELP_URL = '/live/help/';
 export const ELEMENTOR_URL = '/live-elementor/';
 
+/** Demo media of an audio event, per mode. */
 export const TONE = { binaural: 'demo-tone-1.mp3', atmos: 'demo-tone-2.mp3' } as const;
+/** Demo media of a video event (the default media kind), per mode. */
+export const DEMO_VIDEO = { binaural: 'demo-video-1.mp4', atmos: 'demo-video-2.mp4' } as const;
 export const MODE_NAME = { binaural: 'Binaural', atmos: 'Dolby Atmos 音軌' } as const;
 export type Mode = keyof typeof TONE;
 
@@ -175,7 +178,7 @@ export function createEvents(env: WpEnv, events: FixtureEvent[]): Record<string,
         'starts_at_utc'    => gmdate( 'Y-m-d\\\\TH:i:s\\\\Z', time() - 600 ),
         'display_timezone' => 'Asia/Taipei',
         'status'           => 'live',
-        'media_kind'       => 'audio',
+        'media_kind'       => 'video',
         'available_modes'  => array( 'binaural', 'atmos' ),
         'programme'        => array(),
         'product_id'       => 0,

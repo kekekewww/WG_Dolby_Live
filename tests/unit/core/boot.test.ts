@@ -251,8 +251,17 @@ describe('parsePublicEvent(s)', () => {
     expect(e?.availableModes).toEqual(['atmos', 'binaural']);
     expect(e?.displayTimezone).toBe('Asia/Taipei');
     expect(e?.sourceKind).toBe('not_configured');
-    expect(e?.mediaKind).toBe('audio');
+    expect(e?.mediaKind).toBe('video'); // anything but 'audio' is the default kind, video
     expect(e?.poster).toBeNull();
+  });
+
+  it('defaults the media kind to video; only an explicit audio stays audio', () => {
+    const withoutKind: Record<string, unknown> = { ...good };
+    delete withoutKind.mediaKind;
+    expect(parsePublicEvent(withoutKind)?.mediaKind).toBe('video');
+    expect(parsePublicEvent({ ...good, mediaKind: null })?.mediaKind).toBe('video');
+    expect(parsePublicEvent({ ...good, mediaKind: 'video' })?.mediaKind).toBe('video');
+    expect(parsePublicEvent({ ...good, mediaKind: 'audio' })?.mediaKind).toBe('audio');
   });
 
   it('requires real booleans for isDemo and replayAvailable', () => {

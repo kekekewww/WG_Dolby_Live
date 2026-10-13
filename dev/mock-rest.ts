@@ -7,7 +7,7 @@ import { injectConfig, injectSiteMock, matchRestUrl, parseHarnessOptions, sendRe
  *  - mocks GET wg-live/v1/{events, events/:slug, playback} per M1-PLAN section 5 / 5.1, in the pretty
  *    form (/wp-json/wg-live/v1/...) and the plain-permalink form (/index.php?rest_route=/wg-live/v1/...),
  *    each also under /disabled/ (deployment mode disabled),
- *  - serves /demo/* (demo-tone-1.mp3 binaural, demo-tone-2.mp3 atmos, poster) with Range support,
+ *  - serves /demo/* (demo-tone-N.mp3 for audio events, demo-video-N.mp4 for video events, poster) with Range support,
  *  - maps /, /listen.html, /help.html to the harness pages under /dev/,
  *  - injects the BootConfig (fixtures, per-request "now") and the realistic site chrome (dev/site-mock.html)
  *    into the pages.

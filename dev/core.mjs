@@ -32,9 +32,12 @@ export const PLAIN_REST_ROOT = '/index.php?rest_route=/wg-live/v1/';
 /** Path prefix that puts the mock REST into "deployment mode disabled" (M1-PLAN D16). */
 export const DISABLED_PREFIX = '/disabled';
 
-/** Per-mode demo files (M1-PLAN D7). */
+/** Per-mode demo files for audio events (M1-PLAN D7). */
 export const DEMO_FILES = /** @type {const} */ ({ binaural: '/demo/demo-tone-1.mp3', atmos: '/demo/demo-tone-2.mp3' });
 export const DEMO_MIME = 'audio/mpeg';
+/** Per-mode demo files for video events, the default media kind (M1-PLAN D7). */
+export const DEMO_VIDEO_FILES = /** @type {const} */ ({ binaural: '/demo/demo-video-1.mp4', atmos: '/demo/demo-video-2.mp4' });
+export const DEMO_VIDEO_MIME = 'video/mp4';
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
@@ -85,7 +88,7 @@ export function harnessEvents(now = Date.now()) {
     displayTimezone: 'Asia/Taipei',
     status: 'live',
     posterUrl: POSTER.url,
-    mediaKind: 'audio',
+    mediaKind: 'video',
     availableModes: ['binaural', 'atmos'],
     programme: ['示範曲目 一', '示範曲目 二', '示範曲目 三'],
     productUrl: null,
@@ -105,7 +108,7 @@ export function harnessEvents(now = Date.now()) {
     displayTimezone: 'Asia/Taipei',
     status: 'scheduled',
     posterUrl: POSTER_SQUARE.url,
-    mediaKind: 'audio',
+    mediaKind: 'video',
     availableModes: ['binaural', 'atmos'],
     programme: ['示範曲目 四', '示範曲目 五'],
     productUrl: null,
@@ -125,7 +128,7 @@ export function harnessEvents(now = Date.now()) {
     displayTimezone: 'Asia/Taipei',
     status: 'ended',
     posterUrl: null,
-    mediaKind: 'audio',
+    mediaKind: 'video',
     availableModes: ['binaural'],
     programme: ['示範曲目 六'],
     productUrl: null,
@@ -145,7 +148,7 @@ export function harnessEvents(now = Date.now()) {
     displayTimezone: 'Asia/Taipei',
     status: 'live',
     posterUrl: null,
-    mediaKind: 'audio',
+    mediaKind: 'video',
     availableModes: ['binaural', 'atmos'],
     programme: [],
     productUrl: 'https://example.com/shop/pending-source-live',
@@ -386,7 +389,9 @@ export function resolvePlayback({ disabled, event, mode }) {
   if (!event.isDemo && event.status !== 'live' && event.status !== 'intermission') {
     return { kind: 'not_ready', reason: 'event_not_playable' }; // 6 (demo events skip it)
   }
-  return { kind: 'demo', url: DEMO_FILES[mode], mimeType: DEMO_MIME }; // 7
+  // 7: the bundled demo file of the event's media kind (video is the default, like the PHP provider).
+  if (event.mediaKind === 'audio') return { kind: 'demo', url: DEMO_FILES[mode], mimeType: DEMO_MIME };
+  return { kind: 'demo', url: DEMO_VIDEO_FILES[mode], mimeType: DEMO_VIDEO_MIME };
 }
 
 /**
@@ -484,6 +489,7 @@ export function sendRest(req, res, match, url) {
 /** @type {Record<string, string>} */
 export const MIME = {
   '.mp3': DEMO_MIME,
+  '.mp4': DEMO_VIDEO_MIME,
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',

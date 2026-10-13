@@ -176,7 +176,7 @@ final class Events {
 			$status = 'scheduled';
 		}
 
-		$media_kind = 'video' === self::meta( $id, 'media_kind' ) ? 'video' : 'audio';
+		$media_kind = 'audio' === self::meta( $id, 'media_kind' ) ? 'audio' : 'video';
 
 		$is_demo     = self::meta_bool( $id, 'is_demo' );
 		$source_type = 'demo' === self::meta( $id, 'source_type' ) ? 'demo' : 'not_configured';
@@ -408,8 +408,8 @@ final class Events {
 		// Media kind.
 		self::row_open( 'wg-live-media-kind', '媒體類型' );
 		printf( '<select id="wg-live-media-kind" name="%s[media_kind]">', esc_attr( $key ) );
+		printf( '<option value="video"%s>影片 video（預設）</option>', selected( $data['media_kind'], 'video', false ) );
 		printf( '<option value="audio"%s>音訊 audio</option>', selected( $data['media_kind'], 'audio', false ) );
-		printf( '<option value="video"%s>影片 video</option>', selected( $data['media_kind'], 'video', false ) );
 		echo '</select>';
 		self::row_close();
 
@@ -860,7 +860,7 @@ final class Events {
 		} else {
 			self::flash( 'warning', '活動狀態不在允許的清單內，已保留原本的狀態。' );
 		}
-		update_post_meta( $post_id, $p . 'media_kind', isset( $in['media_kind'] ) && 'video' === $in['media_kind'] ? 'video' : 'audio' );
+		update_post_meta( $post_id, $p . 'media_kind', isset( $in['media_kind'] ) && 'audio' === $in['media_kind'] ? 'audio' : 'video' );
 		update_post_meta( $post_id, $p . 'available_modes', self::clean_modes( isset( $in['available_modes'] ) ? $in['available_modes'] : array() ) );
 
 		// Flags and source.

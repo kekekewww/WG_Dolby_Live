@@ -13,7 +13,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { test, type BrowserContext, type Page } from '@playwright/test';
-import { bootConfigs, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, LISTEN_URL, MODE_NAME, rest, TONE, waitMounted, wpPhp, type Mode } from './wp';
+import { bootConfigs, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, LISTEN_URL, MODE_NAME, rest, DEMO_VIDEO, waitMounted, wpPhp, type Mode } from './wp';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -98,7 +98,7 @@ async function openEdit(p: Page, id: number): Promise<void> {
 function row(id: number): { status: string; name: string; title: string; meta: Record<string, unknown> } {
   return wpPhp(
     DEV,
-    `$p = get_post( ${id} ); $m = array(); foreach ( array( 'starts_at_utc', 'source_type', 'is_demo', 'product_url', 'performers', 'available_modes', 'status' ) as $k ) { $m[ $k ] = get_post_meta( ${id}, '_wg_live_' . $k, true ); } return array( 'status' => $p->post_status, 'name' => $p->post_name, 'title' => $p->post_title, 'meta' => $m );`,
+    `$p = get_post( ${id} ); $m = array(); foreach ( array( 'starts_at_utc', 'source_type', 'is_demo', 'media_kind', 'product_url', 'performers', 'available_modes', 'status' ) as $k ) { $m[ $k ] = get_post_meta( ${id}, '_wg_live_' . $k, true ); } return array( 'status' => $p->post_status, 'name' => $p->post_name, 'title' => $p->post_title, 'meta' => $m );`,
   );
 }
 
@@ -159,6 +159,9 @@ test.describe('F13 admin save validation', () => {
 
   test('an empty 代稱 on the server: the event stays a draft, a notice says why, nothing is derived from the title', async () => {
     await openNew(page);
+    // Every concert is streamed with video: a new event starts as 影片 (video), and 影片 is listed first.
+    await expect(page.locator('#wg-live-media-kind')).toHaveValue('video');
+    await expect(page.locator('#wg-live-media-kind option').first()).toHaveAttribute('value', 'video');
     eventId = await postId(page);
     await fill(page, { title: TITLE(), startsLocal: '2030-01-01T20:00', status: 'live', modes: ['binaural', 'atmos'], demo: true, source: 'demo' });
     await publishWithoutScript(page);
@@ -192,7 +195,9 @@ test.describe('F13 admin save validation', () => {
       availableModes: ['binaural', 'atmos'],
       isDemo: true,
       sourceKind: 'demo',
+      mediaKind: 'video', // the form default, saved as video
     });
+    expect(row(eventId).meta.media_kind).toBe('video');
     const list = (await rest(DEV, 'events')).json.events as Array<{ slug: string }>;
     expect(list.map((e) => e.slug)).toContain(slug());
   });
@@ -204,10 +209,10 @@ test.describe('F13 admin save validation', () => {
       await expect(viewer.locator('.wg-live__player-title')).toContainText(`【${prefix}】春季音樂會`);
       await viewer.getByRole('radio', { name: mode === 'binaural' ? /選擇耳機模式/ : /選擇家庭劇院模式/ }).check();
       await viewer.locator('.wg-live__play').click();
-      await expect.poll(() => viewer.locator('audio').evaluate((a: HTMLAudioElement) => a.currentTime), { timeout: 30_000 }).toBeGreaterThan(0.3);
-      expect(await viewer.locator('audio').evaluate((a: HTMLAudioElement) => a.currentSrc)).toContain(TONE[mode]);
+      await expect.poll(() => viewer.locator('audio, video').evaluate((a: HTMLMediaElement) => a.currentTime), { timeout: 30_000 }).toBeGreaterThan(0.3);
+      expect(await viewer.locator('audio, video').evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_VIDEO[mode]);
       await expect(viewer.locator('.wg-live__mode-label')).toHaveText(`目前播放：${MODE_NAME[mode]}`);
-      await expect(viewer.locator('audio')).toHaveCount(1);
+      await expect(viewer.locator('audio, video')).toHaveCount(1);
     });
   }
 
@@ -255,7 +260,7 @@ test.describe('F13 admin save validation', () => {
     expect(json.event).toMatchObject({ isDemo: false, sourceKind: 'not_configured' });
     const playback = await rest(DEV, `playback?event=${eventId}&mode=binaural`);
     expect(playback.json.kind).toBe('not_ready');
-    expect(playback.text).not.toMatch(/http|\.mp3/);
+    expect(playback.text).not.toMatch(/http|\.mp3|\.mp4/);
 
     // The M2 source types are shown disabled and refused as well.
     await openEdit(page, eventId);

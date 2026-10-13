@@ -3,7 +3,7 @@
  * audible sources. Every media element that ever plays is tracked (including detached ones).
  */
 import { test } from '@playwright/test';
-import { expect, gotoPlayer, isMediaUrl, mediaRequestsObservable, mediaStats, recordRequests, TONE, trackMediaElements, watchErrors } from './helpers';
+import { expect, gotoPlayer, isMediaUrl, mediaRequestsObservable, mediaStats, recordRequests, DEMO_MEDIA, trackMediaElements, watchErrors } from './helpers';
 
 test.describe.configure({ timeout: 90_000 });
 
@@ -25,7 +25,7 @@ test('F06 ten synchronous clicks on 開始聆聽 start exactly one stream', asyn
   await expect(p.modeLabel).toHaveText('目前播放：Binaural');
   const stats = await mediaStats(page);
   expect(stats).toEqual({ inDom: 1, everPlayed: 1, audibleNow: 1 });
-  if (mediaRequestsObservable(browserName)) expect(media.count(TONE.binaural)).toBe(1);
+  if (mediaRequestsObservable(browserName)) expect(media.count(DEMO_MEDIA.binaural)).toBe(1);
   expect(errors).toEqual([]);
 });
 
@@ -47,9 +47,9 @@ test('F06 changing the mode quickly before Start plays the last choice only', as
   await p.choose('binaural');
   await p.primary.click();
   await p.expectAdvancing();
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc)).toContain(TONE.binaural);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_MEDIA.binaural);
   await expect(p.modeLabel).toHaveText('目前播放：Binaural');
-  if (mediaRequestsObservable(browserName)) expect(media.count(TONE.atmos), 'selecting never loads media').toBe(0);
+  if (mediaRequestsObservable(browserName)) expect(media.count(DEMO_MEDIA.atmos), 'selecting never loads media').toBe(0);
   expect(await mediaStats(page)).toEqual({ inDom: 1, everPlayed: 1, audibleNow: 1 });
 });
 
@@ -73,15 +73,15 @@ test('F06 switch: confirming repeatedly in one tick switches once; the trigger i
 
   await expect(p.modeLabel).toHaveText('目前播放：Dolby Atmos 音軌', { timeout: 20_000 });
   await p.expectAdvancing(0.2);
-  expect(await p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc)).toContain(TONE.atmos);
+  expect(await p.media.evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_MEDIA.atmos);
   await expect(p.dialog).toBeHidden();
   const stats = await mediaStats(page);
   expect(stats.inDom).toBe(1);
   expect(stats.everPlayed, 'the same element carries both sources').toBe(1);
   expect(stats.audibleNow).toBe(1);
   if (mediaRequestsObservable(browserName)) {
-    expect(media.count(TONE.atmos), 'one request for the new source').toBe(1);
-    expect(media.count(TONE.binaural)).toBe(1);
+    expect(media.count(DEMO_MEDIA.atmos), 'one request for the new source').toBe(1);
+    expect(media.count(DEMO_MEDIA.binaural)).toBe(1);
   }
   expect(errors).toEqual([]);
 });
@@ -103,8 +103,8 @@ test('F06 back-to-back switches never leave two audible sources', async ({ page 
   await expect.poll(() => p.view.getAttribute('data-status'), { timeout: 20_000 }).toBe('playing');
   await expect(p.modeLabel).toHaveText(/^目前播放：/);
   const label = (await p.modeLabel.textContent()) ?? '';
-  const src = await p.audio.evaluate((a: HTMLAudioElement) => a.currentSrc);
-  expect(label.includes('Atmos') ? src.includes(TONE.atmos) : src.includes(TONE.binaural), `label "${label}" must match src ${src}`).toBe(true);
+  const src = await p.media.evaluate((a: HTMLMediaElement) => a.currentSrc);
+  expect(label.includes('Atmos') ? src.includes(DEMO_MEDIA.atmos) : src.includes(DEMO_MEDIA.binaural), `label "${label}" must match src ${src}`).toBe(true);
   const stats = await mediaStats(page);
   expect(stats).toEqual({ inDom: 1, everPlayed: 1, audibleNow: 1 });
 });
@@ -123,7 +123,7 @@ test('F06 hammering pause/resume ends in a consistent state with one element', a
   await expect.poll(() => p.view.getAttribute('data-status'), { timeout: 15_000 }).toMatch(/^(playing|paused)$/);
   const status = await p.view.getAttribute('data-status');
   await page.waitForTimeout(500);
-  const paused = await p.audio.evaluate((a: HTMLAudioElement) => a.paused);
+  const paused = await p.media.evaluate((a: HTMLMediaElement) => a.paused);
   expect(await p.view.getAttribute('data-status')).toBe(status);
   expect(paused).toBe(status === 'paused');
   const stats = await mediaStats(page);
@@ -139,5 +139,5 @@ test('F06 Start pressed again while playing does nothing (the button is Pause)',
   await p.expectAdvancing();
   await expect(p.primary).toHaveText('暫停');
   expect(await mediaStats(page)).toEqual({ inDom: 1, everPlayed: 1, audibleNow: 1 });
-  if (mediaRequestsObservable(browserName)) expect(media.count(TONE.binaural)).toBe(1);
+  if (mediaRequestsObservable(browserName)) expect(media.count(DEMO_MEDIA.binaural)).toBe(1);
 });

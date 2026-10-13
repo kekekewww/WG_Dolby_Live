@@ -29,9 +29,9 @@ test('the mounted container follows the plan 3.1 contract', async ({ page }) => 
   await expect(root.locator('.wg-live__sr-status')).toHaveText('');
   // The bootstrap JSON stays in the page, but nothing in the DOM exposes a source URL before Start.
   const html = await root.evaluate((el) => el.outerHTML);
-  expect(html).not.toMatch(/demo-tone-[12]\.mp3/);
-  await expect(root.locator('audio')).toHaveCount(1);
-  expect(await root.locator('audio').evaluate((a: HTMLAudioElement) => a.hasAttribute('src'))).toBe(false);
+  expect(html).not.toMatch(/demo-(?:tone-[12]\.mp3|video-[12]\.mp4)/);
+  await expect(root.locator('audio, video')).toHaveCount(1);
+  expect(await root.locator('audio, video').evaluate((a: HTMLMediaElement) => a.hasAttribute('src'))).toBe(false);
 });
 
 test('calling mountAll() repeatedly is idempotent: one media element, one listener set', async ({ page }) => {
@@ -47,7 +47,7 @@ test('calling mountAll() repeatedly is idempotent: one media element, one listen
     m.mountWithin(document.querySelector('.wg-live'));
     m.mountWithin(document);
   }, MAIN_MODULE);
-  await expect(p.audio).toHaveCount(1);
+  await expect(p.media).toHaveCount(1);
   await expect(page.locator('.wg-live__player-view')).toHaveCount(1);
   await expect(page.locator('.wg-live__play')).toHaveCount(1);
 
@@ -100,22 +100,22 @@ test('an Elementor-style re-render: the old instance is destroyed (audio stopped
 
   const next = page.locator('#wg-live-2');
   await expect(next).toHaveAttribute('data-wg-live-mounted', '1');
-  await expect(next.locator('audio')).toHaveCount(1);
-  await expect(page.locator('audio')).toHaveCount(1);
+  await expect(next.locator('audio, video')).toHaveCount(1);
+  await expect(page.locator('audio, video')).toHaveCount(1);
   const stats = await mediaStats(page);
   expect(stats.inDom).toBe(1);
   expect(stats.audibleNow, 'the detached instance must not keep playing').toBe(0);
   // The remembered mode (atmos, played above) is preselected by the new instance, but nothing autostarts.
   await expect(next.getByRole('radio', { name: /選擇家庭劇院模式/ })).toBeChecked();
-  expect(await next.locator('audio').evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
-  expect(await next.locator('audio').evaluate((a: HTMLAudioElement) => a.hasAttribute('src'))).toBe(false);
+  expect(await next.locator('audio, video').evaluate((a: HTMLMediaElement) => a.paused)).toBe(true);
+  expect(await next.locator('audio, video').evaluate((a: HTMLMediaElement) => a.hasAttribute('src'))).toBe(false);
 
   // The new instance works.
   await next.getByRole('radio', { name: /選擇耳機模式/ }).check();
   const start = next.locator('.wg-live__play');
   await expect(start).not.toHaveAttribute('aria-disabled', 'true');
   await start.click();
-  await expect.poll(() => next.locator('audio').evaluate((a: HTMLAudioElement) => a.currentTime)).toBeGreaterThan(0.3);
+  await expect.poll(() => next.locator('audio, video').evaluate((a: HTMLMediaElement) => a.currentTime)).toBeGreaterThan(0.3);
   const after = await mediaStats(page);
   expect(after.audibleNow).toBe(1);
   expect(errors).toEqual([]);
@@ -143,7 +143,7 @@ test('a second copy of the bundle does not mount over a mounted container', asyn
     await import(`${MAIN_MODULE}?second-copy=1`);
   }, MAIN_MODULE);
   await expect(page.locator('.wg-live__player-view')).toHaveCount(1);
-  await expect(p.audio).toHaveCount(1);
+  await expect(p.media).toHaveCount(1);
   await p.start('binaural');
   await p.expectAdvancing();
   expect(await mediaStats(page)).toEqual({ inDom: 1, everPlayed: 1, audibleNow: 1 });

@@ -172,12 +172,12 @@ if ( ! function_exists( 'wg_live_seed_log' ) ) {
 	 * @return array[]
 	 */
 	function wg_live_seed_events( $now ) {
-		$note  = '這是介面示範用的活動資料。音訊為操作示範音訊，非 Binaural／Atmos 驗證素材。';
+		$note  = '這是介面示範用的活動資料。影片與音訊為操作示範素材，非 Binaural／Atmos 驗證素材。';
 		$base  = array(
 			'performers'       => array( 'WG Studio 示範表演者' ),
 			'programme'        => array( '示範曲目一', '示範曲目二', '示範曲目三' ),
 			'display_timezone' => 'Asia/Taipei',
-			'media_kind'       => 'audio',
+			'media_kind'       => 'video',
 			'available_modes'  => array( 'binaural', 'atmos' ),
 			'product_id'       => 0,
 			'product_url'      => '',

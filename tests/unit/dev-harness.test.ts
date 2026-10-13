@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   DEMO_FILES,
+  DEMO_VIDEO_FILES,
   buildBootConfig,
   handleRest,
   harnessEvents,
@@ -41,12 +42,22 @@ describe('mock REST (M1-PLAN 5, 5.1)', () => {
   it('never puts a source URL into the public event data', () => {
     const json = JSON.stringify(harnessEvents(NOW));
     expect(json).not.toContain('.mp3');
+    expect(json).not.toContain('.mp4');
     expect(json).not.toMatch(/"(url|src|source)":\s*"[^"]*demo-tone/);
   });
 
-  it('serves per-mode demo files as audio/mpeg (binaural = tone 1, atmos = tone 2)', () => {
-    expect(rest('playback', { event: '9001', mode: 'binaural' }).body).toEqual({ kind: 'demo', url: '/demo/demo-tone-1.mp3', mimeType: 'audio/mpeg' });
-    expect(rest('playback', { event: '9001', mode: 'atmos' }).body).toEqual({ kind: 'demo', url: '/demo/demo-tone-2.mp3', mimeType: 'audio/mpeg' });
+  it('serves per-mode demo files for video events as video/mp4 (binaural = video 1, atmos = video 2)', () => {
+    expect(harnessEvents(NOW).every((e) => e.mediaKind === 'video')).toBe(true);
+    expect(rest('playback', { event: '9001', mode: 'binaural' }).body).toEqual({ kind: 'demo', url: '/demo/demo-video-1.mp4', mimeType: 'video/mp4' });
+    expect(rest('playback', { event: '9001', mode: 'atmos' }).body).toEqual({ kind: 'demo', url: '/demo/demo-video-2.mp4', mimeType: 'video/mp4' });
+    expect(DEMO_VIDEO_FILES.binaural).not.toBe(DEMO_VIDEO_FILES.atmos);
+  });
+
+  it('serves per-mode demo files for audio events as audio/mpeg (binaural = tone 1, atmos = tone 2)', () => {
+    const [live] = harnessEvents(NOW);
+    const audioEvent = { ...(live as NonNullable<typeof live>), mediaKind: 'audio' as const };
+    expect(resolvePlayback({ disabled: false, event: audioEvent, mode: 'binaural' })).toEqual({ kind: 'demo', url: '/demo/demo-tone-1.mp3', mimeType: 'audio/mpeg' });
+    expect(resolvePlayback({ disabled: false, event: audioEvent, mode: 'atmos' })).toEqual({ kind: 'demo', url: '/demo/demo-tone-2.mp3', mimeType: 'audio/mpeg' });
     expect(DEMO_FILES.binaural).not.toBe(DEMO_FILES.atmos);
   });
 
@@ -181,13 +192,28 @@ describe('dist server (dev/serve-dist.mjs)', () => {
   });
 
   it.skipIf(!existsSync(join(import.meta.dirname, '..', '..', 'plugin', 'wg-live', 'assets', 'demo', 'demo-tone-1.mp3')))(
-    'serves the demo MP3 files with Range support',
+    'serves the demo MP3 and MP4 files with Range support',
     async () => {
       for (const name of ['demo-tone-1.mp3', 'demo-tone-2.mp3']) {
         const res = await fetch(`${base}/demo/${name}`, { headers: { Range: 'bytes=0-99' } });
         expect(res.status).toBe(206);
         expect(res.headers.get('content-type')).toBe('audio/mpeg');
         expect(res.headers.get('content-range')).toMatch(/^bytes 0-99\/\d+$/);
+      }
+      for (const name of ['demo-video-1.mp4', 'demo-video-2.mp4']) {
+        const res = await fetch(`${base}/demo/${name}`, { headers: { Range: 'bytes=0-99' } });
+        expect(res.status).toBe(206);
+        expect(res.headers.get('content-type')).toBe('video/mp4');
+        expect(res.headers.get('accept-ranges')).toBe('bytes');
+        expect(res.headers.get('content-range')).toMatch(/^bytes 0-99\/\d+$/);
+        expect((await res.arrayBuffer()).byteLength).toBe(100);
+        // Safari asks for a small first range, then an open-ended one; a suffix range reads the moov atom at the end.
+        expect((await fetch(`${base}/demo/${name}`, { headers: { Range: 'bytes=100-' } })).status).toBe(206);
+        const suffix = await fetch(`${base}/demo/${name}`, { headers: { Range: 'bytes=-50' } });
+        expect(suffix.status).toBe(206);
+        expect((await suffix.arrayBuffer()).byteLength).toBe(50);
+        expect((await fetch(`${base}/demo/${name}`, { headers: { Range: 'bytes=99999999-' } })).status).toBe(416);
+        expect((await fetch(`${base}/demo/${name}`)).status).toBe(200);
       }
       expect((await fetch(`${base}/demo/..%2f..%2fpackage.json`)).status).toBe(404); // only the flat file name is used
       expect((await fetch(`${base}/demo/demo-tone.m4a`)).status).toBe(404);

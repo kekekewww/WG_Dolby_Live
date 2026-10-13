@@ -53,6 +53,8 @@ function goodFiles(): Record<string, string | Uint8Array> {
     'wg-live/assets/admin/admin.css': '.wg-live-admin{color:inherit}.wg-live-admin__row{margin:0}',
     'wg-live/assets/demo/demo-tone-1.mp3': new Uint8Array([1, 2, 3]),
     'wg-live/assets/demo/demo-tone-2.mp3': new Uint8Array([4, 5, 6]),
+    'wg-live/assets/demo/demo-video-1.mp4': new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112]),
+    'wg-live/assets/demo/demo-video-2.mp4': new Uint8Array([0, 0, 0, 24, 102, 116, 121, 113]),
     'wg-live/assets/demo/poster-demo.svg': '<svg xmlns="http://www.w3.org/2000/svg"/>',
     'wg-live/assets/demo/LICENSE-demo.txt': 'demo assets',
   };
@@ -222,7 +224,7 @@ describe('check-artifact', () => {
   });
 
   it('applies the package allowlist: no .m4a, no unknown folders, admin assets are fine', () => {
-    expect(run().problems).toEqual([]); // goodFiles has assets/admin/*, demo mp3 + poster + license
+    expect(run().problems).toEqual([]); // goodFiles has assets/admin/*, demo mp3 + the two demo mp4 + poster + license
     const r = run({
       'wg-live/assets/demo/demo-tone.m4a': new Uint8Array([1]),
       'wg-live/assets/other/x.js': 'x',
@@ -234,6 +236,28 @@ describe('check-artifact', () => {
     expect(text).toContain('assets/other/x.js');
     expect(text).toContain('admin.png');
     expect(text).toContain('composer.json');
+  });
+
+  it('accepts exactly the two bundled demo videos and requires both; any other mp4 is rejected', () => {
+    expect(run().problems).toEqual([]);
+    for (const rel of ['assets/demo/demo-video-1.mp4', 'assets/demo/demo-video-2.mp4']) {
+      expect(REQUIRED_FILES).toContain(rel);
+      const missing = run({ ['wg-live/' + rel]: null });
+      expect(missing.problems.join(' | '), rel).toContain(rel + ' is missing');
+    }
+    const bad = run({
+      'wg-live/assets/demo/clip.mp4': new Uint8Array([1]),
+      'wg-live/assets/demo/demo-video-10.mp4': new Uint8Array([1]),
+      'wg-live/assets/demo/sub/demo-video-3.mp4': new Uint8Array([1]),
+      'wg-live/templates/demo-video-1.mp4': new Uint8Array([1]),
+      'wg-live/assets/demo/demo-video-1.webm': new Uint8Array([1]),
+      'wg-live/assets/demo/demo-video-1.mov': new Uint8Array([1]),
+    });
+    const text = bad.problems.join(' | ');
+    for (const name of ['clip.mp4', 'demo-video-10.mp4', 'sub/demo-video-3.mp4', 'templates/demo-video-1.mp4', 'demo-video-1.webm', 'demo-video-1.mov']) {
+      expect(text, name).toContain(name);
+    }
+    expect(bad.ok).toBe(false);
   });
 
   it('scope-checks admin CSS too (wg-live-admin is an allowed block there, but not in dist)', () => {
@@ -381,7 +405,7 @@ describe('package.mjs helpers', () => {
     for (const rel of ['wg-live.php', 'readme.txt', 'LICENSE', 'assets/demo/poster-demo.svg', 'assets/demo/LICENSE-demo.txt', 'assets/admin/admin.js', 'assets/admin/admin.css', 'templates/partials/container.php']) {
       expect(isTextEntry(rel), rel).toBe(true);
     }
-    for (const rel of ['assets/demo/demo-tone-1.mp3', 'assets/dist/wg-live.js', 'assets/dist/wg-live.css', 'assets/dist/build-info.json', 'assets/demo/poster.png', '.php']) {
+    for (const rel of ['assets/demo/demo-tone-1.mp3', 'assets/dist/wg-live.js', 'assets/dist/wg-live.css', 'assets/dist/build-info.json', 'assets/demo/poster.png', 'assets/demo/demo-video-1.mp4', '.php']) {
       expect(isTextEntry(rel), rel).toBe(false);
     }
   });
@@ -469,6 +493,8 @@ describe('package.mjs helpers', () => {
       'assets/admin/admin.css',
       'assets/demo/demo-tone-1.mp3',
       'assets/demo/demo-tone-2.mp3',
+      'assets/demo/demo-video-1.mp4',
+      'assets/demo/demo-video-2.mp4',
       'assets/demo/poster-demo.svg',
       'assets/demo/LICENSE-demo.txt',
       'licenses/hls.js.txt',
@@ -500,6 +526,15 @@ describe('package.mjs helpers', () => {
       'assets/admin/admin.png',
       'assets/admin/admin.js.map',
       'assets/demo/sub/x.mp3',
+      'assets/demo/clip.mp4',
+      'assets/demo/demo-video-10.mp4',
+      'assets/demo/demo-video-a.mp4',
+      'assets/demo/demo-video-1.webm',
+      'assets/demo/demo-video-1.mov',
+      'assets/demo/sub/demo-video-1.mp4',
+      'assets/admin/demo-video-1.mp4',
+      'assets/demo-video-1.mp4',
+      'includes/demo-video-1.mp4',
       'assets/other/x.js',
       'docs/readme.txt',
     ];
@@ -540,6 +575,9 @@ describe('package.mjs end to end on a fake plugin', () => {
     writeFileSync(join(plugin, 'assets', 'admin', 'admin.css'), '.wg-live-admin{a:b}');
     writeFileSync(join(plugin, 'assets', 'demo', 'demo-tone-1.mp3'), 'mp3');
     writeFileSync(join(plugin, 'assets', 'demo', 'demo-tone-2.mp3'), 'mp3b');
+    writeFileSync(join(plugin, 'assets', 'demo', 'demo-video-1.mp4'), 'mp4a');
+    writeFileSync(join(plugin, 'assets', 'demo', 'demo-video-2.mp4'), 'mp4b');
+    writeFileSync(join(plugin, 'assets', 'demo', 'clip.mp4'), 'stray');
     writeFileSync(join(plugin, 'assets', 'demo', 'demo-tone.m4a'), 'm4a');
     writeFileSync(join(plugin, 'assets', 'demo', 'poster-demo.svg'), '<svg/>');
     writeFileSync(join(plugin, 'assets', 'demo', 'LICENSE-demo.txt'), 'license');
@@ -565,6 +603,8 @@ describe('package.mjs end to end on a fake plugin', () => {
       'wg-live/assets/demo/LICENSE-demo.txt',
       'wg-live/assets/demo/demo-tone-1.mp3',
       'wg-live/assets/demo/demo-tone-2.mp3',
+      'wg-live/assets/demo/demo-video-1.mp4',
+      'wg-live/assets/demo/demo-video-2.mp4',
       'wg-live/assets/demo/poster-demo.svg',
       'wg-live/assets/dist/build-info.json',
       'wg-live/assets/dist/wg-live-featured.css',
@@ -587,10 +627,12 @@ describe('package.mjs end to end on a fake plugin', () => {
     const root = fakeRepo();
     const plugin = join(root, 'plugin', 'wg-live');
     const mp3 = new Uint8Array([0x49, 0x44, 0x33, 13, 10, 0]);
+    const mp4 = new Uint8Array([0, 0, 0, 24, 13, 10, 0, 1]);
     const write = (eol: string) => {
       writeFileSync(join(plugin, 'assets', 'demo', 'poster-demo.svg'), ['<svg>', '<g/>', '</svg>', ''].join(eol));
       writeFileSync(join(plugin, 'includes', 'a.php'), ['<?php', '// a', ''].join(eol));
       writeFileSync(join(plugin, 'assets', 'demo', 'demo-tone-1.mp3'), mp3);
+      writeFileSync(join(plugin, 'assets', 'demo', 'demo-video-1.mp4'), mp4);
     };
     write('\n');
     const lf = packagePlugin({ root });
@@ -602,6 +644,7 @@ describe('package.mjs end to end on a fake plugin', () => {
     const entries = unzipSync(zip);
     expect(new TextDecoder().decode(entries['wg-live/includes/a.php'])).toBe('<?php\n// a\n');
     expect(entries['wg-live/assets/demo/demo-tone-1.mp3']).toEqual(mp3);
+    expect(entries['wg-live/assets/demo/demo-video-1.mp4']).toEqual(mp4);
   });
 
   it('fails when a dist file no longer matches build-info.json (stale build)', () => {
@@ -657,6 +700,7 @@ describe('package.mjs end to end on a fake plugin', () => {
     expect(r.skipped).toContain('assets/img.png');
     expect(r.skipped).toContain('languages/wg-live-zh_TW.mo');
     expect(r.skipped).toContain('assets/demo/demo-tone.m4a');
+    expect(r.skipped).toContain('assets/demo/clip.mp4');
     expect(r.skipped).not.toContain('.gitkeep');
     expect(r.files).not.toContain('languages/wg-live-zh_TW.mo');
   });

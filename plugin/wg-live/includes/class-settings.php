@@ -1137,6 +1137,7 @@ final class Settings {
 
 	/** @return void */
 	public static function section_audio(): void {
+		echo '<p><strong>以下兩個選項只適用於「音訊」類型的活動。</strong>「影片」類型的活動（預設）一律使用外掛內建的操作示範影片，不受這裡的設定影響。</p>';
 		echo '<p>預設使用外掛內建的操作示範音訊。你也可以從媒體庫選擇音訊檔；選擇即代表核可它作為公開示範素材，所以請不要選擇商品附件或付費內容。示範音訊在前台永遠標示「操作示範音訊，非 Binaural／Atmos 驗證素材」。</p>';
 	}
 
