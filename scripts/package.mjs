@@ -7,8 +7,8 @@
 // Run `npm run build` first (needs plugin/wg-live/assets/dist/build-info.json).
 // Refuses a build that is not from a clean, committed tree (build-info.json "dirty": true, an
 // "uncommitted" commit, or a commit that is no longer HEAD) unless --allow-dirty is given (spec 18.3, 19.4).
-// Entries are sorted, use forward slashes and carry a fixed mtime, so the same inputs
-// give the same bytes.
+// Entries are sorted, use forward slashes, carry a fixed mtime and store text files with LF, so the same
+// commit gives the same bytes on any checkout.
 //
 // Exit codes: 0 = ok, 1 = a precondition failed.
 
@@ -151,6 +151,40 @@ export function entryNameProblem(name) {
   return null;
 }
 
+/** Text files that ship. They are stored with LF line endings, whatever the checkout has. */
+const TEXT_EXTENSIONS = new Set(['php', 'txt', 'md', 'svg', 'css', 'js', 'json', 'html', 'pot', 'po']);
+const TEXT_NAMES = new Set(['LICENSE']);
+
+/**
+ * True for a shipped text file, by extension or name. The built assets/dist files are excluded: build-info.json
+ * holds their SHA-256, so they ship byte for byte (Vite writes LF; check-artifact rejects CRLF anywhere).
+ * @param {string} rel plugin-relative path with forward slashes
+ */
+export function isTextEntry(rel) {
+  if (rel.startsWith('assets/dist/')) return false;
+  const base = rel.split('/').pop() ?? '';
+  if (TEXT_NAMES.has(base)) return true;
+  const dot = base.lastIndexOf('.');
+  return dot > 0 && TEXT_EXTENSIONS.has(base.slice(dot + 1).toLowerCase());
+}
+
+/**
+ * CRLF -> LF. Git stores these files with LF (.gitattributes), but a Windows editor can leave CRLF in the
+ * working copy while `git status` stays clean; without this the ZIP bytes would depend on the checkout.
+ * @param {Uint8Array} bytes
+ * @returns {Uint8Array}
+ */
+export function toLf(bytes) {
+  if (!bytes.includes(13)) return bytes;
+  const out = new Uint8Array(bytes.length);
+  let n = 0;
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] === 13 && bytes[i + 1] === 10) continue;
+    out[n++] = /** @type {number} */ (bytes[i]);
+  }
+  return out.subarray(0, n);
+}
+
 /**
  * Create the ZIP bytes for a list of plugin-relative files.
  * @param {string} pluginDir
@@ -163,7 +197,8 @@ export function createZip(pluginDir, files) {
   for (const rel of [...files].sort()) {
     const problem = entryNameProblem(`${PLUGIN_SLUG}/${rel}`);
     if (problem) throw new Error(`refusing to package "${rel}": the entry name ${problem}`);
-    entries[`${PLUGIN_SLUG}/${rel}`] = [new Uint8Array(readFileSync(join(pluginDir, ...rel.split('/')))), { mtime: FIXED_MTIME, level: 9 }];
+    const bytes = new Uint8Array(readFileSync(join(pluginDir, ...rel.split('/'))));
+    entries[`${PLUGIN_SLUG}/${rel}`] = [isTextEntry(rel) ? toLf(bytes) : bytes, { mtime: FIXED_MTIME, level: 9 }];
   }
   return zipSync(entries);
 }

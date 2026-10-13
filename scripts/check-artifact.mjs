@@ -14,7 +14,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gzipSync as nodeGzip } from 'node:zlib';
 import { strFromU8, unzipSync } from 'fflate';
 import { checkCss, DEFAULT_BLOCKS } from './check-css-scope.mjs';
-import { DIST_FILES, parsePluginVersion, parseStableTag, parseVersionConstant } from './package.mjs';
+import { DIST_FILES, isTextEntry, parsePluginVersion, parseStableTag, parseVersionConstant } from './package.mjs';
 
 export const ROOT_DIR = 'wg-live';
 export const DIST_DIR = `${ROOT_DIR}/assets/dist`;
@@ -212,6 +212,26 @@ export function checkEntries(entries, options = {}) {
       if (!entries[`${ROOT_DIR}/${rel}`]) p.push(`${ROOT_DIR}/${rel} is missing`);
     }
     record('required files', p, `${required.size} required file(s) present`);
+  }
+
+  // 3d. Line endings: text files ship with LF (package.mjs normalises them), so the ZIP of one commit is
+  //     the same on every checkout. A CRLF here means the ZIP was not made by package.mjs, or dist has CRLF.
+  {
+    /** @type {string[]} */
+    const p = [];
+    for (const n of files) {
+      const rel = n.slice(ROOT_DIR.length + 1);
+      const isDistText = rel.startsWith('assets/dist/') && /\.(?:js|css|json)$/.test(rel);
+      const bytes = entries[n];
+      if (!bytes || !(isTextEntry(rel) || isDistText)) continue;
+      for (let i = 0; i + 1 < bytes.length; i++) {
+        if (bytes[i] === 13 && bytes[i + 1] === 10) {
+          p.push(`"${n}" has CRLF line endings`);
+          break;
+        }
+      }
+    }
+    record('line endings', p, 'text files use LF');
   }
 
   // 4. dist contents and build-info hashes.

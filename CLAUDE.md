@@ -36,6 +36,7 @@ npm run build           # Vite library mode → IIFE JS + CSS into plugin/wg-liv
 npm run test:e2e        # Playwright: Chromium/Firefox/WebKit
 npm run package         # scripts/package.mjs → artifacts/wg-live-<version>.zip + SHA-256
 npm run check:artifact  # scripts/check-artifact.mjs validates ZIP contents
+npm run test:zip-install  # installs the ZIP into a throwaway WordPress on the running wp-env, activates, probes, uninstalls
 ```
 
 Start `.wp-env.json` from the minimal config in §11.1 (`WP_DEBUG: true`, `WP_DEBUG_DISPLAY: false`). Pin WordPress and PHP versions to match production before integration testing. Check that all PHP passes a syntax check.

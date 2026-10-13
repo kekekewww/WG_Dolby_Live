@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { strToU8, unzipSync, zipSync } from 'fflate';
 import { afterEach, describe, expect, it } from 'vitest';
 import { checkEntries, checkZip, REQUIRED_FILES } from '../../scripts/check-artifact.mjs';
-import { collectFiles, entryNameProblem, packagePlugin, parsePluginVersion, parseStableTag, parseVersionConstant, shouldShip } from '../../scripts/package.mjs';
+import { collectFiles, entryNameProblem, isTextEntry, packagePlugin, parsePluginVersion, parseStableTag, parseVersionConstant, shouldShip, toLf } from '../../scripts/package.mjs';
 
 const VERSION = '1.2.3';
 const COMMIT = 'a'.repeat(40);
@@ -87,6 +87,17 @@ describe('check-artifact', () => {
     expect(r.problems).toEqual([]);
     expect(r.ok).toBe(true);
     expect(r.rows.every((row) => row.ok)).toBe(true);
+  });
+
+  it('fails when a shipped text file or a dist file has CRLF line endings', () => {
+    const r = run({ 'wg-live/includes/class-events.php': "<?php\r\ndefined( 'ABSPATH' ) || exit;\r\n", 'wg-live/assets/admin/admin.css': '.wg-live-admin{color:inherit}\r\n' });
+    expect(r.ok).toBe(false);
+    expect(r.problems).toEqual([
+      'line endings: "wg-live/assets/admin/admin.css" has CRLF line endings',
+      'line endings: "wg-live/includes/class-events.php" has CRLF line endings',
+    ]);
+    // Binary files may contain the bytes 0D 0A.
+    expect(run({ 'wg-live/assets/demo/demo-tone-1.mp3': new Uint8Array([0x49, 0x44, 0x33, 13, 10, 0]) }).ok).toBe(true);
   });
 
   it('fails when wg-live.php is missing', () => {
@@ -366,6 +377,21 @@ describe('check-artifact: build provenance (TR-01 / F2)', () => {
 });
 
 describe('package.mjs helpers', () => {
+  it('treats PHP, text, SVG, CSS, JS and LICENSE as text, but not media or the hashed dist files', () => {
+    for (const rel of ['wg-live.php', 'readme.txt', 'LICENSE', 'assets/demo/poster-demo.svg', 'assets/demo/LICENSE-demo.txt', 'assets/admin/admin.js', 'assets/admin/admin.css', 'templates/partials/container.php']) {
+      expect(isTextEntry(rel), rel).toBe(true);
+    }
+    for (const rel of ['assets/demo/demo-tone-1.mp3', 'assets/dist/wg-live.js', 'assets/dist/wg-live.css', 'assets/dist/build-info.json', 'assets/demo/poster.png', '.php']) {
+      expect(isTextEntry(rel), rel).toBe(false);
+    }
+  });
+
+  it('toLf turns CRLF into LF and keeps a lone CR', () => {
+    expect(new TextDecoder().decode(toLf(strToU8('a\r\nb\rc\n\r\n')))).toBe('a\nb\rc\n\n');
+    const lf = strToU8('already\nLF\n');
+    expect(toLf(lf)).toBe(lf);
+  });
+
   it('parses the WG_LIVE_VERSION constant', () => {
     expect(parseVersionConstant("<?php\ndefine( 'WG_LIVE_VERSION', '0.1.0' );")).toBe('0.1.0');
     expect(parseVersionConstant('define("WG_LIVE_VERSION","2.0.0-rc.1");')).toBe('2.0.0-rc.1');
@@ -555,6 +581,27 @@ describe('package.mjs end to end on a fake plugin', () => {
     const r2 = packagePlugin({ root });
     expect(r2.sha256).toBe(r1.sha256);
     expect(collectFiles(join(root, 'plugin', 'wg-live'))).toEqual(r1.files);
+  });
+
+  it('gives the same ZIP for an LF and a CRLF checkout of the same files, and leaves binaries alone', () => {
+    const root = fakeRepo();
+    const plugin = join(root, 'plugin', 'wg-live');
+    const mp3 = new Uint8Array([0x49, 0x44, 0x33, 13, 10, 0]);
+    const write = (eol: string) => {
+      writeFileSync(join(plugin, 'assets', 'demo', 'poster-demo.svg'), ['<svg>', '<g/>', '</svg>', ''].join(eol));
+      writeFileSync(join(plugin, 'includes', 'a.php'), ['<?php', '// a', ''].join(eol));
+      writeFileSync(join(plugin, 'assets', 'demo', 'demo-tone-1.mp3'), mp3);
+    };
+    write('\n');
+    const lf = packagePlugin({ root });
+    write('\r\n');
+    const crlf = packagePlugin({ root });
+    expect(crlf.sha256).toBe(lf.sha256);
+
+    const zip = new Uint8Array(readFileSync(crlf.zipPath));
+    const entries = unzipSync(zip);
+    expect(new TextDecoder().decode(entries['wg-live/includes/a.php'])).toBe('<?php\n// a\n');
+    expect(entries['wg-live/assets/demo/demo-tone-1.mp3']).toEqual(mp3);
   });
 
   it('fails when a dist file no longer matches build-info.json (stale build)', () => {

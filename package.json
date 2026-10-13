@@ -23,6 +23,7 @@
     "test:integration:wsl": "node scripts/wsl.mjs sync && playwright test -c playwright.integration.config.ts",
     "package": "node scripts/package.mjs",
     "check:artifact": "node scripts/check-artifact.mjs",
+    "test:zip-install": "bash scripts/zip-install-check.sh",
     "demo:audio": "node scripts/generate-demo-audio.mjs",
     "measure:site": "node scripts/measure-site.mjs",
     "test:e2e:dist": "playwright test --project=harness-dist",
