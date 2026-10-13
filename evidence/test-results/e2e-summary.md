@@ -1,6 +1,26 @@
 # E2E results (Playwright harness, M1)
 
-## Latest run: 2026-10-12, after the review fixes
+## Latest run: 2026-10-13, commit a1152e4 (hybrid redesign)
+
+Command: `npx playwright test --workers=6` (all 4 projects). Windows 11, Node 22.17.0, `@playwright/test` 1.64.0. Result: **668 passed, 44 skipped, 0 failed** in 6.6 min, with no retry and no transient error.
+
+| Project | Passed | Skipped | Failed |
+|---|---|---|---|
+| harness-dev-chromium | 227 | 0 | 0 |
+| harness-dev-firefox | 206 | 21 | 0 |
+| harness-dev-webkit | 204 | 23 | 0 |
+| harness-dist | 31 | 0 | 0 |
+| **Total** | **668** | **44** | **0** |
+
+The skips are expected. 42 are the axe colour-contrast scans of `host-contrast.spec.ts`, which run in Chromium only. The other 2 are the WebKit route-abort variants of F08: Playwright cannot intercept WebKit media requests, so WebKit covers the same failure path through a 404 descriptor.
+
+New since the review-fix run, with the hybrid design (`docs/design/HYBRID.md`):
+- `layout.spec.ts`: on audio events, both mode panels and the Start button are in the first viewport at 1440x1000, and the spec 5.3 order holds on phones.
+- `host-contrast.spec.ts` and `host-contrast.dist.spec.ts`: axe colour contrast on dark, dark-solid and light host sections (`?host=light`), on the dev harness and on the shipped CSS. Text that sits on the host keeps the host's colour (inherit-first).
+
+---
+
+## Run: 2026-10-12, after the review fixes
 
 Command: `npx playwright test` (all 4 projects, 6 workers). Result: **622 passed, 2 skipped, 0 failed** in 13.0 min.
 - **The 2 skips** are the WebKit route-abort variants of F08, as before.

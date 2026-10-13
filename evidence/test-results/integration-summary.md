@@ -1,6 +1,35 @@
 # Integration results (wp-env, real WordPress, M1)
 
-## Latest run: 2026-10-12, review fixes, wp-env inside WSL2
+## Latest run: 2026-10-13, commit a1152e4 (hybrid redesign plus test fixes), wp-env inside WSL2
+
+| Item | Value |
+|---|---|
+| Command | `npm run test:integration:wsl` |
+| Stack | WordPress 7.1.3, PHP 8.2.34, Astra 4.14.0, Elementor 4.3.4, WooCommerce 11.2.1, wg-live 0.1.0 (unchanged) |
+| Result | **174 passed, 0 failed** (Chromium and WebKit, including all chained state projects) in 18.2 min. `admin-events.spec.ts` and `public-data.spec.ts` were then run again on both browsers: 80 passed in 11.2 min |
+| Clean ZIP install | `npm run test:zip-install`: installed with WP-CLI into a throwaway WordPress 7.1.3 / PHP 8.2.34 / Twenty Twenty-Five with its own database, activated, then uninstalled. All checks passed (see below) on the a1152e4 build and again on the 4ba0f99 build (`wg-live-0.1.0.zip`, SHA-256 `0513088e1368e732f46fadd247ef965b98fc3f5b0b2cd9e44004d667d1a7c556`). `plugin/` and `src/` are the same in both commits |
+
+Fixes in this round (tests and packaging only, no plugin change):
+1. **Fixture leaks.** `deleteEventsByPrefix()` queried `post_status => 'any'`, which leaves out trash, so each run left one more `it-pred-*-trashed__trashed-N` event (37 had built up). It also matched only titles that start with the prefix, and the F13 fixtures are titled `【it-f13-…】春季音樂會`; when saved with an empty 代稱 they have no post_name. The helper now searches every status and matches the prefix anywhere in the title. After a full run the dev site holds only the four seeded demo events.
+2. **Crashed-run accounts.** `admin-events.spec.ts` now removes `it-admin-<project>-*` and `it-editor-<project>-*` users left by a run that never reached `afterAll`. The editor login is scoped to the project, so Chromium and WebKit never delete each other's account.
+3. **Reproducible ZIP (4ba0f99).** Two clean builds of a1152e4 hashed differently: `poster-demo.svg` had CRLF in one working copy (Git stores LF, so `git status` was clean). `package.mjs` now stores shipped text files with LF and `check:artifact` rejects CRLF; a build in a fresh checkout of 4ba0f99 gives the same SHA-256 as the one above.
+
+Clean install checks (`scripts/zip-install-check.sh`):
+
+| Check | Result |
+|---|---|
+| `wp plugin install wg-live-0.1.0.zip`, then `wp plugin activate wg-live` | Installed and activated, version 0.1.0 |
+| Activation changes no pages, published pages, menus, theme, front page or rewrite rules | Same before and after |
+| Deployment mode right after activation | `disabled` |
+| CPT `wg_live_event`, shortcodes `wg_live` and `wg_live_featured`, REST `wg-live/v1/events`, `events/<slug>`, `playback` | All registered |
+| `[wg_live_featured]` output | No `<script>` |
+| HTTP through Apache: site, `?rest_route=/wg-live/v1/events` (`{"events":[]}` in disabled mode), `wg-live.js`, `wg-live-featured.css` | All 200 |
+| Deactivate and uninstall | Plugin folder removed; settings kept (`delete_data_on_uninstall` is off by default) |
+| `WP_DEBUG_LOG` during install, activation, requests and uninstall | Empty: no notice, warning, deprecation or error |
+
+---
+
+## Run: 2026-10-12, review fixes, wp-env inside WSL2
 
 | Item | Value |
 |---|---|

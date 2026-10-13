@@ -1,0 +1,166 @@
+# HANDOVER：M1 交接紀錄（staging 前的中期版本）
+
+依 [HANDOVER.md](../HANDOVER.md) 模板填寫。這是 **staging 之前** 的狀態：程式與本機測試已完成，尚未部署到任何站台。取得 staging 與正式站授權後，複製本檔、更新「已部署」與第 5 節，並另外存成新的紀錄。
+
+四組分開列出，不能混寫：已實作、已測試、已部署、尚待外部條件。**M1 不是「付費直播已安全上線」**：沒有真實票券檢查、播放授權、串流保護，也沒有真實設備上的 Binaural／Atmos 驗證（M2）。
+
+## 0. 版本與位置
+
+| 項目 | 內容 |
+|---|---|
+| 外掛版本 | 0.1.0 |
+| Git commit | `4ba0f99`（ZIP 的建置來源）。自動化測試在 `a1152e4` 執行；兩者之間只改了打包腳本、測試與文件，`plugin/` 與 `src/` 沒有差異。本檔與測試紀錄在之後的文件 commit 加入 |
+| ZIP 檔名與 SHA-256 | `wg-live-0.1.0.zip`，`0513088e1368e732f46fadd247ef965b98fc3f5b0b2cd9e44004d667d1a7c556`（ZIP 不放進 git。在 `4ba0f99` 的另一個全新 checkout，以同一份 `package-lock.json` 的依賴執行 `npm run build && npm run package`，得到相同的 SHA-256） |
+| repository 位置 | https://github.com/kekekewww/WG_Dolby_Live（`main`） |
+| 交接日期與交接人 | 2026-10-13，Kevin_Yang_tw（本檔由 Claude Code 依 repository 與測試紀錄整理，待交接人確認） |
+| 接手人 | 尚未指定 |
+| 對應部署紀錄 | 無：尚未部署到 staging 或正式站 |
+
+## 1. 已實作
+
+| 項目 | 已實作 | 位置／備註 |
+|---|---|---|
+| `wg-live` 外掛（活動 CPT、設定、REST、shortcode、資源載入） | ☑ | `plugin/wg-live/`；REST `wg-live/v1/events`、`events/{slug}`、`playback`（伺服器端先跑 `Entitlement::check`） |
+| TypeScript 前端（活動列表、模式選擇、播放、切換、錯誤與空狀態、說明頁） | ☑ | `src/`；事件、播放器、資格三個狀態軸與來源類型分開（`src/state/`） |
+| DemoAdapter 與真實示範音訊 | ☑ | `plugin/wg-live/assets/demo/`、`src/adapters/`；兩種模式都標示「操作示範音訊，非 Binaural／Atmos 驗證素材」 |
+| 精選活動區塊 `[wg_live_featured]`（純 PHP，不載入 JS） | ☑ | `plugin/wg-live/templates/featured.php`、`src/featured.ts`（只輸出 CSS） |
+| 後台活動管理與代稱驗證；設定頁；部署資訊；建立建議頁面 | ☑ | `plugin/wg-live/includes/`；代稱必填且符合 `^[a-z0-9]+(?:-[a-z0-9]+)*$` |
+| 可及性（鍵盤、螢幕閱讀器公告、reduced-motion） | ☑ | `src/components/`；目標 WCAG 2.2 AA |
+| 局部 CSS 與原站主題橋接 | ☑ | `src/styles/`；視覺規格 [docs/design/HYBRID.md](../../design/HYBRID.md)（使用者選定的 A + C 混合方向；文字顏色繼承主題） |
+| 建置、打包與 ZIP 檢查（`npm run build`／`package`／`check:artifact`） | ☑ | `scripts/` |
+| 部署文件（STAGING／PRODUCTION／NAV-HOMEPAGE／LINK-CHECKLIST／ROLLBACK／DEPLOY-RECORD／HANDOVER） | ☑ | `docs/deploy/` |
+| 負載測試工具（頁面、靜態資源、events 請求；不含播放） | ☑ | `scripts/load-test.mjs`；需要 `--target` 與 `--approved`，永不請求 `/playback` 或媒體 |
+| 其他 | ☑ | WSL2 內執行 wp-env（`npm run wp:start:wsl`，見 [WSL.md](../../implementation/WSL.md)）；ZIP 乾淨安裝檢查（`npm run test:zip-install`）；開發展示頁與原站外框模擬（`dev/`） |
+
+## 2. 已測試
+
+只列有紀錄的測試。Playwright WebKit 不等於 Safari。
+
+| 測試 | 環境與版本 | 日期 | 結果 | 證據位置 |
+|---|---|---|---|---|
+| `npm run typecheck` | Windows 11、Node 22.17.0 | 2026-10-13 | 通過 | `npm run check` 輸出 |
+| `npm run lint` | 同上 | 2026-10-13 | 通過 | 同上 |
+| `npm run lint:php`（PHP 7.4／8.3 與 PHPCompatibility） | Docker php:7.4-cli、php:8.3-cli，PHPCompatibilityWP 7.4- | 2026-10-13 | 通過：17 個 PHP 檔 | 指令輸出 |
+| `npm run test:unit` | Vitest 5.0.3、Node 22.17.0 | 2026-10-13 | 通過：1156 個測試 | `npm run check` 輸出 |
+| `npm run build` | Vite 8 | 2026-10-13 | 通過；gzip 後 JS 31.7／100 KiB、CSS 8.6／30 KiB、首頁卡片 CSS 2.7／30 KiB | 同上 |
+| `npm run test:e2e`（Chromium／Firefox／WebKit；WebKit 不等於 Safari） | Playwright 1.64.0，開發展示頁與建置後的 bundle | 2026-10-13 | 通過：668 passed，44 skipped（預期的跳過，原因見 summary），0 failed | [e2e-summary.md](../../../evidence/test-results/e2e-summary.md) |
+| `npm run test:integration`（wp-env） | WSL2 內 wp-env：WordPress 7.1.3、PHP 8.2.34、Astra 4.14.0、Elementor 4.3.4、WooCommerce 11.2.1；Chromium 與 WebKit | 2026-10-13 | 通過：174 passed，0 failed（18.2 分鐘） | [integration-summary.md](../../../evidence/test-results/integration-summary.md) |
+| `npm run package` + `npm run check:artifact` | 乾淨 checkout，`4ba0f99` | 2026-10-13 | 通過：單一 `wg-live/` 根目錄、allowlist、必要檔案、LF 行尾、CSS 範圍、大小預算、版本、建置 commit、SHA-256 | `artifacts/wg-live-0.1.0.zip` 與 `.sha256` |
+| ZIP 在乾淨 WordPress 安裝並啟用 | 本機拋棄式 WordPress 7.1.3、PHP 8.2.34、Twenty Twenty-Five，只裝 wg-live（`npm run test:zip-install`） | 2026-10-13 | 通過 | 本檔第 2.1 節 |
+| 規格 §13.1 功能測試 F01–F15 | F01–F12 開發展示頁（e2e）；F11、F13–F15 wp-env（integration） | 2026-10-13 | 通過（包含在上面兩列） | 兩份 summary 的「What the specs prove」 |
+| staging 通過紀錄 | 未執行 | | 未執行：尚無 staging | |
+| 真機瀏覽器與裝置（Safari 優先） | 未執行 | | 未執行：`manual-devices.md` 仍為空白模板 | `evidence/test-results/manual-devices.md` |
+| 連結驗收 | 未執行 | | 未執行：需要 staging | |
+| 部署前後整站比對（§13.3） | 只在 wp-env：外掛啟用與停用，7 頁桌面與 3 頁手機全頁截圖；正式站的比對要等 staging | 2026-10-13 | wp-env 內通過：Chromium 與 WebKit 每頁 0 像素差異 | `evidence/screenshots/integration/regression-*.json` |
+| 效能實驗室量測（LCP／CLS；實驗室數據，非真實使用者） | Chromium、本機、未節流 | 2026-10-10 | 活動頁與播放頁 LCP 約 0.1 s、CLS 0（視覺重新設計之前的量測；staging 上要重新量） | [e2e-summary.md](../../../evidence/test-results/e2e-summary.md) |
+| 負載測試（頁面、靜態資源、events；管理者核可的環境） | 未執行 | | 未執行：沒有核可的目標環境（工具本身有單元測試） | |
+
+2026-10-13 使用者用 Windows 上的 Brave 透過臨時 tunnel 試用了開發展示頁，沒有回報問題。這是非正式試用，不是 staging，也沒有依 `manual-devices.md` 的規則填寫版本與逐項結果，所以不列入上表。
+
+### 2.1 ZIP 乾淨安裝檢查
+
+2026-10-13，`npm run test:zip-install`（`scripts/zip-install-check.sh`），對象是上面 SHA-256 `0513088e…a7c556` 的 ZIP（`a1152e4` 的建置也跑過一次，結果相同）。在執行中的 wp-env 旁邊建一個拋棄式 WordPress：複製開發站的核心檔（不下載），使用自己的資料庫，佈景主題 Twenty Twenty-Five，沒有其他外掛。檢查完成後刪除整個安裝與資料庫。這是本機的乾淨環境，不等於 staging。
+
+| 檢查 | 結果 |
+|---|---|
+| `wp plugin install wg-live-0.1.0.zip`（與後台上傳 ZIP 相同的安裝流程），再啟用 | 通過，版本 0.1.0 |
+| 啟用不改動頁面、已發布頁面、選單、佈景主題與首頁設定 | 通過：啟用前後相同 |
+| 啟用後的部署模式 | `disabled` |
+| 活動 CPT、兩個 shortcode、REST `events`、`events/<代稱>`、`playback` | 全部已註冊 |
+| `[wg_live_featured]` 輸出不含 `<script>` | 通過 |
+| 透過 Apache 存取網站、`?rest_route=/wg-live/v1/events`（disabled 模式回傳 `{"events":[]}`）、`wg-live.js`、`wg-live-featured.css` | 全部 200 |
+| 停用並解除安裝 | 外掛資料夾已刪除；設定保留（`delete_data_on_uninstall` 預設關閉） |
+| 整個過程的 `WP_DEBUG_LOG` | 空白：沒有 notice、warning、deprecation 或 error |
+
+## 3. 已部署
+
+未執行。沒有部署到 staging 或正式站，也沒有建立或修改任何站台頁面、選單或設定。
+
+| 環境 | 日期 | 版本與 SHA-256 | 部署了什麼 | 目前部署模式 | 部署紀錄 |
+|---|---|---|---|---|---|
+| staging | 未執行 | | | | |
+| 正式站 | 未執行 | | | | |
+
+## 4. 尚待外部條件
+
+| 資料／條件 | 未取得時可先做 | 真正阻擋的階段 | 目前狀態 |
+|---|---|---|---|
+| 原站完整截圖與精確樣式 | 繼承式布局與全部互動 | 最終視覺一致性驗收 | 可先做的已完成（HYBRID.md、原站外框模擬、亮色與暗色背景的對比檢查）；需要 staging 做最終校準 |
+| 外掛版本與 staging | 本機插件、示範與單元測試 | 原站整合及版本相容驗收 | 等待正式站版本盤點（§3.1）。取得後要重新固定 `.wp-env.json` 的 WordPress、PHP 與外掛版本並重跑整合測試 |
+| 正式站安裝與發布授權 | 完成 ZIP、部署步驟與本機／staging 結果 | 實際正式站寫入與公開 | ZIP 與部署文件已備妥；尚未取得授權 |
+| 活動海報、節目與時間 | 明確標示的示範內容 | 真實活動內容發布 | 目前只有示範活動 |
+| HLS 或 iframe 測試來源／文件 | DemoAdapter、完整播放器殼與模式切換 | 真實串流 adapter 驗收 | 尚未取得（M2） |
+| 票券規則與授權機制 | 資格狀態 UI、provider 邊界 | 正式付費節目開放 | 尚未取得（M2）；目前找不到資格結果時一律拒絕播放 |
+| 家庭劇院設備與測試 | 說明頁、待驗證相容表 | 對外宣告特定 Atmos 路徑支援 | 相容表全部維持「尚待測試」 |
+| 真機 Safari（iPhone、iPad、Mac） | Playwright WebKit（不等於 Safari） | 瀏覽器與裝置驗收（§13.2） | 未測；由測試者在 staging 依 `manual-devices.md` 填寫 |
+
+M2 範圍（M1 不做，也不宣稱）：真實票券檢查與播放授權；串流保護／DRM；真實設備上的 Binaural／Atmos 端到端驗證；供應商容量與 300 人同時串流。300 人網頁載入成功**不能**證明 300 人 Atmos 直播可承載（§13.5）。
+
+## 5. 最終驗收清單（規格 §19）
+
+只勾有證據的項目。需要 staging 或正式站的項目維持 ☐，證據欄寫目前只在本機證明到哪裡。
+
+### 5.1 視覺
+
+| 項目 | 完成 | 證據 |
+|---|---|---|
+| 保留現站 Logo、頁首、頁尾與導覽行為 | ☐ | wp-env（Astra）：外掛不輸出頁首或頁尾，停用前後截圖 0 像素差異；現站待 staging |
+| 使用已量測的原站文字、顏色、按鈕及內容寬度；未量測項目明確列為待校準 | ☐ | `docs/implementation/design-baseline.md`、HYBRID.md；最終校準待 staging |
+| 新的播放器舞台與原站外框協調，沒有全站改色或樣式汙染 | ☐ | e2e：CSS 隔離與敵意主題測試、亮暗主題 axe 對比檢查；現站待 staging |
+| 桌面／手機都有完整布局，重要操作可達，沒有橫向溢出 | ☐ | e2e：360 與 390 px 無橫向溢出、首屏可見模式選擇與開始按鈕；真機待測 |
+| 全部文字為台灣繁體中文，技術名稱保留正確英文 | ☑ | 規格 §5–§6 文案；單元測試鎖定狀態與錯誤文案 |
+
+### 5.2 功能
+
+| 項目 | 完成 | 證據 |
+|---|---|---|
+| 活動列表、模式選擇、播放、切換、斷線、取消、結束及空狀態完整 | ☑ | e2e F01–F10、F12；integration `pages.spec.ts` |
+| 示範媒體是真正可播放的素材，與實際 Atmos／Binaural 驗證分開 | ☑ | e2e F03／F04（`currentTime` 前進）、兩種模式都顯示示範聲明 |
+| 未配置來源不造成錯誤循環或空白畫面 | ☑ | integration `pages.spec.ts`（非示範且無來源的活動）；e2e F08 有上限的重試 |
+| 同一時間只有一個實際播放來源 | ☑ | e2e F05、F06；integration F14（Elementor 重新渲染仍只有一個媒體元素） |
+| 沒有無法操作的假按鈕、假曲目同步或假設備能力資訊 | ☑ | 依 adapter 能力隱藏控制項（單元測試）；沒有頻譜、人數或 Atmos 認證標示 |
+
+### 5.3 WordPress 整合
+
+| 項目 | 完成 | 證據 |
+|---|---|---|
+| ZIP 可以在乾淨環境安裝並啟用 | ☐ | 本機乾淨 WordPress 已通過（第 2.1 節）；staging 安裝後才勾選 |
+| 三個頁面、首頁精選與站內連結運作 | ☐ | wp-env：`pages.spec.ts`、`featured.spec.ts`、`settings.state.spec.ts`；現站連結驗收待 staging |
+| 活動內容可透過後台更新 | ☐ | wp-env：`admin-events.spec.ts`（F13）；現站待 staging |
+| 已測試現有商店、商品、Account、Cart、Checkout 不被破壞 | ☐ | wp-env：`deactivate.state.spec.ts`（F15）啟用與停用都能正常顯示；現站待 staging |
+| 既有頁首／頁尾沒有被複製出第二份 | ☐ | wp-env（Astra）截圖比對；現站待 staging |
+| 正式站無 localhost、staging 路徑或開發面板 | ☐ | `check:artifact` 檢查 ZIP 不含開發字串；wp-env production 環境不顯示開發面板（`dev-tools.spec.ts`）；正式站待部署後檢查 |
+
+### 5.4 部署與文件
+
+| 項目 | 完成 | 證據 |
+|---|---|---|
+| 已有 staging 通過紀錄和可回復的發布包 | ☐ | 發布包已備妥；staging 未執行 |
+| 正式站修改具有授權，且每一項實際操作都有紀錄 | ☐ | 尚未取得授權，沒有任何正式站操作 |
+| 已完成首頁、桌面選單、手機選單和相關活動連結 | ☐ | 步驟見 NAV-HOMEPAGE.md；未執行 |
+| 尚未正式驗票時，發布內容維持示範／待開放，不暴露付費來源 | ☐ | 程式面已保證（REST 白名單、伺服器端資格檢查、找不到資格時拒絕）；實際發布待 staging |
+| 已提供版本、頁面 URL、管理操作、已測環境、回復方式及待接事項 | ☐ | 本檔提供版本、管理操作、已測環境、回復方式與待接事項；頁面 URL 待部署後補上 |
+
+## 6. 管理者日常操作
+
+見 [HANDOVER.md](../HANDOVER.md) 第 6 節。
+
+## 7. 回復方式
+
+摘要：先切 `disabled` → 移除首頁區塊與選單項目 → 停用外掛並視需要還原上一版 ZIP → 不覆蓋資料庫。細節見 [ROLLBACK.md](../ROLLBACK.md)。
+
+| 項目 | 內容 |
+|---|---|
+| 上一版 ZIP 位置與 SHA-256 | 無：0.1.0 是第一版。正式站目前沒有安裝 `wg-live`，回復即停用並刪除外掛 |
+| 備份位置與還原入口 | 部署前由站台管理者確認（STAGING.md、PRODUCTION.md 的前置步驟） |
+| 回復負責人 | 尚未指定 |
+
+## 8. 已知限制與未完成事項
+
+| 項目 | 說明 |
+|---|---|
+| M1 示範音訊 | 自製測試音，不是 Binaural／Atmos 驗證素材 |
+| 開發面板 | 只在 `local`／`development`，或 `staging` 的登入管理者；`production` 永遠不顯示。wp-env 沒有 `staging` 環境類型，staging 加管理者的條件要到 staging 才能實測 |
+| 登入按鈕 | 連到現站 Account 頁，不帶返回路徑 |
+| 整合測試範圍 | 沒有 Elementor Pro、其他 Elementor 版本、快取或最佳化外掛、multisite；Firefox 只跑 e2e |
+| 連結 hover | 為了在亮色背景上可讀，連結 hover 改為加粗底線，不變黃色（HYBRID.md「Host colours」） |

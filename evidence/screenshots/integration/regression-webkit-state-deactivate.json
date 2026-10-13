@@ -3,43 +3,43 @@
     "differing": 0,
     "sizeMatch": true,
     "width": 1280,
-    "height": 932
+    "height": 800
   },
   "desktop /shop/": {
     "differing": 0,
     "sizeMatch": true,
     "width": 1280,
-    "height": 1173
+    "height": 1013
   },
   "desktop /product/it-regression-product/": {
     "differing": 0,
     "sizeMatch": true,
     "width": 1280,
-    "height": 1275
+    "height": 1115
   },
   "desktop /my-account/": {
     "differing": 0,
     "sizeMatch": true,
     "width": 1280,
-    "height": 970
+    "height": 810
   },
   "desktop /cart/": {
     "differing": 0,
     "sizeMatch": true,
     "width": 1280,
-    "height": 1301
+    "height": 1141
   },
   "desktop /checkout/": {
     "differing": 0,
     "sizeMatch": true,
     "width": 1280,
-    "height": 1301
+    "height": 1141
   },
   "desktop /sample-page/": {
     "differing": 0,
     "sizeMatch": true,
     "width": 1280,
-    "height": 932
+    "height": 800
   },
   "mobile /": {
     "differing": 0,
