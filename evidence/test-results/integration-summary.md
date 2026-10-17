@@ -1,6 +1,31 @@
 # Integration results (wp-env, real WordPress, M1)
 
-## Latest run: 2026-10-13, commit a1152e4 (hybrid redesign plus test fixes), wp-env inside WSL2
+## Latest run: 2026-10-17, commit 6757e6c (video default + audit fixes), wp-env inside WSL2
+
+| Item | Value |
+|---|---|
+| Command | `npm run test:integration:wsl` |
+| Stack | WordPress 7.1.3, PHP 8.2.34, Astra 4.14.0, Elementor 4.3.4, WooCommerce 11.2.1, wg-live 0.1.0 (unchanged) |
+| Result | **183 passed, 1 skipped, 0 failed** (Chromium and WebKit, including all chained state projects) in 29.7 min. The skip is the lab CWV test on WebKit (Chromium only). |
+| Clean ZIP install | `npm run test:zip-install` on `wg-live-0.1.0.zip`, 1,482,788 B, SHA-256 `e1464d9e49b40063aeb62357d2284715605183f140dc34eebe9cee4ebd3f9944` (clean build of 6757e6c): all checks passed |
+
+New since 2026-10-13:
+- Video is the default media kind (4d55486): `/playback` returns `video/mp4` + `demo-video-N.mp4` for video events and `audio/mpeg` + `demo-tone-N.mp3` for audio events.
+- `settings.state.spec.ts`: an approved `demo_audio_binaural` attachment is served for an audio event only; a video event still gets the bundled mp4. (In the state project because the setting is global.)
+- `deactivate.state.spec.ts`: Cart and the Checkout form rendered with an item in the cart, plugin on and off, with no wg-live asset or markup; no order is placed and the cart is cleared afterwards (`evidence/screenshots/integration/cart-checkout-with-item-*.json`).
+- Lab LCP / CLS on wp-env (Chromium, no throttling, cold context, median LCP of 3, max CLS; lab data, not field data; `evidence/screenshots/integration/lab-cwv-chromium-state-deactivate.json`):
+
+| Page | Plugin on | Plugin off |
+|---|---|---|
+| Home | LCP 260 ms, CLS 0 | LCP 268 ms, CLS 0 |
+| `/live/` | LCP 584 ms, CLS 0.071 | LCP 244 ms, CLS 0 |
+| `/live/listen/?wg_event=demo-live` | LCP 620 ms, CLS 0.056 | LCP 220 ms, CLS 0 |
+
+  Home is the meaningful increment (the plugin adds only the featured-card CSS there). With the plugin off, the Live pages show the raw shortcode text, so their "off" column is not a like-for-like baseline. The CLS on `/live/` and the player page is deterministic: the client mount replaces the PHP placeholder. Both are within spec §13.4 (LCP ≤ 2.5 s, CLS ≤ 0.1).
+
+---
+
+## Run: 2026-10-13, commit a1152e4 (hybrid redesign plus test fixes), wp-env inside WSL2
 
 | Item | Value |
 |---|---|
@@ -81,7 +106,7 @@ Also re-run after the `src/main.ts` fix: `npm run typecheck`, `npm run lint`, `n
 
 | Spec | Covers |
 |---|---|
-| `pages.spec.ts` | Events, player and help pages mount on the bound pages with the versioned assets; F02 direct link, unknown or malformed slug, non-demo event without source; F11 reload, back, forward, `wg_mode` pre-selection; both modes play the demo audio on the real page; confirmed mode switch keeps one `<audio>`; the bootstrap has no source URL, meta or password. |
+| `pages.spec.ts` | Events, player and help pages mount on the bound pages with the versioned assets; F02 direct link, unknown or malformed slug, non-demo event without source; F11 reload, back, forward, `wg_mode` pre-selection; both modes play the demo on the real page (since 4d55486 a video event: `demo-video-N.mp4` in one `<video>`; an audio event plays `demo-tone-N.mp3`); a confirmed mode switch keeps one media element; the bootstrap has no source URL, meta or password. |
 | `elementor.spec.ts` | F14: the Elementor page has one container and one media element; `WGLive.mountAll/mountWithin` and the `elementor/frontend/init` event add no element, no second `play()` and no duplicate listener; a simulated re-render destroys the old instance silently; in the real Elementor editor (preview frame) the widget mounts once, assets load once, dev tools show on `local`, and both a widget re-render and a shortcode change leave exactly one mount; `?elementor-preview` enqueues the app and card styles once. |
 | `dev-tools.spec.ts` | Dev panel and no-cache headers on `local`; on `production` no panel for visitors, no query parameter (`debug`, `paid`, `dev`, ...) changes anything, no panel for a logged-in admin on the front end, in `?elementor-preview`, or in the real Elementor editor. |
 | `public-data.spec.ts` | Public predicate: draft, pending, private, password, trashed, wrong post type, invalid (percent-encoded) 代稱, and no-start-time rows are excluded from the bootstrap, REST list, REST single, playback and the `event` shortcode attribute (also in an Elementor widget), for guests and admins. REST whitelist: exact PublicEvent keys, no `source_type`, meta, attachment URL or password; `Cache-Control: public, max-age=30`, identical for admin and guest, GET only. Playback: only the bundled demo URL, `no-store, no-cache, private`, past `Expires`, resolution order (mode, entitlement, source), 400 on bad arguments. |
@@ -89,7 +114,7 @@ Also re-run after the `src/main.ts` fix: `npm run typecheck`, `npm run lint`, `n
 | `admin-events.spec.ts` | F13 in the real admin: a Chinese title never becomes a 代稱; empty 代稱 stays draft with a notice (browser hint and server rule); valid 代稱 publishes and converts the start time to UTC; the Chinese-titled event plays in both modes; invalid start time keeps the old value; `source_type` demo on a non-demo event and M2 types are refused; duplicate 代稱 never gets a `-2`; 8 malformed 代稱 values revert a published event to draft and keep its name; bad product URLs refused; a form post without the plugin nonce changes nothing; a programmatic publish without 代稱 becomes draft; an Editor-role user gets 403 on every plugin screen and on the create-pages handler. |
 | `disabled.state.spec.ts` | Mode `disabled` hides events on REST list and single, playback, the page bootstrap of four pages, the rendered events, player and Elementor pages and the homepage card (fallback text, no link) at once; help stays available; each save bumps the settings version and records the admin; demo brings everything back. |
 | `settings.state.spec.ts` | Host-mismatch warning for a foreign account URL, event buy link and FAQ text link; link overrides reach the pages and fall back to WooCommerce My Account; non-http(s) links refused; draft, trashed, password-protected, missing and unset featured events give the fallback card; create-suggested-pages lists conflicts and offers no form, refuses in the handler when a conflict appears after the form was shown, creates three drafts with the right shortcodes and parent, never publishes, and replaces bindings only with the second confirmation. |
-| `deactivate.state.spec.ts` | F15: after deactivation Shop, My Account, Cart, Checkout, Sample Page and Home render, Live pages show the raw shortcode text (documented in `docs/deploy/ROLLBACK.md`), the REST routes are gone, events, options, pages, menus, theme and rewrite rules are untouched, reactivation restores everything without touching settings. Regression: 7 desktop (1280 px) and 3 mobile (390 px) full-page screenshots, plugin on versus off, 0 differing pixels on every page in both browsers (`evidence/screenshots/integration/regression-*.json`). |
+| `deactivate.state.spec.ts` | F15: after deactivation Shop, My Account, Cart, Checkout, Sample Page and Home render (until 6757e6c the Checkout entry was an empty cart redirected to Cart; since then a separate test renders Cart and the Checkout form with an item in the cart, plugin on and off), Live pages show the raw shortcode text (documented in `docs/deploy/ROLLBACK.md`), the REST routes are gone, events, options, pages, menus, theme and rewrite rules are untouched, reactivation restores everything without touching settings. Regression: 7 desktop (1280 px) and 3 mobile (390 px) full-page screenshots, plugin on versus off, 0 differing pixels on every page in both browsers (`evidence/screenshots/integration/regression-*.json`). |
 
 ## Not covered
 

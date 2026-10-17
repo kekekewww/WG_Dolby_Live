@@ -1,6 +1,20 @@
 # E2E results (Playwright harness, M1)
 
-## Latest run: 2026-10-13, commit a1152e4 (hybrid redesign)
+## Latest run: 2026-10-17, commit 6757e6c (video default + audit fixes; the build of ZIP e1464d9e)
+
+Command: `npx playwright test --workers=6` (all 4 projects). Windows 11, Node 22.17.0, `@playwright/test` 1.64.0. Result: **711 passed, 48 skipped, 0 failed** in 9.3 min, first attempt, no retry. (The implementer's earlier run of the same code had 7 WebKit "Page crashed" errors under machine load that passed on `--last-failed`; this run had none.)
+
+The 48 skips are expected: 42 colour-contrast scans (`host-contrast.spec.ts`, Chromium only), 2 WebKit route-abort variants of F08, 2 player CLS measurements on Firefox and WebKit (no `layout-shift` entry type), 2 fullscreen tests on Firefox and WebKit (Chromium is the engine that drives element fullscreen in Playwright).
+
+Since the 2026-10-13 run, video is the default event type (commit 4d55486) and the demo plays `demo-video-1.mp4` / `demo-video-2.mp4`:
+- `video.spec.ts`, `video.dist.spec.ts`: one `<video>` in the stage, real frames decoded (960x540 on Chromium and Firefox; Playwright WebKit reports the element's layout size as `videoWidth`, so it checks a 16:9 frame), a confirmed switch swaps the clip and keeps one media element, the demo notice in both modes, fullscreen only for video.
+- Fullscreen (Chromium): 全螢幕 puts the stage AND the control bar into fullscreen (`document.fullscreenElement` contains the video and the pause button), pause works inside it, the button reads 結束全螢幕, exit restores the page.
+- `a11y.spec.ts`: the `<video>` has an accessible name.
+- `layout.spec.ts`: video at 1440x1000 has both mode panels and Start in the first viewport; audio events (overridden with `asAudioEvent()`) keep the compact cover; phone checks are banner-aware (the status prompt sits above the mock Backer Plan banner at 390x844 and 360x800).
+
+---
+
+## Run: 2026-10-13, commit a1152e4 (hybrid redesign)
 
 Command: `npx playwright test --workers=6` (all 4 projects). Windows 11, Node 22.17.0, `@playwright/test` 1.64.0. Result: **668 passed, 44 skipped, 0 failed** in 6.6 min, with no retry and no transient error.
 
@@ -15,7 +29,7 @@ Command: `npx playwright test --workers=6` (all 4 projects). Windows 11, Node 22
 The skips are expected. 42 are the axe colour-contrast scans of `host-contrast.spec.ts`, which run in Chromium only. The other 2 are the WebKit route-abort variants of F08: Playwright cannot intercept WebKit media requests, so WebKit covers the same failure path through a 404 descriptor.
 
 New since the review-fix run, with the hybrid design (`docs/design/HYBRID.md`):
-- `layout.spec.ts`: on audio events, both mode panels and the Start button are in the first viewport at 1440x1000, and the spec 5.3 order holds on phones.
+- `layout.spec.ts`: on audio events (the only kind at the time), both mode panels and the Start button are in the first viewport at 1440x1000, and the spec 5.3 order holds on phones.
 - `host-contrast.spec.ts` and `host-contrast.dist.spec.ts`: axe colour contrast on dark, dark-solid and light host sections (`?host=light`), on the dev harness and on the shipped CSS. Text that sits on the host keeps the host's colour (inherit-first).
 
 ---
@@ -54,7 +68,7 @@ The 2 skips: the "route abort on the media URL" variants of F08 on WebKit (Playw
 - F07 pause/resume keeps mode and source. F08 bounded retries (2 s, 5 s, 10 s), then failed with a manual retry; a failed switch keeps the last good mode. F09 autoplay blocked -> 請點擊開始聆聽 -> one click resumes. F10 all event statuses and entitlement states through the dev panel; `devTools:false` shows no panel. F12 invalid `wg_mode` ignored.
 - Accessibility: axe (WCAG 2.2 AA tags) on every view, state, the open dialog and the dev panel, on the dev harness and on the shipped CSS: 0 serious or critical (and 0 minor) violations. Keyboard: Space/K scope, Escape and focus return, keyboard-only session, visible focus.
 - Layout: no horizontal scroll at 360x800 and 390x844 on every view state, including long unbroken text; bottom-sheet dialog.
-- CSS: the hostile global theme (`dev/site-chrome.css`) changes nothing inside `.wg-live`, the plugin changes nothing outside it, every shipped rule is scoped.
+- CSS: the hostile global theme (`dev/stress.css`) changes nothing inside `.wg-live`, the plugin changes nothing outside it, every shipped rule is scoped.
 - Built bundle: `WGLive` exposes only `mountAll/mountWithin/version`, remount is idempotent, CSS via `<link>`, JS via `<script defer>`, the homepage loads CSS only.
 - Lab metrics (Chromium, local, unthrottled, not field data): events LCP ~0.1 s, CLS 0; player LCP ~0.1 s, CLS 0.
 
