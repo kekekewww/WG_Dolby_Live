@@ -18,7 +18,8 @@ import { defineConfig, devices } from '@playwright/test';
  * `npm run test:e2e` / `test:e2e:dist` while the wp-env integration suite (npm run test:integration) is running.
  */
 
-export const DEV_PORT = 5174;
+// WG_E2E_DEV_PORT lets the suite run when another project already holds 5174 (reuseExistingServer would otherwise attach to it).
+export const DEV_PORT = Number(process.env.WG_E2E_DEV_PORT ?? 5174);
 export const DIST_PORT = 5175;
 
 const DEV_URL = `http://localhost:${DEV_PORT}`;

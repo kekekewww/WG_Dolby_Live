@@ -11,10 +11,13 @@ describe('createPlayerShell', () => {
     // UI-08: Space never reaches the shortcut handler from inside the group (every focusable node is a control),
     // so the group does not advertise it; the primary button carries the shortcuts.
     expect(shell.el.hasAttribute('aria-keyshortcuts')).toBe(false);
-    expect(shell.el.firstElementChild).toBe(shell.stage);
+    // The theater wrapper (the fullscreen element) holds the stage then the controls slot.
+    expect(shell.el.firstElementChild).toBe(shell.theater);
+    expect(shell.theater.className).toBe('wg-live__theater');
+    expect(shell.theater.firstElementChild).toBe(shell.stage);
     expect(shell.stage.className).toContain('wg-live__stage');
     expect(shell.controlsSlot.className).toBe('wg-live__controls');
-    expect(shell.el.lastElementChild).toBe(shell.controlsSlot);
+    expect(shell.theater.lastElementChild).toBe(shell.controlsSlot);
   });
 
   it('creates ONE stable <audio> in the stage with the plan D9 attributes', () => {

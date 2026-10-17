@@ -5,7 +5,7 @@ The user picked the hybrid after reviewing A · Gallery, B · Console and C · P
 ## From A · Gallery (the base)
 - Palette, type roles and scale are A §2–§3: Paper `#f0f5fa`, Mist `#c0c8d0`, Night `#111111`, Studio Yellow `#f0d62b` (hover `#c2a903`), Ink on Yellow `#000`, and Live Green `#7ddc9a`, used only as the dot before 演出中. Noto Sans TC 500 for headings and 300 for body at 17 px or more; Karla 500 for UI, numerals, dates and buttons; nothing below 14 px.
 - Content sits directly on the site's photographic background. There are no card boxes, no dashed borders and no hairline section rules; space separates sections.
-- Yellow appears on exactly two things per view: its one primary action, and the chosen listening mode. Links are underlined Paper that turn yellow on hover. Secondary actions are quiet text buttons that still hit the 44 px target.
+- Yellow appears on exactly two things per view: its one primary action, and the chosen listening mode. Links are underlined Paper; on hover the underline thickens and the colour stays `currentColor` (see "Host colours: inherit-first" below, which supersedes the earlier yellow hover). Secondary actions are quiet text buttons that still hit the 44 px target.
 - Events page: the featured event is a wide hero (poster plus details), and the other events form an aligned grid of equal-height cards with the actions pinned to the bottom. The guide and the FAQ are plain columns and rows.
 - Player: the stage (poster) is the hero, with the title and status integrated around it. There is **one dark control bar** (Night, 72% over the photo): play/pause (yellow), mute, volume (only where supported), 目前播放 text, and 切換模式. Status messages render inline, never as an alert box. Mode choice uses two large selectable panels with a clear selected state (yellow edge plus a "已選取" text label, not colour alone).
 - Spec §5.3 mobile order is kept: title and status, stage, controls, current mode, switch, programme/info, help. That overrides A's "stage first on mobile".
@@ -37,7 +37,7 @@ Audio events do not get a 16:9 slab. From 768 px the poster is a square cover (2
 Every concert is streamed with video, so the 16:9 stage is the usual case and video is the default media kind (`media_kind` default `video`). A full-width 16:9 stage put the mode panels at 1090 px and Start at 1396 px at 1440x1000, the same fold the user rejected for audio. The equivalent of the audio compact layout for video:
 - **From 1024 px**: `.wg-live__player` is a grid, `minmax(0, 1.65fr) minmax(0, 1fr)`, gap `clamp(32px, 3vw, 40px)`. The 16:9 stage is the hero on the left (60% of the content width, the largest element); the head (status badge, 「介面示範」 tag, title, performers / date, status line, demo notice) sits to its right, vertically centred. The mode panels and the one yellow Start follow directly below the row (controls padding 20 px); once playing, the one dark bar sits 32 px under the row.
 - **768-1023 px**: stage full width (16:9) under the head, as before; the first mode panel still starts inside a 768x1024 viewport.
-- **Phone**: unchanged spec 5.3 order (title and status, stage, controls, current mode, switch, programme / info, help); the first mode panel starts inside the first viewport at 390x844 and 360x800.
+- **Phone**: unchanged spec 5.3 order (title and status, stage, controls, current mode, switch, programme / info, help). The first mode panel starts inside the viewport rectangle at 390x844 and 360x800, but the harness's fixed bottom banner (the live site's Backer Plan bar, 190 px on phones) hides it: at 360x800 the banner top is at 610, so the whole first panel (628-871) is covered; at 390x844 the banner top is at 654, so only about 9 px of the panel (top 645) shows. What is above the banner on a phone is the title, the status prompt and the stage. The 190 px height is a screenshot estimate of the live site (`design-baseline.md`) and must be confirmed on staging; do not read "inside the viewport" as "visible" on a phone. The phone layout gates in `tests/e2e/layout.spec.ts` check the viewport rectangle only, not the banner.
 - The fullscreen button stays video-only. Audio-only events keep the compact cover above (the harness overrides one event to `mediaKind: 'audio'` to test it).
 
 Measured in the harness (`/dev/listen.html?wg_event=demo-live-binaural-atmos&chrome=live`, Chromium; screenshots in `evidence/screenshots/video/`):
@@ -47,9 +47,9 @@ Measured in the harness (`/dev/listen.html?wg_event=demo-live-binaural-atmos&chr
 | 1440x1000 | 160, 121, 672x378 | 171-449, right of the stage | 573-798 (both) | 871-919 (the fixed site banner starts at 920) |
 | 1280x800 | 80, 121, 673x379 | 171-450 | 574-798 | 871-919 (below the fold at 800) |
 | 1024x768 | 20, 121, 593x333 | 148-427 | 528-782 | 855-903 |
-| 768x1024 | 20, 118, 728x410 (stacked) | 528-765 | 867-1151 (top inside) | 1232-1280 |
-| 390x844 | 20, 392, 350x197 (under the title) | 118-392 | 645-888 / 904-1147 (first top inside) | 1228-1280 |
-| 360x800 | 20, 392, 320x180 | 118-392 | 628-871 / 887-1130 (first top inside) | 1211-1263 |
+| 768x1024 | 20, 118, 728x410 (stacked) | 528-765 | 867-1151 (top inside the viewport; banner is 80 px here, so it starts at 944 and about 77 px of the panel shows) | 1232-1280 |
+| 390x844 | 20, 392, 350x197 (under the title) | 118-392 | 645-888 / 904-1147 (first top is inside the viewport, but the 190 px banner starts at 654, so about 9 px shows) | 1228-1280 |
+| 360x800 | 20, 392, 320x180 | 118-392 | 628-871 / 887-1130 (inside the viewport rectangle but fully covered by the 190 px banner, which starts at 610) | 1211-1263 |
 
 At 1440x1000 both panels and Start were at 1090 and 1396 before; they are now fully inside the first viewport and above the site's fixed bottom banner. After Start the dark bar is at 531-611 (stage bottom 499). Gates: `tests/e2e/layout.spec.ts` (video and audio blocks) and `tests/e2e/video.spec.ts`.
 

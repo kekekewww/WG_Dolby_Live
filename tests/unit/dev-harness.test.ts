@@ -147,6 +147,9 @@ describe('dist server (dev/serve-dist.mjs)', () => {
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {
+    // Several tests read only the status of a fetch and leave the body unread, which keeps the socket open;
+    // close() alone then waits for the garbage collector. Drop the open connections first.
+    server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
   });
 
@@ -219,4 +222,12 @@ describe('dist server (dev/serve-dist.mjs)', () => {
       expect((await fetch(`${base}/demo/demo-tone.m4a`)).status).toBe(404);
     },
   );
+});
+
+describe('harness-only poster (the 1:1 poster is not a plugin runtime file)', () => {
+  const repo = join(import.meta.dirname, '..', '..');
+  it('lives in dev/assets, which the harness serves, and is not shipped in the plugin', () => {
+    expect(existsSync(join(repo, 'dev', 'assets', 'poster-demo-square.svg'))).toBe(true);
+    expect(existsSync(join(repo, 'plugin', 'wg-live', 'assets', 'demo', 'poster-demo-square.svg'))).toBe(false);
+  });
 });

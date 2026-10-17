@@ -436,6 +436,7 @@ Capabilities [ios-volume-fake-control] [capabilities-static-ios-volume]:
 - `util/capabilities.ts` probes once at boot whether volume can be set. It uses a detached element: write a value, then read it back after one task. iOS returns false.
 - Adapter capabilities are per instance and final after `load()` resolves. The coordinator copies them into the state after each load.
 - Controls render from these capabilities: mute button from `mute`, slider from `volume`, 返回直播 from `seekToLive`, and fullscreen only for video.
+- Fullscreen: the fullscreen element is the `.wg-live__theater` wrapper (`display: contents` outside fullscreen) that holds the stage AND the controls slot, so pause, mute, volume, 目前播放 and 切換模式 stay usable (spec 5.3). `PlayerShell.theater` is that element and `PlayerControlsOptions.fullscreenRoot` receives it. iPhone Safari, which cannot fullscreen an element, falls back to `webkitEnterFullscreen` on the <video>. The button label follows `fullscreenchange` (全螢幕 / 結束全螢幕). The stage is `tabindex=-1` so a click on the picture keeps focus inside the player group and K / Space keep working. The <video> carries the accessible name 「title・播放舞台」 (never the stage div).
 
 Keyboard [space-shortcut-scope]:
 - One keydown listener sits on `.wg-live__player`.
@@ -526,6 +527,7 @@ Admin FAQ items go after the fixed sections, and an empty FAQ is valid.
    - homepage: `wg-live-featured.css` ≤ 30 KiB.
 9. The version is the same in `package.json`, the plugin header, the readme stable tag and `build-info.json`.
 10. A `.sha256` file in `sha256sum -c` format exists and matches the ZIP.
+11. The whole ZIP is ≤ 1.75 MiB (hard budget): PHP's default `upload_max_filesize` is 2 MiB, and a larger ZIP fails the wp-admin "Upload Plugin" step with nothing installed (the WP-CLI install of `test:zip-install` bypasses that limit). Only the files the plugin needs at run time ship: the 1:1 demo poster lives in `dev/assets/`, not in the plugin.
 
 ### 7.4 Spec coverage map [test-matrix-coverage-gaps]
 

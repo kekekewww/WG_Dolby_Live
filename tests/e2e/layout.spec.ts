@@ -346,6 +346,25 @@ test.describe('video player: stage + head row keeps the mode choice above the fo
         expect(stage.width / stage.height).toBeLessThan(1.85);
         await expectNoHorizontalScroll(page, `video ${vp.width}`);
       });
+
+      test('banner-aware: the status prompt stays above the fixed site banner; the panel and Start positions are recorded', async ({ page }) => {
+        const p = await gotoPlayer(page);
+        const banner = await bannerTop(page);
+        expect(banner, 'the harness shows the mock Backer Plan banner').not.toBeNull();
+        const bannerY = banner as number;
+        const statusTitle = await box(p.statusTitle);
+        await expect(p.statusTitle).toHaveText('請先選擇聆聽模式');
+        // What the phone layout guarantees: the status prompt (title + status come first, spec 5.3) is fully visible
+        // above the banner. It does NOT guarantee the mode panels or Start: the panels start at or under the banner
+        // (known gap, the real banner height is an estimate and must be confirmed on staging), so they are only recorded.
+        expect(statusTitle.bottom, 'status prompt is above the banner top').toBeLessThanOrEqual(bannerY);
+        const first = await box(p.root.locator('.wg-live__mode-card').first());
+        const start = await box(p.primary);
+        test.info().annotations.push({
+          type: 'phone-banner',
+          description: `${vp.width}x${vp.height}: banner top ${Math.round(bannerY)}, status prompt bottom ${Math.round(statusTitle.bottom)}, first mode panel ${Math.round(first.top)}-${Math.round(first.bottom)} (visible above banner: ${Math.max(0, Math.round(bannerY - first.top))}px), Start top ${Math.round(start.top)}`,
+        });
+      });
     });
   }
 });
@@ -417,6 +436,11 @@ test.describe('layout stability (lab only)', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test('mounting the player does not shift the layout: CLS stays below 0.1 in this harness', async ({ page }) => {
+    // Engines without the 'layout-shift' entry type (the installed Firefox and WebKit) only warn on observe(), which would
+    // leave __cls at 0 and pass without measuring anything. Skip there, with the reason on record.
+    await page.goto('/dev/index.html');
+    const supported = await page.evaluate(() => PerformanceObserver.supportedEntryTypes?.includes('layout-shift') === true);
+    test.skip(!supported, 'layout-shift is not in PerformanceObserver.supportedEntryTypes in this browser: nothing would be measured');
     await page.addInitScript(() => {
       const w = window as unknown as { __cls: number };
       w.__cls = 0;

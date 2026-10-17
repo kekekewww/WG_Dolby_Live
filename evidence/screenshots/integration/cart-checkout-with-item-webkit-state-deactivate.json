@@ -1,0 +1,24 @@
+{
+  "on": {
+    "cartUrl": "http://localhost:8888/cart/",
+    "checkoutUrl": "http://localhost:8888/checkout/",
+    "cartKind": "cart-block",
+    "checkoutKind": "checkout-block",
+    "cartMentionsProduct": true,
+    "checkoutMentionsProduct": true,
+    "placeOrderControl": true,
+    "pluginMarkup": [],
+    "pluginRequests": []
+  },
+  "off": {
+    "cartUrl": "http://localhost:8888/cart/",
+    "checkoutUrl": "http://localhost:8888/checkout/",
+    "cartKind": "cart-block",
+    "checkoutKind": "checkout-block",
+    "cartMentionsProduct": true,
+    "checkoutMentionsProduct": true,
+    "placeOrderControl": true,
+    "pluginMarkup": [],
+    "pluginRequests": []
+  }
+}

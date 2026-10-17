@@ -148,8 +148,11 @@ export function handlePlayerKeydown(event: KeyboardEvent, controller: PlayerCont
 export interface PlayerControlsOptions {
   controller: PlayerController;
   mediaKind: 'audio' | 'video';
-  /** Element that goes fullscreen (the stage). */
-  stage: HTMLElement;
+  /**
+   * Element that goes fullscreen: the theater wrapper holding the stage AND the control bar (not the bare stage),
+   * so the controls stay usable in fullscreen (spec 5.3).
+   */
+  fullscreenRoot: HTMLElement;
   media: HTMLMediaElement;
 }
 
@@ -161,10 +164,22 @@ export interface PlayerControls {
 }
 
 type FullscreenDoc = Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => void };
-type FullscreenStage = HTMLElement & { webkitRequestFullscreen?: () => void };
+type FullscreenRoot = HTMLElement & { webkitRequestFullscreen?: () => void };
 type FullscreenVideo = HTMLVideoElement & { webkitEnterFullscreen?: () => void };
 
-function toggleFullscreen(stage: HTMLElement, media: HTMLMediaElement): void {
+/** True while `root` (the theater wrapper) or something inside it is the fullscreen element. */
+export function isFullscreenActive(root: HTMLElement): boolean {
+  const doc = document as FullscreenDoc;
+  const current = doc.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+  return current !== null && (current === root || root.contains(current));
+}
+
+/**
+ * Enter or leave fullscreen. Branches: (1) already fullscreen -> exit; (2) the standard or webkit-prefixed
+ * `requestFullscreen` on the wrapper (stage + control bar); (3) iPhone Safari, which can only fullscreen the
+ * <video> element itself through `webkitEnterFullscreen` (its native player then owns the controls).
+ */
+export function toggleFullscreen(root: HTMLElement, media: HTMLMediaElement): void {
   const doc = document as FullscreenDoc;
   try {
     const current = doc.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
@@ -173,12 +188,11 @@ function toggleFullscreen(stage: HTMLElement, media: HTMLMediaElement): void {
       else doc.webkitExitFullscreen?.();
       return;
     }
-    if (typeof stage.requestFullscreen === 'function') {
-      void stage.requestFullscreen().catch(() => undefined);
-    } else if (typeof (stage as FullscreenStage).webkitRequestFullscreen === 'function') {
-      (stage as FullscreenStage).webkitRequestFullscreen?.();
+    if (typeof root.requestFullscreen === 'function') {
+      void root.requestFullscreen().catch(() => undefined);
+    } else if (typeof (root as FullscreenRoot).webkitRequestFullscreen === 'function') {
+      (root as FullscreenRoot).webkitRequestFullscreen?.();
     } else if (media instanceof HTMLVideoElement) {
-      // iPhone Safari can only fullscreen the <video> element itself.
       (media as FullscreenVideo).webkitEnterFullscreen?.();
     }
   } catch {
@@ -187,7 +201,7 @@ function toggleFullscreen(stage: HTMLElement, media: HTMLMediaElement): void {
 }
 
 export function createPlayerControls(options: PlayerControlsOptions): PlayerControls {
-  const { controller, mediaKind, stage, media } = options;
+  const { controller, mediaKind, fullscreenRoot, media } = options;
   const reasonId = uid('wg-live-start-reason');
   const disposers: Array<() => void> = [];
   const listen = <K extends keyof HTMLElementEventMap>(
@@ -278,7 +292,20 @@ export function createPlayerControls(options: PlayerControlsOptions): PlayerCont
     controller.setVolume(Math.min(1, Math.max(0, value / 100)));
   });
   listen(live, 'click', () => controller.seekToLive());
-  listen(fullscreen, 'click', () => toggleFullscreen(stage, media));
+  listen(fullscreen, 'click', () => toggleFullscreen(fullscreenRoot, media));
+
+  // The label follows the real fullscreen state, including an exit with Esc / the back gesture.
+  function syncFullscreen(): void {
+    const active = isFullscreenActive(fullscreenRoot);
+    setText(fullscreen, active ? playerCopy.controls.exitFullscreen : playerCopy.controls.fullscreen);
+    fullscreen.dataset.fullscreen = active ? 'true' : 'false';
+  }
+  document.addEventListener('fullscreenchange', syncFullscreen);
+  document.addEventListener('webkitfullscreenchange', syncFullscreen);
+  disposers.push(() => {
+    document.removeEventListener('fullscreenchange', syncFullscreen);
+    document.removeEventListener('webkitfullscreenchange', syncFullscreen);
+  });
 
   function setText(node: HTMLElement, text: string): void {
     if (node.textContent !== text) node.textContent = text;

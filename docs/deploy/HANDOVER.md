@@ -31,7 +31,7 @@
 |---|---|---|
 | `wg-live` 外掛（活動 CPT、設定、REST、shortcode、資源載入） | ☐ | `plugin/wg-live/` |
 | TypeScript 前端（活動列表、模式選擇、播放、切換、錯誤與空狀態、說明頁） | ☐ | `src/` |
-| DemoAdapter 與真實示範音訊 | ☐ | `plugin/wg-live/assets/demo/`、`src/adapters/` |
+| DemoAdapter 與示範影音（示範影片與示範音訊） | ☐ | `plugin/wg-live/assets/demo/`、`src/adapters/` |
 | 精選活動區塊 `[wg_live_featured]`（純 PHP，不載入 JS） | ☐ | |
 | 後台活動管理與代稱驗證；設定頁；部署資訊；建立建議頁面 | ☐ | |
 | 可及性（鍵盤、螢幕閱讀器公告、reduced-motion） | ☐ | |
@@ -60,7 +60,8 @@
 | 真機瀏覽器與裝置（Safari 優先） | | | | `evidence/test-results/manual-devices.md` |
 | 連結驗收 | | | | |
 | 部署前後整站比對（§13.3） | | | | |
-| 效能實驗室量測（LCP／CLS；標明是實驗室數據，非真實使用者） | | | | |
+| 效能實驗室量測：**部署前基準**（外掛啟用前，Home 與 `/live/`，登出；LCP／CLS／傳輸大小；標明是實驗室數據，非真實使用者） | | | | |
+| 效能實驗室量測：**外掛增量**（外掛關閉對開啟的差異，或部署前後差異；與站本身的負載分開寫） | | | | |
 | 負載測試（頁面、靜態資源、events；管理者核可的環境） | | | | `evidence/test-results/load-＿＿.json` |
 
 ## 3. 已部署

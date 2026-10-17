@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name:       WG Studio Live
- * Description:       Live / 線上音樂會: event pages and a Binaural / Dolby Atmos listening-mode player interface. M1 ships the interface and a demo player with test audio only; it does not check tickets or protect streams.
+ * Description:       Live / 線上音樂會: event pages and a Binaural / Dolby Atmos listening-mode player interface. M1 ships the interface and a demo player with test video and audio only; it does not check tickets or protect streams.
  * Version:           0.1.0
  * Requires at least: 6.3
  * Requires PHP:      7.4

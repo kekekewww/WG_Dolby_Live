@@ -302,8 +302,9 @@ describe('layout and content', () => {
     const player = q(m, '.wg-live__player');
     expect(player.getAttribute('role')).toBe('group');
     expect(player.getAttribute('aria-label')).toBeTruthy();
-    expect(Array.from(player.children).map((c) => c.className.split(' ')[0])).toEqual([
-      'wg-live__player-head',
+    // The theater wrapper (display: contents; the fullscreen element) holds the stage and the controls.
+    expect(Array.from(player.children).map((c) => c.className.split(' ')[0])).toEqual(['wg-live__player-head', 'wg-live__theater']);
+    expect(Array.from(q(m, '.wg-live__theater').children).map((c) => c.className.split(' ')[0])).toEqual([
       'wg-live__stage',
       'wg-live__controls',
     ]);
@@ -399,6 +400,18 @@ describe('layout and content', () => {
     const el = q<HTMLVideoElement>(video, 'video');
     expect(el.getAttribute('poster')).toMatch(/\/p\.jpg$/);
     expect(video.mount.querySelector('.wg-live__stage-art')).toBeNull();
+  });
+
+  it('names the <video> 「title・播放舞台」 (not the stage div) and refreshes it when a poll changes the title', () => {
+    const event = makeEvent({ mediaKind: 'video', slug: 'demo-live-binaural-atmos', title: '夜間音樂會' });
+    const m = mountView({ event });
+    const video = q<HTMLVideoElement>(m, 'video');
+    expect(video.getAttribute('aria-label')).toBe('夜間音樂會・播放舞台');
+    expect(q(m, '.wg-live__stage').hasAttribute('aria-label')).toBe(false);
+    const state = m.controller.getState();
+    m.controller.set({ ...state, event: { ...state.event, data: { ...event, title: '新的標題' } } });
+    expect(video.getAttribute('aria-label')).toBe('新的標題・播放舞台');
+    expect(q(m, 'video')).toBe(video); // same element
   });
 
   it('links to the help page', () => {

@@ -53,7 +53,7 @@ export const DIST_FILES = ['wg-live.js', 'wg-live.css', 'wg-live-featured.css', 
  */
 const DEMO_VIDEO = /^assets\/demo\/demo-video-\d\.mp4$/;
 /** Demo assets that ship: MP3 files, the two demo videos, the poster and the license (no .m4a, M1-PLAN D7). */
-const DEMO_FILE = /^(?:[A-Za-z0-9_-]+\.mp3|demo-video-\d\.mp4|poster-demo(?:-square)?\.svg|LICENSE-demo\.txt)$/;
+const DEMO_FILE = /^(?:[A-Za-z0-9_-]+\.mp3|demo-video-\d\.mp4|poster-demo\.svg|LICENSE-demo\.txt)$/;
 /** Admin screen assets (assets/admin/**): scripts and styles only. */
 const ADMIN_ASSET = /\.(?:js|css)$/i;
 const TOP_LEVEL_LICENSE = /^(license|licence|copying|notice|third-party|third_party)(?:\.txt|\.md)?$/i;

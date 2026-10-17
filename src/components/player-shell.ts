@@ -14,6 +14,12 @@ export interface PlayerShell {
   /** `.wg-live__player`: keyboard shortcuts attach here. */
   el: HTMLElement;
   host: MediaHost;
+  /**
+   * `.wg-live__theater`: wraps the stage AND the controls slot. This (not the bare stage) is the fullscreen element,
+   * so pause, mute, volume, 目前播放 and 切換模式 stay usable in fullscreen (spec 5.3). `display: contents` outside
+   * fullscreen, so it adds no box and the existing layout is unchanged.
+   */
+  theater: HTMLElement;
   /** `.wg-live__stage`: holds the media element, the frame slot and (for audio) the poster art. */
   stage: HTMLElement;
   /** `.wg-live__controls`: selector, transport controls and the mode bar render here. */
@@ -39,12 +45,16 @@ export function createPlayerShell(mediaKind: 'audio' | 'video'): PlayerShell {
     {
       className: `wg-live__stage wg-live__stage--${mediaKind}`,
       dataset: { mediaKind },
+      // Programmatically focusable (not in the tab order): a click on the picture keeps focus inside the player
+      // group, so the K / Space shortcut keeps working (it is scoped to the group's keydown).
+      attrs: { tabindex: '-1' },
     },
     media,
     frameSlot,
   );
 
   const controlsSlot = h('div', { className: 'wg-live__controls' });
+  const theater = h('div', { className: 'wg-live__theater' }, stage, controlsSlot);
 
   const el = h(
     'div',
@@ -55,11 +65,10 @@ export function createPlayerShell(mediaKind: 'audio' | 'video'): PlayerShell {
         'aria-label': playerCopy.group.label,
       },
     },
-    stage,
-    controlsSlot,
+    theater,
   );
 
-  return { el, host: { media, frameSlot }, stage, controlsSlot };
+  return { el, host: { media, frameSlot }, theater, stage, controlsSlot };
 }
 
 /**

@@ -14,7 +14,7 @@
 // (scripts/generate-demo-audio.mjs), so the clips contain no third-party material; the captions are rendered
 // with Noto Sans TC (SIL OFL 1.1), and the font itself is not shipped.
 //
-// Format: H.264 Main 3.1, 960x540, 24 fps, yuv420p, keyframe every 2 s, +faststart; AAC-LC 96 kbps 44.1 kHz
+// Format: H.264 Main 3.1, 960x540, 24 fps, yuv420p, keyframe every 2 s, +faststart; AAC-LC 64 kbps 44.1 kHz
 // stereo; 30 s (the length of the audio). Plays natively in Safari (iOS and macOS), Chrome, Edge and Firefox,
 // and in the Chromium, Firefox and WebKit builds that Playwright ships. Encoded single-threaded with bitexact
 // flags, so re-running gives the same bytes with the same ffmpeg build.
@@ -37,7 +37,7 @@ const WIDTH = 960;
 const HEIGHT = 540;
 const FPS = 24;
 const DURATION = 30; // seconds; the demo audio is 30 s and the player loops demo sources
-const MAX_BYTES = 1536 * 1024;
+const MAX_BYTES = 420 * 1024;
 
 const COLORS = { night: '0x111111', field: '0x2b2b2b', paper: '0xf0f5fa', mist: '0xc0c8d0', yellow: '0xf0d62b' };
 
@@ -153,9 +153,9 @@ function main() {
         '-filter_complex', filterGraph(clip),
         '-map', '[v]', '-map', '0:a',
         '-t', String(DURATION),
-        '-c:v', 'libx264', '-profile:v', 'main', '-level:v', '3.1', '-preset', 'slow', '-crf', '30',
+        '-c:v', 'libx264', '-profile:v', 'main', '-level:v', '3.1', '-preset', 'slow', '-crf', '38',
         '-g', String(FPS * 2), '-keyint_min', String(FPS * 2), '-sc_threshold', '0', '-threads', '1',
-        '-c:a', 'aac', '-b:a', '96k', '-ar', '44100', '-ac', '2',
+        '-c:a', 'aac', '-b:a', '64k', '-ar', '44100', '-ac', '2',
         '-movflags', '+faststart', '-map_metadata', '-1',
         '-fflags', '+bitexact', '-flags:v', '+bitexact', '-flags:a', '+bitexact',
         out,

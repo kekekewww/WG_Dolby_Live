@@ -55,6 +55,10 @@ export default defineConfig(({ command, mode }) => {
       environment: 'jsdom',
       include: ['tests/unit/**/*.test.ts'],
       setupFiles: ['tests/setup/vitest.setup.ts'],
+      // Several suites spawn git, node or an HTTP server and create jsdom per file; 5 s timed out at 7-8 s on a busy machine.
+      // A hang still fails, just later.
+      testTimeout: 30_000,
+      hookTimeout: 30_000,
     },
   };
 });

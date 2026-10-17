@@ -980,7 +980,11 @@ final class Events {
 				echo $data['is_demo'] ? '是' : '—';
 				break;
 			case 'wg_live_src':
-				echo 'demo' === $data['source_type'] ? '示範音訊' : '尚未設定';
+				if ( 'demo' !== $data['source_type'] ) {
+					echo '尚未設定';
+				} else {
+					echo 'audio' === $data['media_kind'] ? '示範音訊' : '示範影片';
+				}
 				break;
 		}
 	}

@@ -278,4 +278,204 @@ test.describe('regression: commerce and theme pages look the same with the plugi
     expect((await body('/shop/')).text).toContain('IT Regression Product');
     expect(wp(DEV, ['option', 'get', 'page_on_front']).trim()).toBe(String(sampleId));
   });
+
+  test('Cart and Checkout WITH an item in the cart: both render their forms with the plugin on and off, and carry no wg-live asset or markup (no order is placed)', async ({ browser }, testInfo) => {
+    test.setTimeout(900_000);
+    // Plugin output only (assets, handles, container and config markup); a bare "wg-live" could match a folder name.
+    const PLUGIN_OUTPUT = /plugins\/wg-live\/|id=['"]wg-live(?:-featured)?-(?:css|js)['"]|class="wg-live[\s_"-]|wg-live__config/;
+
+    interface Seen {
+      cartUrl: string;
+      checkoutUrl: string;
+      cartKind: string;
+      checkoutKind: string;
+      cartMentionsProduct: boolean;
+      checkoutMentionsProduct: boolean;
+      placeOrderControl: boolean;
+      pluginMarkup: string[];
+      pluginRequests: string[];
+    }
+
+    /** One guest, one cart (a fresh context): add the fixture product, then look at /cart/ and /checkout/. Never places an order. */
+    async function visit(): Promise<Seen> {
+      const context = await browser.newContext({ baseURL: DEV.baseURL, viewport: DESKTOP });
+      try {
+        const page = await context.newPage();
+        const pluginRequests: string[] = [];
+        const pluginMarkup: string[] = [];
+        const kindOf = async (): Promise<string> =>
+          page.evaluate(() => {
+            if (document.querySelector('.wc-block-checkout, .wp-block-woocommerce-checkout')) return 'checkout-block';
+            if (document.querySelector('form.woocommerce-checkout, form.checkout')) return 'checkout-shortcode';
+            if (document.querySelector('.wc-block-cart, .wp-block-woocommerce-cart')) return 'cart-block';
+            if (document.querySelector('form.woocommerce-cart-form')) return 'cart-shortcode';
+            return 'none';
+          });
+        const scan = async (label: string): Promise<void> => {
+          const html = await page.content();
+          if (PLUGIN_OUTPUT.test(html)) pluginMarkup.push(`${label}: wg-live markup in the HTML`);
+          const dom = await page.evaluate(() => document.querySelectorAll('[class*="wg-live"], link[href*="wg-live"], script[src*="wg-live"], [id^="wg-live"]').length);
+          if (dom > 0) pluginMarkup.push(`${label}: ${dom} wg-live node(s) in the DOM`);
+        };
+
+        // Adding to the cart goes through the home page, which carries the plugin's card (legitimately): only the cart and
+        // checkout pages are watched for plugin requests.
+        await page.goto(`/?add-to-cart=${productId}`, { waitUntil: 'load' });
+        page.on('request', (r) => {
+          if (/\/wp-content\/plugins\/wg-live\/|\/wp-json\/wg-live\//.test(r.url())) pluginRequests.push(r.url());
+        });
+        await page.goto('/cart/', { waitUntil: 'load' });
+        await expect(page.locator('.wc-block-cart, form.woocommerce-cart-form').first()).toBeVisible({ timeout: 90_000 });
+        await expect(page.getByText('IT Regression Product').first()).toBeVisible({ timeout: 90_000 });
+        const cartKind = await kindOf();
+        const cartMentionsProduct = (await page.locator('body').innerText()).includes('IT Regression Product');
+        await scan('/cart/');
+        const cartUrl = page.url();
+
+        await page.goto('/checkout/', { waitUntil: 'load' });
+        // With an item the checkout does NOT redirect to the cart (an empty cart would).
+        await expect(page).toHaveURL(/\/checkout\/?(?:\?.*)?$/);
+        await expect(page.locator('.wc-block-checkout, form.woocommerce-checkout').first()).toBeVisible({ timeout: 90_000 });
+        await expect(page.getByText('IT Regression Product').first()).toBeVisible({ timeout: 90_000 });
+        const checkoutKind = await kindOf();
+        const checkoutMentionsProduct = (await page.locator('body').innerText()).includes('IT Regression Product');
+        // The place-order control exists (it is looked at, never clicked).
+        await expect(page.locator('#place_order, .wc-block-components-checkout-place-order-button').first()).toBeAttached({ timeout: 90_000 });
+        const placeOrderControl = true;
+        await scan('/checkout/');
+        const checkoutUrl = page.url();
+        await testInfo.attach(`checkout-with-item.png`, { body: await page.screenshot({ fullPage: true, animations: 'disabled' }), contentType: 'image/png' });
+        return { cartUrl, checkoutUrl, cartKind, checkoutKind, cartMentionsProduct, checkoutMentionsProduct, placeOrderControl, pluginMarkup, pluginRequests };
+      } finally {
+        await context.close();
+        // The cart lives in the guest's WooCommerce session: clear them all (local test database).
+        wpPhp(DEV, `global $wpdb; $wpdb->query( "DELETE FROM {$wpdb->prefix}woocommerce_sessions" ); return true;`);
+      }
+    }
+
+    const on = await visit();
+    let off: Seen;
+    expect(wpAll(DEV, ['plugin', 'deactivate', 'wg-live']).code).toBe(0);
+    try {
+      off = await visit();
+    } finally {
+      expect(wpAll(DEV, ['plugin', 'activate', 'wg-live']).code).toBe(0);
+    }
+
+    for (const [label, seen] of [['plugin on', on], ['plugin off', off]] as const) {
+      expect(seen.cartKind, `${label}: the cart form/block is rendered`).toMatch(/^cart-(block|shortcode)$/);
+      expect(seen.checkoutKind, `${label}: the checkout form/block is rendered`).toMatch(/^checkout-(block|shortcode)$/);
+      expect(seen.checkoutUrl, `${label}: /checkout/ did not redirect to the cart`).toMatch(/\/checkout\/?$/);
+      expect(seen.cartMentionsProduct, `${label}: the cart lists the product`).toBe(true);
+      expect(seen.checkoutMentionsProduct, `${label}: the checkout summarises the product`).toBe(true);
+      expect(seen.placeOrderControl, `${label}: the place-order control exists`).toBe(true);
+      expect(seen.pluginMarkup, `${label}: no wg-live markup on cart or checkout`).toEqual([]);
+      expect(seen.pluginRequests, `${label}: no request to a wg-live asset or endpoint`).toEqual([]);
+    }
+    // The same kind of page with the plugin on and off.
+    expect({ cart: on.cartKind, checkout: on.checkoutKind }).toEqual({ cart: off.cartKind, checkout: off.checkoutKind });
+    mkdirSync(EVIDENCE_DIR, { recursive: true });
+    writeFileSync(join(EVIDENCE_DIR, `cart-checkout-with-item-${testInfo.project.name}.json`), JSON.stringify({ on, off }, null, 2));
+    // The carts are gone.
+    expect(wpPhp<number>(DEV, `global $wpdb; return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}woocommerce_sessions" );`)).toBe(0);
+  });
+});
+
+test.describe('lab Core Web Vitals on wp-env (spec 13.4: the site and the plugin increment, reported separately)', () => {
+  // Chromium exposes layout-shift and largest-contentful-paint entries; the other engines would measure nothing.
+  const PAGES: Array<{ name: string; path: string }> = [
+    { name: 'Home', path: '/' },
+    { name: 'Live /live/', path: LIVE_URL },
+    { name: 'Listen /live/listen/?wg_event=demo-live', path: `${LISTEN_URL}?wg_event=demo-live` },
+  ];
+  const RUNS = 3;
+
+  interface Sample {
+    lcp: number;
+    cls: number;
+  }
+
+  async function measure(browser: Browser, path: string): Promise<Sample> {
+    // A fresh context per sample: a cold HTTP cache, like a first visit.
+    const context = await browser.newContext({ baseURL: DEV.baseURL, viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+    try {
+      const page = await context.newPage();
+      await page.addInitScript(() => {
+        const w = window as unknown as { __cls: number; __lcp: number };
+        w.__cls = 0;
+        w.__lcp = 0;
+        new PerformanceObserver((list) => {
+          for (const entry of list.getEntries() as unknown as Array<{ value: number; hadRecentInput: boolean }>) {
+            if (!entry.hadRecentInput) w.__cls += entry.value;
+          }
+        }).observe({ type: 'layout-shift', buffered: true });
+        new PerformanceObserver((list) => {
+          const last = list.getEntries().at(-1);
+          if (last) w.__lcp = last.startTime;
+        }).observe({ type: 'largest-contentful-paint', buffered: true });
+      });
+      await page.goto(path, { waitUntil: 'load' });
+      await page.waitForLoadState('networkidle', { timeout: 60_000 }).catch(() => undefined);
+      await page.waitForTimeout(2000);
+      return page.evaluate(() => ({ lcp: (window as unknown as { __lcp: number }).__lcp, cls: (window as unknown as { __cls: number }).__cls }));
+    } finally {
+      await context.close();
+    }
+  }
+
+  const median = (values: number[]): number => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] as number;
+
+  test('LCP and CLS of Home, /live/ and /live/listen/ with the plugin on and off (lab data, Chromium, no throttling)', async ({ browser, browserName }, testInfo) => {
+    test.skip(browserName !== 'chromium', 'layout-shift and largest-contentful-paint entries are Chromium-only; the other engines would measure nothing');
+    test.setTimeout(1_500_000);
+    const supported = await (async () => {
+      const context = await browser.newContext();
+      try {
+        const page = await context.newPage();
+        await page.goto(`${DEV.baseURL}/`, { waitUntil: 'commit' });
+        return await page.evaluate(() => ['layout-shift', 'largest-contentful-paint'].every((t) => PerformanceObserver.supportedEntryTypes?.includes(t)));
+      } finally {
+        await context.close();
+      }
+    })();
+    test.skip(!supported, 'this browser does not expose layout-shift / largest-contentful-paint');
+
+    const result: Record<'on' | 'off', Record<string, { lcpMedianMs: number; clsMax: number; samples: Sample[] }>> = { on: {}, off: {} };
+    const run = async (state: 'on' | 'off'): Promise<void> => {
+      for (const { name, path } of PAGES) {
+        const samples: Sample[] = [];
+        for (let i = 0; i < RUNS; i++) samples.push(await measure(browser, path));
+        result[state][name] = { lcpMedianMs: Math.round(median(samples.map((s) => s.lcp))), clsMax: Math.max(...samples.map((s) => s.cls)), samples };
+      }
+    };
+
+    await run('on');
+    expect(wpAll(DEV, ['plugin', 'deactivate', 'wg-live']).code).toBe(0);
+    try {
+      await run('off');
+    } finally {
+      expect(wpAll(DEV, ['plugin', 'activate', 'wg-live']).code).toBe(0);
+    }
+
+    const lines = PAGES.map(({ name }) => {
+      const a = result.on[name] as { lcpMedianMs: number; clsMax: number };
+      const b = result.off[name] as { lcpMedianMs: number; clsMax: number };
+      return `${name}: plugin on LCP ${a.lcpMedianMs} ms / CLS ${a.clsMax.toFixed(4)}; plugin off LCP ${b.lcpMedianMs} ms / CLS ${b.clsMax.toFixed(4)}`;
+    });
+    const summary = `${lines.join(' | ')} (LAB data: Chromium, wp-env, no throttling, cold cache, median of ${RUNS} LCP, max CLS; not field data)`;
+    testInfo.annotations.push({ type: 'lab-cwv', description: summary });
+    console.log(`[lab CWV] ${summary}`);
+    mkdirSync(EVIDENCE_DIR, { recursive: true });
+    writeFileSync(join(EVIDENCE_DIR, `lab-cwv-${testInfo.project.name}.json`), JSON.stringify({ kind: 'lab data, not field data', runs: RUNS, ...result }, null, 2));
+
+    // Sane bounds only: an LCP happened and is finite, and the plugin does not push CLS over the 0.1 "good" line.
+    for (const { name } of PAGES) {
+      for (const state of ['on', 'off'] as const) {
+        const m = result[state][name] as { lcpMedianMs: number; clsMax: number };
+        expect(m.lcpMedianMs, `${name} (${state}) has an LCP`).toBeGreaterThan(0);
+        expect(m.lcpMedianMs, `${name} (${state}) LCP is finite and below a 30 s sanity ceiling`).toBeLessThan(30_000);
+      }
+      expect((result.on[name] as { clsMax: number }).clsMax, `${name} CLS with the plugin on`).toBeLessThan(0.1);
+    }
+  });
 });

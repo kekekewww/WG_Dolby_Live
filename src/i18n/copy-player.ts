@@ -51,6 +51,7 @@ export const playerCopy = {
     volume: '音量',
     seekToLive: '返回直播',
     fullscreen: '全螢幕',
+    exitFullscreen: '結束全螢幕',
     /** aria-keyshortcuts on the play/pause button (documented on the help page). */
     keyShortcuts: 'Space K',
   },
@@ -63,6 +64,8 @@ export const playerCopy = {
   /* ---- stage ---- */
   stage: {
     label: '播放舞台',
+    /** Accessible name of the <video> (the burned-in caption is pixels only): 「title・播放舞台」. */
+    videoLabel: (title: string): string => (title.trim() === '' ? '播放舞台' : `${title.trim()}・播放舞台`),
     posterFallbackAlt: '',
   },
 

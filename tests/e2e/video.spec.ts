@@ -186,3 +186,73 @@ test('an event overridden to audio gets an <audio>, the cover art and no fullscr
   await expect(p.demoNotice).toHaveText(DEMO_NOTICE);
   expect(media.count(DEMO_MEDIA.binaural), 'an audio event never requests the video clip').toBe(0);
 });
+
+test('fullscreen keeps the stage AND the control bar: pause works inside it, and leaving it (button or Esc) leaves the player consistent', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Element fullscreen is driven in Chromium; Playwright WebKit is not Safari and Firefox headless gates it');
+  const p = await gotoPlayer(page);
+  await p.start('binaural');
+  await p.expectAdvancing();
+  const button = p.root.locator('.wg-live__fullscreen');
+  await expect(button).toHaveText('全螢幕');
+  const before = await p.media.evaluate((v: HTMLVideoElement) => v.isConnected);
+  expect(before).toBe(true);
+  await page.evaluate(() => {
+    (window as unknown as { __video: Element | null }).__video = document.querySelector('.wg-live video');
+  });
+
+  await button.click();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement !== null)).toBe(true);
+  const inside = await page.evaluate(() => {
+    const fs = document.fullscreenElement as HTMLElement;
+    const rect = (sel: string): DOMRect | null => fs.querySelector(sel)?.getBoundingClientRect() ?? null;
+    const video = rect('video');
+    const bar = rect('.wg-live__controls');
+    return {
+      cls: fs.className,
+      hasVideo: fs.querySelector('video') !== null,
+      hasPause: fs.querySelector('.wg-live__play') !== null,
+      hasMute: fs.querySelector('.wg-live__mute') !== null,
+      hasModeLabel: fs.querySelector('.wg-live__mode-label') !== null,
+      hasSwitch: fs.querySelector('.wg-live__switch') !== null,
+      videoBox: video && { top: video.top, bottom: video.bottom, width: video.width, height: video.height },
+      barBox: bar && { top: bar.top, bottom: bar.bottom, height: bar.height },
+      vw: window.innerWidth,
+      vh: window.innerHeight,
+      fit: getComputedStyle(fs.querySelector('video') as Element).objectFit,
+    };
+  });
+  expect(inside.cls).toContain('wg-live__theater');
+  expect(inside).toMatchObject({ hasVideo: true, hasPause: true, hasMute: true, hasModeLabel: true, hasSwitch: true, fit: 'contain' });
+  // The picture fills the width above the bar; the bar stays on screen below it (never over the picture).
+  expect(inside.videoBox!.width).toBeGreaterThan(inside.vw * 0.9);
+  expect(inside.barBox!.bottom).toBeLessThanOrEqual(inside.vh + 1);
+  expect(inside.videoBox!.bottom).toBeLessThanOrEqual(inside.barBox!.top + 1);
+  await expect(button).toHaveText('結束全螢幕');
+
+  // Pause from INSIDE fullscreen.
+  await p.primary.click();
+  await expect(p.primary).toHaveText('繼續播放');
+  expect(await p.media.evaluate((v: HTMLMediaElement) => v.paused)).toBe(true);
+  expect(await page.evaluate(() => document.fullscreenElement !== null), 'pausing does not leave fullscreen').toBe(true);
+  // Clicking the picture keeps focus inside the player group, so K still works there.
+  await p.root.locator('.wg-live__stage').click();
+  await page.keyboard.press('k');
+  await expect.poll(() => p.media.evaluate((v: HTMLMediaElement) => v.paused)).toBe(false);
+
+  // Leave with the button itself (its label is now 結束全螢幕).
+  await button.click();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true);
+  await expect(button).toHaveText('全螢幕');
+  await expect(p.primary).toHaveText('暫停');
+
+  // Esc is handled by the browser, not the page (CDP key events do not reach it): the page only sees
+  // exitFullscreen() / fullscreenchange. Re-enter, exit that way, and the label must follow.
+  await button.click();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement !== null)).toBe(true);
+  await expect(button).toHaveText('結束全螢幕');
+  await page.evaluate(() => document.exitFullscreen());
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true);
+  await expect(button).toHaveText('全螢幕');
+  expect(await page.evaluate(() => (window as unknown as { __video: Element | null }).__video === document.querySelector('.wg-live video')), 'the same <video> element').toBe(true);
+  expect(await p.root.locator('video').count()).toBe(1);
+});

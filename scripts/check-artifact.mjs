@@ -31,6 +31,12 @@ export const BUDGETS = [
   { page: 'player', file: 'wg-live.css', max: CSS_BUDGET_BYTES },
   { page: 'homepage', file: 'wg-live-featured.css', max: CSS_BUDGET_BYTES },
 ];
+/**
+ * The whole ZIP must stay under 1.75 MiB: PHP's default upload_max_filesize is 2 MiB, and wp-admin's
+ * 'Upload Plugin' step fails with nothing installed when the ZIP is larger (the WP-CLI install in
+ * test:zip-install bypasses that limit, so nothing else would catch it). The margin leaves room for growth.
+ */
+export const ZIP_MAX_BYTES = 1.75 * 1024 * 1024;
 export const FORBIDDEN_STRINGS = ['localhost', '127.0.0.1', ':5173', ':5174', '/@vite', '@vite/client'];
 
 const FORBIDDEN_DIRS = new Set([
@@ -60,7 +66,7 @@ const ALLOWED_PATHS = [
   /^licenses\/[A-Za-z0-9._-]+\.(?:txt|md)$/i,
   /^assets\/dist\/(?:wg-live\.js|wg-live\.css|wg-live-featured\.css|build-info\.json)$/,
   /^assets\/admin\/[A-Za-z0-9._-]+\.(?:js|css)$/i,
-  /^assets\/demo\/(?:[A-Za-z0-9_-]+\.mp3|demo-video-\d\.mp4|poster-demo(?:-square)?\.svg|LICENSE-demo\.txt)$/,
+  /^assets\/demo\/(?:[A-Za-z0-9_-]+\.mp3|demo-video-\d\.mp4|poster-demo\.svg|LICENSE-demo\.txt)$/,
 ];
 /** @param {string} rel path below wg-live/ */
 const isAllowedPath = (rel) => ALLOWED_PATHS.some((re) => re.test(rel));
@@ -316,6 +322,18 @@ export function checkEntries(entries, options = {}) {
       if (size > max) p.push(`${page} page: ${file} is ${size} bytes gzip (budget ${max})`);
     }
     record('size budgets', p, `${parts.join(', ')} gzip`);
+  }
+
+  // 7b. Total ZIP size against PHP's default 2 MiB upload limit (hard budget, see ZIP_MAX_BYTES).
+  if (zipBytes) {
+    /** @type {string[]} */
+    const p = [];
+    if (zipBytes.length > ZIP_MAX_BYTES) {
+      p.push(
+        `the ZIP is ${zipBytes.length} bytes (budget ${ZIP_MAX_BYTES}); PHP's default upload_max_filesize is 2 MiB, so the wp-admin upload may fail`,
+      );
+    }
+    record('zip size', p, `${(zipBytes.length / 1024 / 1024).toFixed(2)}/${ZIP_MAX_BYTES / 1024 / 1024} MiB (PHP default upload limit 2 MiB)`);
   }
 
   // 8. Versions.

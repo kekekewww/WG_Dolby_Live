@@ -911,7 +911,7 @@ final class Settings {
 			checked( $value, 'disabled', false )
 		);
 		printf(
-			'<label class="wg-live-admin__choice"><input type="radio" name="%1$s" value="demo"%2$s /> <strong>示範（demo）</strong><span class="description">顯示已發布的活動，並以操作示範音訊體驗播放介面。這不是正式串流，不會檢查觀看資格。</span></label>',
+			'<label class="wg-live-admin__choice"><input type="radio" name="%1$s" value="demo"%2$s /> <strong>示範（demo）</strong><span class="description">顯示已發布的活動，並以操作示範影片或音訊（依活動類型）體驗播放介面。這不是正式串流，不會檢查觀看資格。</span></label>',
 			esc_attr( self::name( 'deployment_mode' ) ),
 			checked( $value, 'demo', false )
 		);
@@ -1183,7 +1183,7 @@ final class Settings {
 	public static function field_style(): void {
 		$style  = self::get()['style_overrides'];
 		$labels = array(
-			'accent'         => '強調色（按鈕、連結）',
+			'accent'         => '強調色（主要按鈕、已選取的聆聽模式）',
 			'on_accent'      => '強調色上的文字',
 			'player_surface' => '播放器背景',
 			'player_text'    => '播放器文字',

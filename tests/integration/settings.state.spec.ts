@@ -7,7 +7,7 @@
  */
 import { test, type Page } from '@playwright/test';
 import { DEPLOY_URL, openSettings, PAGES_URL, saveLink, submitSettings } from './settings-ui';
-import { adminContext, bootConfigs, createEvents, deleteEventsByPrefix, deletePosts, DEV, expect, fetchText, getSettings, setSettingsKeys, wpPhp } from './wp';
+import { adminContext, bootConfigs, createEvents, DEMO_VIDEO, deleteEventsByPrefix, deletePosts, DEV, expect, fetchText, getSettings, rest, setSettingsKeys, TONE, wpPhp } from './wp';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -375,5 +375,61 @@ test.describe('create suggested pages (plan 4.6)', () => {
     expect(pageState()).toEqual(before);
     const live = bootConfigs((await fetchText(DEV, '/live/')).text);
     expect(live).toHaveLength(1);
+  });
+});
+
+test.describe('the demo audio override (M1-PLAN 4.3: it applies to AUDIO events only)', () => {
+  const PREFIX = 'it-override';
+  const TOKEN = `${PREFIX}-${Date.now()}`;
+
+  test('an approved media-library audio file is what /playback returns for an audio event; a video event always gets the bundled mp4', async () => {
+    deleteEventsByPrefix(DEV, PREFIX);
+    const before = getSettings(DEV);
+    const ids = createEvents(DEV, [
+      { slug: `${TOKEN}-audio`, title: `${TOKEN} audio`, meta: { media_kind: 'audio' } },
+      { slug: `${TOKEN}-video`, title: `${TOKEN} video`, meta: { media_kind: 'video' } },
+    ]);
+    // A copy of the bundled demo tone in the uploads folder, registered as an audio attachment.
+    const attachment = wpPhp<{ id: number; url: string }>(
+      DEV,
+      `require_once ABSPATH . 'wp-admin/includes/image.php';
+       $u    = wp_upload_dir();
+       $file = $u['path'] . '/${TOKEN}.mp3';
+       copy( WP_PLUGIN_DIR . '/wg-live/assets/demo/demo-tone-2.mp3', $file );
+       $id = wp_insert_attachment( array( 'post_mime_type' => 'audio/mpeg', 'post_title' => '${TOKEN}', 'post_status' => 'inherit' ), $file );
+       return array( 'id' => $id, 'url' => wp_get_attachment_url( $id ) );`,
+    );
+    try {
+      expect(attachment.id).toBeGreaterThan(0);
+      const playback = async (id: number, mode: 'binaural' | 'atmos') => (await rest(DEV, `playback?event=${id}&mode=${mode}`)).json;
+      const audio = ids[`${TOKEN}-audio`] as number;
+      const video = ids[`${TOKEN}-video`] as number;
+
+      // Selected but NOT approved (the picker sets the flag): the bundled tone is used.
+      setSettingsKeys(DEV, { demo_audio_binaural: attachment.id });
+      expect((await playback(audio, 'binaural')).url, 'unapproved attachment is ignored').toMatch(new RegExp(`/assets/demo/${TONE.binaural}\\?ver=`));
+
+      // Approved: the audio event plays the library file, only in the mode it was chosen for.
+      wpPhp(DEV, `update_post_meta( ${attachment.id}, '_wg_live_demo_approved', '1' ); return true;`);
+      const overridden = await playback(audio, 'binaural');
+      expect(overridden).toEqual({ kind: 'demo', url: attachment.url, mimeType: 'audio/mpeg' });
+      expect((await playback(audio, 'atmos')).url, 'the other mode keeps the bundled tone').toMatch(new RegExp(`/assets/demo/${TONE.atmos}\\?ver=`));
+
+      // The video event ignores the audio picker in both modes.
+      for (const mode of ['binaural', 'atmos'] as const) {
+        const v = await playback(video, mode);
+        expect(v.mimeType, mode).toBe('video/mp4');
+        expect(v.url, mode).toMatch(new RegExp(`/assets/demo/${DEMO_VIDEO[mode]}\\?ver=`));
+        expect(v.url, mode).not.toContain(TOKEN);
+      }
+      // The override file is real, public test media.
+      const media = await fetch(attachment.url, { method: 'GET', headers: { Range: 'bytes=0-1' } });
+      expect([200, 206]).toContain(media.status);
+    } finally {
+      setSettingsKeys(DEV, { demo_audio_binaural: before.demo_audio_binaural ?? 0, demo_audio_atmos: before.demo_audio_atmos ?? 0 });
+      wpPhp(DEV, `wp_delete_attachment( ${attachment.id}, true ); return true;`);
+      deleteEventsByPrefix(DEV, PREFIX);
+    }
+    expect(getSettings(DEV).demo_audio_binaural ?? 0).toBe(before.demo_audio_binaural ?? 0);
   });
 });

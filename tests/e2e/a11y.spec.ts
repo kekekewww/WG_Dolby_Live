@@ -260,6 +260,20 @@ test.describe('structure and semantics', () => {
     expect(await p.media.evaluate((a: HTMLMediaElement) => a.hasAttribute('controls'))).toBe(false);
   });
 
+  test('the <video> has an accessible name (title・播放舞台), not carried by the stage div (WCAG 1.1.1)', async ({ page }) => {
+    const p = await gotoPlayer(page);
+    const title = (await p.root.locator('.wg-live__player-title-text').textContent())?.trim() ?? '';
+    expect(title).not.toBe('');
+    await expect(p.media).toHaveAttribute('aria-label', `${title}・播放舞台`);
+    expect(await p.media.evaluate((v) => v.getAttribute('aria-label')?.trim().length ?? 0)).toBeGreaterThan('播放舞台'.length);
+    await expect(p.root.locator('.wg-live__stage')).not.toHaveAttribute('aria-label', /.+/);
+    // Still true while playing, and the name does not make the element a control.
+    await p.start('binaural');
+    await p.expectAdvancing();
+    await expect(p.media).toHaveAttribute('aria-label', `${title}・播放舞台`);
+    expect(await p.media.evaluate((a: HTMLMediaElement) => a.hasAttribute('controls'))).toBe(false);
+  });
+
   test('target sizes: primary controls are at least 48x48 and secondary controls at least 44x44', async ({ page }) => {
     const p = await gotoPlayer(page);
     await p.start('binaural');

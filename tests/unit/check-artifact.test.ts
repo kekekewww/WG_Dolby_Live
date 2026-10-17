@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { strToU8, unzipSync, zipSync } from 'fflate';
 import { afterEach, describe, expect, it } from 'vitest';
-import { checkEntries, checkZip, REQUIRED_FILES } from '../../scripts/check-artifact.mjs';
+import { checkEntries, checkZip, REQUIRED_FILES, ZIP_MAX_BYTES } from '../../scripts/check-artifact.mjs';
 import { collectFiles, entryNameProblem, isTextEntry, packagePlugin, parsePluginVersion, parseStableTag, parseVersionConstant, shouldShip, toLf } from '../../scripts/package.mjs';
 
 const VERSION = '1.2.3';
@@ -89,6 +89,23 @@ describe('check-artifact', () => {
     expect(r.problems).toEqual([]);
     expect(r.ok).toBe(true);
     expect(r.rows.every((row) => row.ok)).toBe(true);
+  });
+
+  it('has a hard budget for the whole ZIP (PHP default upload_max_filesize is 2 MiB): 1.75 MiB passes, more fails', () => {
+    expect(ZIP_MAX_BYTES).toBe(1.75 * 1024 * 1024);
+    const ok = run();
+    expect(ok.rows.find((row) => row.check === 'zip size')).toMatchObject({ ok: true });
+
+    // Incompressible bytes keep the ZIP as large as the payload: just under the budget passes, just over fails.
+    const under = run({ 'wg-live/assets/demo/demo-video-1.mp4': new Uint8Array(randomBytes(ZIP_MAX_BYTES - 20_000)) });
+    expect(under.problems).toEqual([]);
+    expect(under.rows.find((row) => row.check === 'zip size')?.ok).toBe(true);
+
+    const over = run({ 'wg-live/assets/demo/demo-video-1.mp4': new Uint8Array(randomBytes(ZIP_MAX_BYTES + 1)) });
+    expect(over.ok).toBe(false);
+    expect(over.problems).toHaveLength(1);
+    expect(over.problems[0]).toMatch(/^zip size: the ZIP is \d+ bytes \(budget 1835008\).*2 MiB/);
+    expect(over.rows.find((row) => row.check === 'zip size')?.ok).toBe(false);
   });
 
   it('fails when a shipped text file or a dist file has CRLF line endings', () => {
@@ -227,12 +244,14 @@ describe('check-artifact', () => {
     expect(run().problems).toEqual([]); // goodFiles has assets/admin/*, demo mp3 + the two demo mp4 + poster + license
     const r = run({
       'wg-live/assets/demo/demo-tone.m4a': new Uint8Array([1]),
+      'wg-live/assets/demo/poster-demo-square.svg': '<svg/>', // dev harness only, not a runtime file
       'wg-live/assets/other/x.js': 'x',
       'wg-live/assets/admin/admin.png': new Uint8Array([1]),
       'wg-live/composer.json': '{}',
     });
     const text = r.problems.filter((p) => p.startsWith('allowlist')).join('\n');
     expect(text).toContain('demo-tone.m4a');
+    expect(text).toContain('poster-demo-square.svg');
     expect(text).toContain('assets/other/x.js');
     expect(text).toContain('admin.png');
     expect(text).toContain('composer.json');
@@ -520,6 +539,7 @@ describe('package.mjs helpers', () => {
       'assets/demo/demo-tone.m4a',
       'assets/demo/demo-tone.wav',
       'assets/demo/poster-other.svg',
+      'assets/demo/poster-demo-square.svg',
       'assets/dist/chunk-abc.js',
       'assets/dist/wg-live-featured.js',
       'assets/dist/sub/wg-live.js',

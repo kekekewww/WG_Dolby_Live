@@ -1208,3 +1208,47 @@
     border: 1px solid CanvasText;
   }
 }
+
+/*
+ * ------------------------------------------------------------------ fullscreen (spec 5.3)
+ * The fullscreen element is .wg-live__theater: the stage AND the one control bar, so pause, mute, volume,
+ * 目前播放 and 切換模式 stay usable. Outside fullscreen the wrapper is `display: contents` (no box of its own):
+ * the stage, bar and head keep taking part in the player's flex / grid exactly as before.
+ * In fullscreen the stage takes the remaining height and keeps the picture at 16:9 (letterboxed,
+ * object-fit: contain); the bar sits under it, never over the picture. `:is()` ignores the selector the
+ * browser does not know (-webkit-full-screen is the prefixed form for older Safari).
+ */
+.wg-live .wg-live__theater {
+  display: contents;
+}
+
+.wg-live .wg-live__theater:is(:fullscreen, :-webkit-full-screen) {
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  color: var(--pl-paper, #f0f5fa);
+}
+
+.wg-live .wg-live__player-view .wg-live__theater:is(:fullscreen, :-webkit-full-screen) .wg-live__stage {
+  order: 0;
+  flex: 1 1 0;
+  grid-column: auto;
+  grid-row: auto;
+  width: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+  border: 0;
+}
+
+.wg-live .wg-live__player-view .wg-live__theater:is(:fullscreen, :-webkit-full-screen) .wg-live__controls {
+  order: 1;
+  flex: none;
+  grid-column: auto;
+  grid-row: auto;
+  margin: 0 !important;
+  padding-top: 16px !important;
+  max-height: 50vh;
+  overflow-y: auto;
+  background: var(--pl-bar);
+  color: var(--pl-paper, #f0f5fa);
+}

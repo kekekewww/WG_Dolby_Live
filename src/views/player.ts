@@ -212,7 +212,7 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
   const controls = createPlayerControls({
     controller,
     mediaKind: event.mediaKind,
-    stage: shell.stage,
+    fullscreenRoot: shell.theater,
     media: shell.host.media,
   });
   const switchButton = h('button', {
@@ -258,6 +258,7 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     devPanel ? devPanel.el : null,
   );
 
+  const videoMedia = event.mediaKind === 'video' ? shell.host.media : null;
   if (event.mediaKind === 'video') {
     const poster = safeUrl(event.posterUrl);
     if (poster !== null) shell.host.media.setAttribute('poster', poster);
@@ -282,6 +283,8 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     if (lastEventKey === key) return;
     lastEventKey = key;
     setText(titleText, data.title);
+    // The <video> carries the accessible name (not the stage div, which axe flags as aria-prohibited-attr).
+    videoMedia?.setAttribute('aria-label', playerCopy.stage.videoLabel(data.title));
 
     const when = formatEventDateTime(data.startsAt, data.displayTimezone);
     const performers = data.performers.filter((name) => name.trim() !== '');
