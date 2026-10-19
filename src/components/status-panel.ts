@@ -178,14 +178,22 @@ export function createStatusPanel(options: StatusPanelOptions): StatusPanel {
       const when = formatEventDateTime(event.startsAt, event.displayTimezone);
       if (when.machine !== '') detailText = statusCopy.startsAt(when.full);
     }
+    const error = state.player.error;
+    const codeText = error ? `${statusCopy.errorCodeLabel}：${error.publicCode}` : '';
+    // A failed status message carries the error code in its detail (alone, or as 「…（錯誤代碼：X）」 after a failed
+    // switch), and the code also has its own small-print line under the actions: show it once (the small print).
+    if (error !== null && detailText !== null) {
+      const suffix = `（${codeText}）`;
+      if (detailText === codeText) detailText = null;
+      else if (detailText.endsWith(suffix)) detailText = detailText.slice(0, -suffix.length);
+    }
     detail.hidden = detailText === null || detailText === '';
     setText(detail, detailText ?? '');
 
     demoNotice.hidden = !(state.isDemoMedia || state.source === 'demo');
 
-    const error = state.player.error;
     code.hidden = error === null;
-    setText(code, error ? `${statusCopy.errorCodeLabel}：${error.publicCode}` : '');
+    setText(code, codeText);
 
     const wanted = new Set<ActionId>(selectErrorActions(state));
     // A failed state always offers a way out, but resuming needs the same conditions as Start (D6): a denied

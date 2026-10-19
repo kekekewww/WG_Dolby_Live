@@ -126,7 +126,9 @@ test('F08 a failed switch keeps the last good mode and offers 重新載入 Binau
   await runRetryLadder(page, p);
 
   await expect(p.statusDetail).toContainText('切換失敗，仍保留原模式：Binaural');
-  await expect(p.statusDetail).toContainText('E-NET-01');
+  // The code is shown once, as the small print under the actions, not repeated in the detail line.
+  await expect(p.errorCode).toHaveText('錯誤代碼：E-NET-01');
+  await expect(p.statusDetail).not.toContainText('E-NET-01');
   await expect(p.action('重新載入Binaural')).toBeVisible();
   await expect(p.action('改用耳機 Binaural')).toBeVisible();
   await expect(p.srStatus).toContainText('切換失敗，仍保留原模式：Binaural');

@@ -194,6 +194,14 @@ describe('error recovery actions (plan 6.5 - 6.7)', () => {
     expect(code?.className).toContain('wg-live__small');
   });
 
+  it('shows the error code once, not also as the status detail', () => {
+    for (const error of [networkError, { code: 'unsupported', mode: 'atmos', publicCode: 'E-SRC-01' } as PlayerError]) {
+      const { panel } = build(failed(error, { player: { lastGoodMode: 'binaural' } }));
+      const text = panel.el.textContent ?? '';
+      expect(text.split(`錯誤代碼：${error.publicCode}`).length - 1, error.publicCode).toBe(1);
+    }
+  });
+
   it('hides the error code and actions when nothing failed', () => {
     const { panel } = build(playingState());
     expect(panel.el.querySelector<HTMLElement>('.wg-live__error-code')?.hidden).toBe(true);
