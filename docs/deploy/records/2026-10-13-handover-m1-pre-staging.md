@@ -4,12 +4,37 @@
 
 四組分開列出，不能混寫：已實作、已測試、已部署、尚待外部條件。**M1 不是「付費直播已安全上線」**：沒有真實票券檢查、播放授權、串流保護，也沒有真實設備上的 Binaural／Atmos 驗證（M2）。
 
+## 2026-10-20 更新：Atmos 無聲防護、版面跳動、筆電首屏（commit `593dde1`）
+
+本節**取代下方各節的版本、commit 與 ZIP**；下方內容保留為歷史紀錄。這是第一次上傳 staging 要用的版本。
+
+- **已實作**：
+  - 無法解碼 Dolby Digital Plus（Atmos 常用格式）的瀏覽器（Chrome、Brave、Firefox）選擇 Atmos 模式時，顯示規格 §6「目前環境無法播放這個音訊版本」與「改用耳機 Binaural」「聆聽說明」，不再只有畫面沒有聲音。
+  - 播放頁與 Live 頁載入時不再跳動。
+  - 1366x768 與 1280x800 筆電上，兩個模式選項與開始按鈕都在首屏。
+  - 錯誤代碼只顯示一次。
+  - 開發展示頁可用 `WG_DEV_ATMOS_FILE` 在本機播放錄音室的 Atmos 測試檔（檔案不進 repository、不進 ZIP）。
+- **ZIP**：`wg-live-0.1.0.zip`，1,483,433 bytes，SHA-256 `db4330c121d8b112392b332db0b7a84e2c328bfef9d2189a8ea3981a1c4f1d2b`，由乾淨 checkout 的 `593dde1` 產生。**上傳這一份。**
+- **已測試（2026-10-20，本機）**：
+  - `npm run check` 1200 個單元測試通過。
+  - `lint:php` 通過。
+  - e2e 735 passed、48 skipped（預期）、0 failed。
+  - WSL2 wp-env 整合測試 183 passed、1 skipped。
+  - ZIP 乾淨安裝檢查以上述 SHA-256 的 ZIP 通過。
+  - 實驗室 CLS 在首頁、Live 頁、播放頁都是 0。
+  - 證據：[e2e-summary.md](../../../evidence/test-results/e2e-summary.md)、[integration-summary.md](../../../evidence/test-results/integration-summary.md)、[atmos-browser-probe.md](../../../evidence/test-results/atmos-browser-probe.md)。
+- **Atmos 測試檔（實驗室，非真實裝置聆聽）**：錄音室提供的 `11-NightClub 1960_WG_DolbyAtmos_MP4.mp4` 是有效的 Dolby Digital Plus + Atmos（JOC，複雜度指數 16，5.1 基底），整段解碼無錯誤，各聲道都有訊號且沒有削波。Edge 可播放並解碼聲音；Chrome、Brave、Firefox 無法解碼，現在會顯示不支援訊息。Atmos 物件是否正確以空間方式呈現，必須在真實裝置上聽測；家庭劇院相容表維持「尚待測試」。
+- **已知限制**：
+  - 手機與 1366x768／1280x800 上，原站固定在底部的 Backer Plan 橫幅會蓋住部分模式選項或開始按鈕，直到使用者關閉橫幅；橫幅實際高度要在 staging 確認。
+  - 真機 Safari 的影片內嵌播放、全螢幕、Atmos 聽感與主機端 Range 請求尚待測試。
+- **已部署**：未執行。**尚待外部條件**：同下方第 4 節。
+
 ## 2026-10-17 更新：稽核修正後的重建（commit `6757e6c`）
 
-本節**取代下方各節的版本、commit 與 ZIP**；下方內容保留為 10-13 的紀錄。這是第一次上傳 staging 要用的版本。
+本節的 ZIP（e1464d9e）已由上方 10-20 的版本取代。
 
 - **已實作**：全螢幕改為影像連同控制列一起進入全螢幕（暫停、靜音、音量、目前播放、切換模式都可操作；iPhone 仍用 Safari 內建影片播放器）；`<video>` 有無障礙名稱；示範影片重新編碼（每段約 410 KiB）；外掛說明、後台活動列表與設定文字依媒體類型顯示「示範影片／示範音訊」；未使用的方形海報移出 ZIP；`check:artifact` 新增 ZIP 總大小上限 1.75 MiB（PHP 預設上傳上限 2 MiB）。部署文件新增影片檢查、上傳大小檢查、效能基準步驟；真機測試模板新增影片項目（結果全部維持「尚待測試」）。
-- **ZIP**：`wg-live-0.1.0.zip`，1,482,788 bytes，SHA-256 `e1464d9e49b40063aeb62357d2284715605183f140dc34eebe9cee4ebd3f9944`，由乾淨 checkout 的 `6757e6c` 產生。**上傳這一份。**
+- **ZIP**：`wg-live-0.1.0.zip`，1,482,788 bytes，SHA-256 `e1464d9e49b40063aeb62357d2284715605183f140dc34eebe9cee4ebd3f9944`，由乾淨 checkout 的 `6757e6c` 產生。（已被 10-20 的 ZIP 取代，不要上傳。）
 - **已測試（2026-10-17，本機）**：`npm run check` 1176 個單元測試通過；`lint:php` 通過；e2e 711 passed、48 skipped（預期）、0 failed；WSL2 wp-env 整合測試 183 passed、1 skipped（效能量測只在 Chromium）；ZIP 乾淨安裝檢查以上述 SHA-256 的 ZIP 通過。新增的整合測試：購物車有商品時的 Cart 與 Checkout（外掛啟用與停用）、示範音訊覆寫只套用於音訊活動、wp-env 實驗室 LCP／CLS。證據：[e2e-summary.md](../../../evidence/test-results/e2e-summary.md)、[integration-summary.md](../../../evidence/test-results/integration-summary.md)、[audit-fixes-code.md](../../implementation/reports/audit-fixes-code.md)。
 - **效能（實驗室數據，wp-env，Chromium，非真實使用者）**：外掛啟用時首頁 LCP 260 ms、CLS 0；Live 頁 LCP 584 ms、CLS 0.071；播放頁 LCP 620 ms、CLS 0.056。都在規格 §13.4 的 LCP ≤2.5 秒、CLS ≤0.1 內。Live 頁與播放頁的 CLS 來自前端掛載時取代 PHP 預留區塊，是否在 staging 前消除待使用者決定。
 - **已知限制**：360x800 手機上，模擬的 Backer Plan 橫幅（頂端 610 px）會完全蓋住第一個模式選項（628–871 px）；390x844 只露出約 9 px。開始按鈕在手機與 1280x800 都在首屏下方。橫幅實際高度是依截圖估計，要在 staging 確認。真機 Safari 的影片內嵌播放、全螢幕與主機端 Range 請求尚待測試。
@@ -20,7 +45,7 @@
 使用者確認每場音樂會都有影像，因此本節**取代下方第 0 節的版本、commit 與 ZIP**；下方其餘內容保留為上午的紀錄。
 
 - **已實作**：活動的媒體類型預設為「影片」；示範活動播放外掛內建的兩段示範影片（`demo-video-1.mp4`、`demo-video-2.mp4`，H.264／AAC，各約 630 KiB，畫面標示「操作示範影片，非 Binaural／Atmos 驗證素材」）；音訊活動仍可選，播放示範音訊。影片播放頁從 1024 px 起改為影像在左、標題在右，模式選擇與開始按鈕在其下方。
-- **ZIP**：`wg-live-0.1.0.zip`，約 2.0 MB，SHA-256 `318b5fd73611a4a80b6c6d2b4827287d60c6e085986802fd3811b98bc981a86d`，由乾淨 checkout 的 `4d55486` 產生。**上傳這一份，不是下方第 0 節的舊 ZIP。**
+- **ZIP**：`wg-live-0.1.0.zip`，約 2.0 MB，SHA-256 `318b5fd73611a4a80b6c6d2b4827287d60c6e085986802fd3811b98bc981a86d`，由乾淨 checkout 的 `4d55486` 產生。（已被取代，不要上傳。）
 - **已測試（2026-10-13，本機）**：`npm run check` 1164 個單元測試通過；`lint:php` 通過；e2e 703 passed、44 skipped（預期）、0 failed；WSL2 wp-env 整合測試 178 passed；ZIP 乾淨安裝檢查通過。版面量測與截圖見 [HYBRID.md](../../design/HYBRID.md)「Player: video layout」與 `evidence/screenshots/video/`：1440x1000 時兩個模式選項在 573–798 px、開始按鈕在 871–919 px。
 - **已知限制**：1280x800 時開始按鈕在首屏下方（只要求 1440x1000，與音訊版相同）；390x844 手機上第一個模式選項從 645 px 開始，會被原站固定在底部、可關閉的 Backer Plan 橫幅遮住一部分。Playwright WebKit 不等於 Safari：真機 Safari 的影片內嵌播放、全螢幕與主機端 Range 請求尚待測試。
 - **已部署**：未執行。**尚待外部條件**：同下方第 4 節；另外真實影像串流的形式（HLS 或嵌入式播放器）尚未決定（M2）。

@@ -1,6 +1,26 @@
 # E2E results (Playwright harness, M1)
 
-## Latest run: 2026-10-17, commit 6757e6c (video default + audit fixes; the build of ZIP e1464d9e)
+## Latest run: 2026-10-20, commit 593dde1 (silent-Atmos guard, no layout jump, laptop fold; the build of ZIP db4330c1)
+
+Command: `WG_E2E_DEV_PORT=5184 npx playwright test --workers=6` (another project held 5174). Result: **735 passed, 48 skipped,
+0 failed** in 7.2 min, first attempt. The 48 skips are the same expected ones as on 2026-10-17.
+
+New since 2026-10-17:
+- `unsupported-audio.spec.ts`: an Atmos source with E-AC-3 audio (self-generated fixture `tests/fixtures/media/eac3-test.mp4`)
+  in an engine that cannot decode it shows 「目前環境無法播放這個音訊版本」 with 改用耳機 Binaural and 聆聽說明 instead of a
+  silent picture, both with codecs in the type (refused before playback) and with a bare `video/mp4` (caught by the
+  silent-audio guard after 1.5 s of playback); Binaural then plays. In engines that decode it, it plays.
+- `layout.spec.ts`: at 1366x768 and 1280x800 both mode panels and Start are in the first viewport for video events
+  (Start 708-756 / 740-788); the player CLS assertion is now < 0.02 (measured 0).
+- `network.spec.ts`: after a failed switch the error code is shown once (small print), not repeated in the status line.
+- Real Atmos file in the real player: see `atmos-browser-probe.md`.
+
+Earlier runs of 2240cef (same features, before the error-code fix) had 2-14 WebKit playback stalls / timeouts under heavy
+machine load from other projects; each passed when rerun, and this run had none.
+
+---
+
+## Run: 2026-10-17, commit 6757e6c (video default + audit fixes; the build of ZIP e1464d9e)
 
 Command: `npx playwright test --workers=6` (all 4 projects). Windows 11, Node 22.17.0, `@playwright/test` 1.64.0. Result: **711 passed, 48 skipped, 0 failed** in 9.3 min, first attempt, no retry. (The implementer's earlier run of the same code had 7 WebKit "Page crashed" errors under machine load that passed on `--last-failed`; this run had none.)
 

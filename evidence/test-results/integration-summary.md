@@ -1,6 +1,26 @@
 # Integration results (wp-env, real WordPress, M1)
 
-## Latest run: 2026-10-17, commit 6757e6c (video default + audit fixes), wp-env inside WSL2
+## Latest run: 2026-10-20, commit 593dde1, wp-env inside WSL2
+
+| Item | Value |
+|---|---|
+| Result | **183 passed, 1 skipped, 0 failed** in 32.4 min (the skip: lab CWV on WebKit). The previous full run of the same code stopped at one WebKit admin timeout (`admin-events.spec.ts:407`, 240 s) and 39 chained tests did not run; this complete run had no failure. |
+| Clean ZIP install | `npm run test:zip-install` on `wg-live-0.1.0.zip`, 1,483,433 B, SHA-256 `db4330c121d8b112392b332db0b7a84e2c328bfef9d2189a8ea3981a1c4f1d2b` (clean build of 593dde1): ok. The throwaway install now blocks outbound HTTP and answers wordpress.org update checks locally, so core update warnings can no longer fail it at random. |
+
+Lab LCP / CLS on wp-env (Chromium, no throttling, median LCP of 3, max CLS; lab data, not field data):
+
+| Page | Plugin on | Plugin off |
+|---|---|---|
+| Home | LCP 244 ms, CLS 0 | LCP 200 ms, CLS 0 |
+| `/live/` | LCP 344 ms, CLS 0 | LCP 196 ms, CLS 0 |
+| `/live/listen/?wg_event=demo-live` | LCP 384 ms, CLS 0 | LCP 192 ms, CLS 0 |
+
+The CLS of 0.071 (`/live/`) and 0.056 (player) from 2026-10-17 is gone: the unmounted container now reserves about one
+viewport, so the client mount no longer moves the page. The lab test asserts CLS < 0.02 with the plugin on.
+
+---
+
+## Run: 2026-10-17, commit 6757e6c (video default + audit fixes), wp-env inside WSL2
 
 | Item | Value |
 |---|---|
