@@ -43,7 +43,8 @@ export type Action =
   /** The watchdog saw no progress for the grace period while playing. */
   | { type: 'adapter/stalled' }
   | { type: 'retry/wait'; attempt: number; max: number }
-  | { type: 'attempt/failed'; error: PlayerError }
+  /** `restoreGood` (present only for a source that played but was silent): the mode that really played before. */
+  | { type: 'attempt/failed'; error: PlayerError; restoreGood?: ListeningMode | null }
   | { type: 'attempt/play_blocked'; error: PlayerError }
   | { type: 'player/stopped' }
   | { type: 'audio/muted'; muted: boolean }
@@ -218,6 +219,7 @@ export function reduce(state: AppState, action: Action): AppState {
         pendingMode: null,
         loadedMode: null,
         confirmedPlaying: false,
+        ...(action.restoreGood !== undefined ? { lastGoodMode: action.restoreGood, activeMode: action.restoreGood } : {}),
       });
       return next === state ? state : { ...next, capabilities: null };
     }

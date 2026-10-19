@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDemoAdapter } from '../../../src/adapters/demo';
-import { AdapterLoadError, classifyMediaFailure, createNativeMediaAdapter } from '../../../src/adapters/native-media';
+import { AdapterLoadError, classifyMediaFailure, createNativeMediaAdapter, mediaIsSilent } from '../../../src/adapters/native-media';
 import type { AdapterErrorDetail, AdapterEvent, MediaHost, PlaybackAdapter } from '../../../src/types';
 
 const DEMO = { kind: 'demo', url: 'https://cdn.example.test/demo-tone-1.mp3', mimeType: 'audio/mpeg' } as const;
@@ -569,5 +569,157 @@ describe('destroy()', () => {
     void next.load({ ...DEMO, url: nextUrl }, controller.signal);
     expect(media.getAttribute('src')).toBe(nextUrl);
     next.destroy();
+  });
+});
+
+describe('silent-audio guard (plays but decodes no audio)', () => {
+  function playingAt(time: number): ReturnType<typeof collect> {
+    const adapter = createDemoAdapter(host, { volumeSettable: true });
+    const errors = collect(adapter, 'error');
+    void adapter.load(DEMO, controller.signal);
+    setProp(media, 'paused', false);
+    setProp(media, 'seeking', false);
+    setProp(media, 'currentTime', time);
+    return errors;
+  }
+  const tick = (): void => {
+    media.dispatchEvent(new Event('timeupdate'));
+  };
+  /** Move the playhead and fire timeupdate. The first playing tick of a load is the measuring base. */
+  const tickAt = (time: number): void => {
+    setProp(media, 'currentTime', time);
+    tick();
+  };
+  const silentChromium = (): void => {
+    setProp(media, 'webkitAudioDecodedByteCount', 0);
+    setProp(media, 'webkitVideoDecodedByteCount', 48_000);
+  };
+
+  it('audio bytes 0 while video bytes count, after 1.5 s of playback -> unsupported (fatal), media stopped', () => {
+    const errors = playingAt(0.1);
+    silentChromium();
+    tick();
+    expect(errors).toEqual([]);
+    tickAt(1.7);
+    expect(errors).toEqual([['error', { code: 'unsupported', fatal: true }]]);
+    expect(media.pause).toHaveBeenCalled();
+  });
+
+  it('mozHasAudio === false -> unsupported', () => {
+    const errors = playingAt(0.2);
+    setProp(media, 'mozHasAudio', false);
+    tick();
+    tickAt(1.8);
+    expect(errors).toEqual([['error', { code: 'unsupported', fatal: true }]]);
+  });
+
+  it('measures elapsed playback, not the position: a source that starts at 60 s is not judged on its first update', () => {
+    const errors = playingAt(60);
+    silentChromium();
+    tick();
+    tickAt(60.8);
+    expect(errors).toEqual([]);
+    tickAt(61.6);
+    expect(errors).toEqual([['error', { code: 'unsupported', fatal: true }]]);
+  });
+
+  it('a loop or a backwards seek restarts the measurement', () => {
+    const errors = playingAt(0);
+    silentChromium();
+    tick();
+    tickAt(1.0);
+    tickAt(0.2); // looped: the base moves to 0.2
+    tickAt(1.6); // only 1.4 s since the new base
+    expect(errors).toEqual([]);
+    tickAt(1.8);
+    expect(errors).toHaveLength(1);
+  });
+
+  it('no decode counter on the element -> unknown stays unknown, nothing is reported', () => {
+    const errors = playingAt(0.2);
+    tick();
+    tickAt(3);
+    expect(errors).toEqual([]);
+    expect(mediaIsSilent(media)).toBe(false);
+  });
+
+  it('both counters at 0 (WebKit defines them but never counts) -> unknown, nothing is reported', () => {
+    const errors = playingAt(0.2);
+    setProp(media, 'webkitAudioDecodedByteCount', 0);
+    setProp(media, 'webkitVideoDecodedByteCount', 0);
+    tick();
+    tickAt(5);
+    expect(errors).toEqual([]);
+    expect(mediaIsSilent(media)).toBe(false);
+  });
+
+  it('audio counter 0 without a video counter (audio-only element) -> unknown', () => {
+    const errors = playingAt(0.2);
+    setProp(media, 'webkitAudioDecodedByteCount', 0);
+    tick();
+    tickAt(5);
+    expect(errors).toEqual([]);
+  });
+
+  it('audio bytes decoded, or mozHasAudio true -> nothing is reported', () => {
+    const errors = playingAt(0.2);
+    setProp(media, 'webkitAudioDecodedByteCount', 48000);
+    setProp(media, 'webkitVideoDecodedByteCount', 90_000);
+    tick();
+    tickAt(3);
+    expect(errors).toEqual([]);
+    setProp(media, 'mozHasAudio', true);
+    expect(mediaIsSilent(media)).toBe(false);
+  });
+
+  it('waits for 1.5 s of playback, and never judges a paused or seeking element', () => {
+    const errors = playingAt(0);
+    setProp(media, 'webkitAudioDecodedByteCount', 0);
+    setProp(media, 'webkitVideoDecodedByteCount', 1);
+    tick();
+    tickAt(1.2);
+    expect(errors).toEqual([]);
+    setProp(media, 'currentTime', 5);
+    setProp(media, 'paused', true);
+    tick();
+    setProp(media, 'paused', false);
+    setProp(media, 'seeking', true);
+    tick();
+    expect(errors).toEqual([]);
+    setProp(media, 'seeking', false);
+    tick();
+    expect(errors).toHaveLength(1);
+  });
+
+  it('checks once per load: later ticks and a still-silent element do not report twice, a new load re-arms', () => {
+    const adapter = createDemoAdapter(host, { volumeSettable: true });
+    const errors = collect(adapter, 'error');
+    void adapter.load(DEMO, controller.signal);
+    setProp(media, 'paused', false);
+    setProp(media, 'seeking', false);
+    setProp(media, 'webkitAudioDecodedByteCount', 0);
+    setProp(media, 'webkitVideoDecodedByteCount', 1);
+    tickAt(0.1);
+    tickAt(2);
+    tickAt(3);
+    expect(errors).toHaveLength(1);
+    void adapter.load(DEMO, controller.signal);
+    tickAt(0.1); // new base after the re-arm
+    expect(errors).toHaveLength(1);
+    tickAt(2);
+    expect(errors).toHaveLength(2);
+    adapter.destroy();
+  });
+
+  it('an error that already failed the load is not followed by a second report', () => {
+    const errors = playingAt(0.2);
+    setProp(media, 'error', { code: 3 });
+    setProp(media, 'readyState', 1);
+    media.dispatchEvent(new Event('error'));
+    setProp(media, 'webkitAudioDecodedByteCount', 0);
+    setProp(media, 'webkitVideoDecodedByteCount', 1);
+    tick();
+    tickAt(2);
+    expect(errors.map(([, d]) => d?.code)).toEqual(['decode']);
   });
 });

@@ -45,6 +45,35 @@ export class AdapterLoadError extends Error {
 
 const HAVE_METADATA = 1;
 
+/** Playback time after which "no decoded audio" is a verdict, not start-up latency. */
+const SILENT_AUDIO_AFTER_S = 1.5;
+
+/**
+ * Non-standard decode counters (Chromium: webkitAudioDecodedByteCount + webkitVideoDecodedByteCount; Firefox:
+ * mozHasAudio). They are read only to catch the "picture but no sound" case, where a container plays while its
+ * audio codec (for example E-AC-3 in Chrome/Firefox) is not decodable and the element raises neither an error nor
+ * a canPlayType refusal. Feature detection only, and only positive evidence counts:
+ *  - Firefox: mozHasAudio === false.
+ *  - Chromium: audio bytes 0 while video bytes are > 0. Playwright's WebKit (and likely Safari) defines both
+ *    counters but leaves them at 0, so an audio counter of 0 alone proves nothing; the video counter proves the
+ *    engine really counts.
+ * An engine without these properties, or with counters that do not count, stays "unknown" and is never reported.
+ */
+interface AudioDecodeProbe {
+  webkitAudioDecodedByteCount?: unknown;
+  webkitVideoDecodedByteCount?: unknown;
+  mozHasAudio?: unknown;
+}
+
+/** True only when the engine positively says the element decoded no audio. Unknown is false. */
+export function mediaIsSilent(media: HTMLMediaElement): boolean {
+  const probe = media as unknown as AudioDecodeProbe;
+  if (typeof probe.mozHasAudio === 'boolean') return probe.mozHasAudio === false;
+  const audio = probe.webkitAudioDecodedByteCount;
+  const video = probe.webkitVideoDecodedByteCount;
+  return typeof audio === 'number' && audio === 0 && typeof video === 'number' && video > 0;
+}
+
 /** Which adapter currently owns each shared element. */
 const owners = new WeakMap<HTMLMediaElement, object>();
 
@@ -56,6 +85,8 @@ const owners = new WeakMap<HTMLMediaElement, object>();
  *   MediaError 3                              -> decode
  *   MediaError 4 (or play() NotSupportedError, pass 4) with readyState HAVE_NOTHING -> network
  *   MediaError 4 after metadata               -> unsupported
+ * Besides the classification above, a source that plays but decodes no audio is reported `unsupported`
+ * after 1.5 s of playback (onTimeUpdate; only where the engine exposes a decode counter).
  * Anything else is 'unknown'. Native media gives up after the first error, so `fatal` is always true.
  */
 export function classifyMediaFailure(
@@ -114,6 +145,12 @@ export function createNativeMediaAdapter(
   let destroyed = false;
   let hasSource = false;
   let failed = false;
+  /** The silent-audio check runs once per load() (see onTimeUpdate). */
+  let audioChecked = false;
+  /** Position at the first playing timeupdate of this load: the check measures real playback from here. */
+  let audioCheckFrom: number | null = null;
+  /** Position at the previous playing timeupdate, to notice a loop or a backwards seek. */
+  let audioCheckLast = 0;
   let mimeSupported = true;
   let live = false;
   let pending: Pending | null = null;
@@ -164,7 +201,39 @@ export function createNativeMediaAdapter(
   const onMediaError = (): void => {
     fail(classifyMediaFailure(media, media.error ? media.error.code : null, mimeSupported));
   };
+  /**
+   * "Plays but is silent" guard: once the element has really been playing for SILENT_AUDIO_AFTER_S and the
+   * engine reports that it decoded no audio, the source is unsupported here (fatal, the coordinator never
+   * retries it). It rides the element's own timeupdate event: no timer of its own.
+   */
+  const onTimeUpdate = (): void => {
+    if (audioChecked || destroyed || failed || !hasSource || !isActive()) return;
+    if (media.paused || media.seeking) return;
+    // Measure elapsed playback, not the absolute position: a live edge or a resumed source starts far from 0, and
+    // its first timeupdate comes before any audio could have been decoded. A loop or a backwards seek restarts it.
+    const now = media.currentTime;
+    if (audioCheckFrom === null || now < audioCheckLast) {
+      audioCheckFrom = now;
+      audioCheckLast = now;
+      return;
+    }
+    audioCheckLast = now;
+    if (now - audioCheckFrom < SILENT_AUDIO_AFTER_S) return;
+    audioChecked = true;
+    if (!mediaIsSilent(media)) return;
+    fail({ code: 'unsupported', fatal: true });
+    // The coordinator normally destroys this adapter in response, which stops the media. Stop it here too
+    // when nobody did, so a silent picture never keeps running.
+    if (!destroyed && isActive()) {
+      try {
+        media.pause();
+      } catch {
+        // ignore
+      }
+    }
+  };
   const handlers: Array<[string, () => void]> = [
+    ['timeupdate', onTimeUpdate],
     ['playing', () => emit('playing')],
     // A queued 'pause' from a superseded adapter can arrive after play() of the next source:
     // only a real pause (the element is paused now) counts.
@@ -219,6 +288,9 @@ export function createNativeMediaAdapter(
       // A new load() supersedes an unfinished one.
       settle('reject', abortError('Superseded by a newer load.'));
       failed = false;
+      audioChecked = false;
+      audioCheckFrom = null;
+      audioCheckLast = 0;
       hasSource = false;
       live = false;
       attach();

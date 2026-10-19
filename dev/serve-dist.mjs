@@ -14,9 +14,9 @@
 
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { extname, join, resolve } from 'node:path';
+import { basename, extname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { harnessEvents, harnessLinks, injectConfig, injectSiteMock, matchRestUrl, MIME, parseHarnessOptions, ROOT, sendFile, sendRest, serveDemoFile } from './core.mjs';
+import { harnessEvents, harnessLinks, injectConfig, injectSiteMock, localAtmosHook, matchRestUrl, MIME, parseHarnessOptions, ROOT, sendFile, sendRest, serveDemoFile } from './core.mjs';
 import { renderFeaturedCard } from './featured-card.mjs';
 
 export const DEFAULT_PORT = 5175;
@@ -203,6 +203,8 @@ function main() {
     console.error(`serve-dist: ${err instanceof Error ? err.message : String(err)}`);
     return 1;
   }
+  const atmos = localAtmosHook();
+  if (atmos) console.log(`serve-dist: local Atmos test hook ON (${basename(atmos.file)}, ${atmos.mimeType}); see docs/implementation/ATMOS-LOCAL-TEST.md`);
   const server = createDistServer();
   server.listen(port, 'localhost', () => {
     console.log(`serve-dist: ready on http://localhost:${port}/dev/dist/index.html`);

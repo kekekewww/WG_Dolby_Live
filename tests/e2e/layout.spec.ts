@@ -293,20 +293,67 @@ test.describe('video player: stage + head row keeps the mode choice above the fo
     });
   });
 
-  test.describe('desktop 1024x768: the row layout starts at 1024px', () => {
-    test.use({ viewport: { width: 1024, height: 768 } });
+  // The laptop fold: on a short viewport (max-height 900px, from 1024px wide) the stage is sized to the height that
+  // is left and the mode panels are compact, so both panels and the one Start button are fully inside the first
+  // screen. (The fixed site banner of the harness, 80px, still covers the bottom of the screen; it can be dismissed.)
+  for (const vp of [
+    { width: 1280, height: 800 },
+    { width: 1366, height: 768 },
+    { width: 1024, height: 768 },
+  ]) {
+    test.describe(`desktop ${vp.width}x${vp.height}: laptop fold`, () => {
+      test.use({ viewport: vp });
 
-    test('stage left, head right, panels directly below', async ({ page }) => {
-      const p = await gotoPlayer(page);
-      const stage = await box(p.root.locator('.wg-live__stage'));
-      const title = await box(p.title);
-      expect(title.left).toBeGreaterThan(stage.left + stage.width - 1);
-      const first = await box(p.root.locator('.wg-live__mode-card').first());
-      expect(first.top).toBeGreaterThanOrEqual(stage.bottom - 1);
-      expect(first.top).toBeLessThan(768);
-      await expectNoHorizontalScroll(page, 'video 1024');
+      test('stage left, head right, both mode panels and Start fully inside the first viewport', async ({ page }) => {
+        const p = await gotoPlayer(page);
+        await expect(p.view).toHaveAttribute('data-media-kind', 'video');
+        const cards = p.root.locator('.wg-live__mode-card');
+        await expect(cards).toHaveCount(2);
+        const stage = await box(p.root.locator('.wg-live__stage'));
+        const title = await box(p.title);
+        expect(stage.width / stage.height, 'still a 16:9 stage').toBeGreaterThan(1.7);
+        expect(stage.width / stage.height).toBeLessThan(1.85);
+        expect(stage.width, 'the stage stays the hero (at least 420px wide)').toBeGreaterThanOrEqual(419);
+        expect(title.left, 'the head stays right of the stage').toBeGreaterThan(stage.left + stage.width - 1);
+        expect(title.top).toBeLessThan(stage.bottom);
+        for (const card of await cards.all()) {
+          const c = await box(card);
+          expect(c.top, 'panel top is below the stage row').toBeGreaterThanOrEqual(stage.bottom - 1);
+          expect(c.bottom, 'panel fully inside the viewport').toBeLessThanOrEqual(vp.height);
+        }
+        for (const mode of ['binaural', 'atmos'] as const) expect((await box(p.radio(mode))).bottom).toBeLessThanOrEqual(vp.height);
+        const start = await box(p.primary);
+        expect(start.bottom, 'Start fully inside the viewport').toBeLessThanOrEqual(vp.height);
+        // No copy was dropped to get there: the same text is still in the panels and the Start row.
+        for (const card of await cards.all()) {
+          await expect(card.locator('.wg-live__mode-title')).toBeVisible();
+          await expect(card.locator('.wg-live__mode-desc')).toBeVisible();
+          await expect(card.locator('.wg-live__mode-helper')).toBeVisible();
+        }
+        await expect(p.root.locator('.wg-live__mode-legend')).toBeVisible();
+        await expect(p.root.locator('.wg-live__mode-help')).toBeVisible();
+        await expectNoHorizontalScroll(page, `video ${vp.width}`);
+      });
+
+      test('after Start the one control bar is inside the first screen and the stage does not jump', async ({ page }) => {
+        // Clicking Start may scroll the page (the fixed site banner can cover the button), so compare document positions.
+        const docBox = async (locator: Locator): Promise<{ top: number; bottom: number; width: number }> => {
+          const b = await box(locator);
+          const scrollY = await page.evaluate(() => window.scrollY);
+          return { top: b.top + scrollY, bottom: b.bottom + scrollY, width: b.width };
+        };
+        const p = await gotoPlayer(page);
+        const before = await docBox(p.root.locator('.wg-live__stage'));
+        await p.start('binaural');
+        await expect(p.view).toHaveAttribute('data-status', /loading|playing/);
+        const bar = await docBox(p.root.locator('.wg-live__controls'));
+        expect(bar.bottom, 'the bar is inside the first screen').toBeLessThanOrEqual(vp.height);
+        const after = await docBox(p.root.locator('.wg-live__stage'));
+        expect(Math.abs(after.top - before.top)).toBeLessThanOrEqual(1);
+        expect(Math.abs(after.width - before.width)).toBeLessThanOrEqual(1);
+      });
     });
-  });
+  }
 
   test.describe('tablet 768x1024: the stage is full width, under the head', () => {
     test.use({ viewport: { width: 768, height: 1024 } });
@@ -435,7 +482,7 @@ test.describe('audio player: compact cover keeps the mode choice above the fold'
 test.describe('layout stability (lab only)', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('mounting the player does not shift the layout: CLS stays below 0.1 in this harness', async ({ page }) => {
+  test('mounting the player does not shift the layout: CLS stays below 0.02 in this harness', async ({ page }) => {
     // Engines without the 'layout-shift' entry type (the installed Firefox and WebKit) only warn on observe(), which would
     // leave __cls at 0 and pass without measuring anything. Skip there, with the reason on record.
     await page.goto('/dev/index.html');
@@ -459,6 +506,6 @@ test.describe('layout stability (lab only)', () => {
     const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
     test.skip(cls === -1, 'layout-shift is not exposed by this browser');
     test.info().annotations.push({ type: 'cls', description: `player CLS ${cls.toFixed(4)} (lab, dev harness)` });
-    expect(cls).toBeLessThan(0.1);
+    expect(cls).toBeLessThan(0.02);
   });
 });

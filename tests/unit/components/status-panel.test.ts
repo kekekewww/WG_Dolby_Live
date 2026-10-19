@@ -248,10 +248,29 @@ describe('error recovery actions (plan 6.5 - 6.7)', () => {
     const unsupported: PlayerError = { code: 'unsupported', mode: 'binaural', publicCode: 'E-SRC-01' };
     const { panel, onSwitchMode } = build(failed(unsupported));
     expect(panel.heading.textContent).toBe('目前環境無法播放這個音訊版本');
-    expect(actionLabels(panel.el)).toEqual(['切換模式']);
+    expect(actionLabels(panel.el)).toEqual(['切換模式', '聆聽說明']);
     const button = visible(panel.el, '.wg-live__status-actions button')[0] as HTMLElement;
     button.click();
     expect(onSwitchMode).toHaveBeenCalledWith(button);
+  });
+
+  it('offers the help link (spec 6 查看說明) with every unsupported failure, and only then', () => {
+    const atmos: PlayerError = { code: 'unsupported', mode: 'atmos', publicCode: 'E-SRC-01' };
+    const { panel } = build(failed(atmos));
+    const links = visible(panel.el, '.wg-live__status-actions a');
+    expect(links.map((a) => a.textContent)).toEqual(['聆聽說明']);
+    expect((links[0] as HTMLAnchorElement).getAttribute('href')).toBe(LINKS.help);
+    // The mode switch for an Atmos failure is the Binaural fallback (spec 5.4).
+    expect(actionLabels(panel.el)).toContain('改用耳機 Binaural');
+
+    const network: PlayerError = { code: 'network', mode: 'atmos', publicCode: 'E-NET-01' };
+    expect(visible(build(failed(network)).panel.el, '.wg-live__status-actions a')).toEqual([]);
+  });
+
+  it('a failed switch to an unsupported Atmos keeps 重新載入 of the last good mode next to the help link', () => {
+    const atmos: PlayerError = { code: 'unsupported', mode: 'atmos', publicCode: 'E-SRC-01' };
+    const { panel } = build(failed(atmos, { player: { lastGoodMode: 'binaural' } }));
+    expect(actionLabels(panel.el)).toEqual(['重新載入Binaural', '改用耳機 Binaural', '聆聽說明']);
   });
 
   it('ignores a click on 切換模式 while it is aria-disabled (click guard, never `disabled`)', () => {

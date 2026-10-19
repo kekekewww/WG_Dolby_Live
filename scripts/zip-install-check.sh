@@ -37,13 +37,34 @@ docker exec -u 0 "$WPC" sh -c "mkdir -p $DIR/wp-content/plugins && cd /var/www/h
 SRC=$ZIP
 if command -v cygpath >/dev/null 2>&1; then SRC=$(cygpath -w "$ZIP"); fi
 docker cp "$SRC" "$WPC:$DIR/wg-live.zip"
+# Core's update checks (wp_version_check / wp_update_plugins / wp_update_themes) run during WP-CLI install and list and
+# log a PHP warning whenever wordpress.org is unreachable, which made this check flaky. Answer those requests locally
+# with an empty 200, so core never touches the network. Every other outbound request stays blocked
+# (WP_HTTP_BLOCK_EXTERNAL below), so the plugin under test still has to work offline.
+docker exec -i -u 0 "$WPC" sh -c "mkdir -p $DIR/wp-content/mu-plugins && cat > $DIR/wp-content/mu-plugins/zipcheck-offline.php" <<'PHP'
+<?php
+add_filter(
+	'pre_http_request',
+	static function ( $pre, $args, $url ) {
+		$host = (string) wp_parse_url( (string) $url, PHP_URL_HOST );
+		if ( 'api.wordpress.org' === $host || 'downloads.wordpress.org' === $host ) {
+			return array( 'headers' => array(), 'body' => '', 'response' => array( 'code' => 200, 'message' => 'OK' ), 'cookies' => array(), 'filename' => null );
+		}
+		return $pre;
+	},
+	10,
+	3
+);
+PHP
 docker exec -u 0 "$WPC" chown -R "$CLI_UID" "$DIR"
 
 docker exec -i "$CLI" sh -s <<SH
 set -e
 cd $DIR
 P=/var/www/html
-printf "%s\n" "define( 'WP_DEBUG', true );" "define( 'WP_DEBUG_LOG', '$DIR/debug.log' );" "define( 'WP_DEBUG_DISPLAY', false );" "define( 'WP_ENVIRONMENT_TYPE', 'production' );" \
+# No outbound HTTP and no auto-updates: core's wordpress.org update checks otherwise write network warnings to debug.log
+# (seen as flaky FAILs), and the plugin itself must not need the network to install, activate or serve its pages.
+printf "%s\n" "define( 'WP_DEBUG', true );" "define( 'WP_DEBUG_LOG', '$DIR/debug.log' );" "define( 'WP_DEBUG_DISPLAY', false );" "define( 'WP_ENVIRONMENT_TYPE', 'production' );" "define( 'WP_HTTP_BLOCK_EXTERNAL', true );" "define( 'AUTOMATIC_UPDATER_DISABLED', true );" \
   | wp config create --dbname=$DB --dbuser="\$(wp config get DB_USER --path=\$P)" --dbpass="\$(wp config get DB_PASSWORD --path=\$P)" --dbhost="\$(wp config get DB_HOST --path=\$P)" --skip-check --extra-php >/dev/null
 wp db create >/dev/null
 PASS=\$(head -c 18 /dev/urandom | od -An -tx1 | tr -d ' \n')

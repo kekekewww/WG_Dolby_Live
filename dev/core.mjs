@@ -23,7 +23,8 @@ import { basename, extname, resolve } from 'node:path';
 /** @typedef {import('../src/types.ts').CompatibilityRow} CompatibilityRow */
 
 export const ROOT = resolve(import.meta.dirname, '..');
-const DEMO_DIRS = [resolve(ROOT, 'plugin/wg-live/assets/demo'), resolve(ROOT, 'dev/assets')];
+// tests/fixtures/media holds the self-generated E-AC-3 test clip (tests/e2e/unsupported-audio.spec.ts); the harness only.
+const DEMO_DIRS = [resolve(ROOT, 'plugin/wg-live/assets/demo'), resolve(ROOT, 'dev/assets'), resolve(ROOT, 'tests/fixtures/media')];
 
 /** The pretty-permalink REST root, as rest_url('wg-live/v1/') prints it. */
 export const REST_ROOT = '/wp-json/wg-live/v1/';
@@ -38,6 +39,35 @@ export const DEMO_MIME = 'audio/mpeg';
 /** Per-mode demo files for video events, the default media kind (M1-PLAN D7). */
 export const DEMO_VIDEO_FILES = /** @type {const} */ ({ binaural: '/demo/demo-video-1.mp4', atmos: '/demo/demo-video-2.mp4' });
 export const DEMO_VIDEO_MIME = 'video/mp4';
+
+/* ------------------------------------------------------------------ */
+/* Local Atmos test hook (dev only, never shipped)                     */
+/* ------------------------------------------------------------------ */
+
+/** Fixed URL under which the hook serves the file (docs/implementation/ATMOS-LOCAL-TEST.md). */
+export const LOCAL_ATMOS_URL = '/demo/local-atmos.mp4';
+export const LOCAL_ATMOS_DEFAULT_TYPE = 'video/mp4; codecs="avc1.640028, ec-3"';
+/** The harness event whose ATMOS descriptor the hook replaces. */
+const LOCAL_ATMOS_EVENT_SLUG = 'demo-live-binaural-atmos';
+
+/**
+ * `WG_DEV_ATMOS_FILE` points to an existing file -> the live demo event's ATMOS mode plays that file, streamed
+ * with Range support from where it is (never read whole, never copied). `WG_DEV_ATMOS_TYPE` sets the MIME type
+ * the descriptor reports (default: H.264 + E-AC-3 with codecs, so canPlayType can judge it). Unset or not a
+ * file -> null and the harness behaves exactly as before.
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {{ file: string, mimeType: string } | null}
+ */
+export function localAtmosHook(env = process.env) {
+  const file = env.WG_DEV_ATMOS_FILE;
+  if (!file) return null;
+  try {
+    if (!statSync(file).isFile()) return null;
+  } catch {
+    return null;
+  }
+  return { file: resolve(file), mimeType: env.WG_DEV_ATMOS_TYPE || LOCAL_ATMOS_DEFAULT_TYPE };
+}
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
@@ -377,10 +407,10 @@ export function entitlementFor(event) {
 
 /**
  * Mirrors Playback_Provider::resolve in the order of M1-PLAN section 5.1.
- * @param {{ disabled: boolean, event: PublicEvent | undefined, mode: ListeningMode }} input
+ * @param {{ disabled: boolean, event: PublicEvent | undefined, mode: ListeningMode, env?: Record<string, string | undefined> }} input
  * @returns {PlaybackSource}
  */
-export function resolvePlayback({ disabled, event, mode }) {
+export function resolvePlayback({ disabled, event, mode, env = process.env }) {
   if (disabled) return { kind: 'not_ready', reason: 'disabled' }; // 1
   if (!event) return { kind: 'not_ready', reason: 'event_not_found' }; // 2
   if (!event.availableModes.includes(mode)) return { kind: 'not_ready', reason: 'mode_unavailable' }; // 3
@@ -388,6 +418,11 @@ export function resolvePlayback({ disabled, event, mode }) {
   if (!(event.isDemo && event.sourceKind === 'demo')) return { kind: 'not_ready', reason: 'source_not_configured' }; // 5
   if (!event.isDemo && event.status !== 'live' && event.status !== 'intermission') {
     return { kind: 'not_ready', reason: 'event_not_playable' }; // 6 (demo events skip it)
+  }
+  // 7a: dev-only local Atmos file for the live demo event (hook above; unset = nothing changes).
+  if (mode === 'atmos' && event.slug === LOCAL_ATMOS_EVENT_SLUG) {
+    const local = localAtmosHook(env);
+    if (local) return { kind: 'demo', url: LOCAL_ATMOS_URL, mimeType: local.mimeType };
   }
   // 7: the bundled demo file of the event's media kind (video is the default, like the PHP provider).
   if (event.mediaKind === 'audio') return { kind: 'demo', url: DEMO_FILES[mode], mimeType: DEMO_MIME };
@@ -506,10 +541,11 @@ export const MIME = {
  * @param {import('node:http').IncomingMessage} req
  * @param {import('node:http').ServerResponse} res
  * @param {string} file absolute path (already validated by the caller)
+ * @param {string} [contentType] overrides the type derived from the extension
  */
-export function sendFile(req, res, file) {
+export function sendFile(req, res, file, contentType) {
   const size = statSync(file).size;
-  res.setHeader('Content-Type', MIME[extname(file).toLowerCase()] ?? 'application/octet-stream');
+  res.setHeader('Content-Type', contentType ?? MIME[extname(file).toLowerCase()] ?? 'application/octet-stream');
   res.setHeader('Accept-Ranges', 'bytes');
   res.setHeader('Cache-Control', 'no-store');
 
@@ -547,8 +583,9 @@ export function sendFile(req, res, file) {
  * @param {import('node:http').IncomingMessage} req
  * @param {import('node:http').ServerResponse} res
  * @param {URL} url
+ * @param {Record<string, string | undefined>} [env] where the local Atmos hook reads its settings
  */
-export function serveDemoFile(req, res, url) {
+export function serveDemoFile(req, res, url, env = process.env) {
   let name;
   try {
     name = basename(decodeURIComponent(url.pathname.slice('/demo/'.length)));
@@ -558,6 +595,16 @@ export function serveDemoFile(req, res, url) {
   if (!/^[A-Za-z0-9._-]+$/.test(name)) {
     res.statusCode = 400;
     res.end('Bad file name');
+    return;
+  }
+  if (url.pathname === LOCAL_ATMOS_URL) {
+    const local = localAtmosHook(env);
+    if (!local) {
+      res.statusCode = 404;
+      res.end('Not found');
+      return;
+    }
+    sendFile(req, res, local.file, local.mimeType.split(';')[0]?.trim() || DEMO_VIDEO_MIME);
     return;
   }
   const file = DEMO_DIRS.map((d) => resolve(d, name)).find((p) => existsSync(p) && statSync(p).isFile());

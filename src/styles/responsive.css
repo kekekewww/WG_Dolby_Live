@@ -48,6 +48,7 @@
 @media (min-width: 768px) {
   .wg-live .wg-live__skeleton--player {
     min-height: 480px;
+    min-height: clamp(480px, calc(100svh - 120px), 960px);
   }
 }
 
@@ -55,6 +56,7 @@
 @media (min-width: 1024px) {
   .wg-live .wg-live__skeleton--events {
     min-height: 480px;
+    min-height: clamp(480px, calc(100svh - 120px), 960px);
   }
 }
 

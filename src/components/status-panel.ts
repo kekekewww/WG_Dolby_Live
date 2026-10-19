@@ -212,7 +212,9 @@ export function createStatusPanel(options: StatusPanelOptions): StatusPanel {
       backToEvents.classList.toggle('wg-live__btn--primary', gate.kind === 'ended');
     }
     if (contact) contact.hidden = gate.kind !== 'cancelled' && gate.kind !== 'disabled';
-    if (help) help.hidden = gate.kind !== 'scheduled';
+    // Spec 6 「不支援來源」: 切換模式 (the actions above) and 查看說明. Initial start and failed switch alike.
+    const unsupported = state.player.status === 'failed' && error !== null && error.code === 'unsupported';
+    if (help) help.hidden = gate.kind !== 'scheduled' && !unsupported;
     if (home) home.hidden = gate.kind !== 'disabled';
 
     actions.hidden = Array.from(actions.children).every((child) => (child as HTMLElement).hidden);

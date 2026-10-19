@@ -468,14 +468,17 @@ test.describe('lab Core Web Vitals on wp-env (spec 13.4: the site and the plugin
     mkdirSync(EVIDENCE_DIR, { recursive: true });
     writeFileSync(join(EVIDENCE_DIR, `lab-cwv-${testInfo.project.name}.json`), JSON.stringify({ kind: 'lab data, not field data', runs: RUNS, ...result }, null, 2));
 
-    // Sane bounds only: an LCP happened and is finite, and the plugin does not push CLS over the 0.1 "good" line.
+    // Sane bounds for LCP (it happened and is finite). CLS with the plugin on must be near zero, not just "good" (< 0.1): the skeleton
+    // reserves about one viewport (src/styles/base.css), so the site footer is never pushed out of the first screen at mount.
+    // Before that change this measured 0.05-0.07 on /live/ and the player page; now 0.000 on every sample. 0.02 leaves room
+    // for the theme's own header jitter (a 0.03 shift of the Astra header was seen once in about 20 samples of the guide page).
     for (const { name } of PAGES) {
       for (const state of ['on', 'off'] as const) {
         const m = result[state][name] as { lcpMedianMs: number; clsMax: number };
         expect(m.lcpMedianMs, `${name} (${state}) has an LCP`).toBeGreaterThan(0);
         expect(m.lcpMedianMs, `${name} (${state}) LCP is finite and below a 30 s sanity ceiling`).toBeLessThan(30_000);
       }
-      expect((result.on[name] as { clsMax: number }).clsMax, `${name} CLS with the plugin on`).toBeLessThan(0.1);
+      expect((result.on[name] as { clsMax: number }).clsMax, `${name} CLS with the plugin on`).toBeLessThan(0.02);
     }
   });
 });

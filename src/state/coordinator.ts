@@ -92,6 +92,8 @@ interface Current {
   /** Failure already classified for this attempt (a media `error` and a play() rejection count once). */
   errorHandled: boolean;
   hasPlayed: boolean;
+  /** lastGoodMode when this attempt began: what "last mode that actually played" means if the source turns out silent. */
+  prevGood: ListeningMode | null;
   stalled: boolean;
   loadStartedAt: number;
   lastTime: number;
@@ -451,15 +453,23 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
       scheduleRetry(cur);
       return;
     }
-    terminalFailure(cur.ctx.mode, code, variant);
+    // A source that already reported `playing` but turns out to be silent (adapter guard) never was "good":
+    // lastGoodMode and 目前播放 go back to what played before this attempt, as for any failed switch.
+    const silent = code === 'unsupported' && cur.hasPlayed;
+    terminalFailure(cur.ctx.mode, code, variant, silent ? { restoreGood: cur.prevGood } : undefined);
   }
 
-  function terminalFailure(mode: ListeningMode, code: PlayerErrorCode, variant: FailureVariant): void {
+  function terminalFailure(
+    mode: ListeningMode,
+    code: PlayerErrorCode,
+    variant: FailureVariant,
+    restore?: { restoreGood: ListeningMode | null },
+  ): void {
     clearRetry();
     teardownCurrent();
     failureOrigin = 'attempt';
     const error: PlayerError = { code, mode, publicCode: publicErrorCode(code, variant) };
-    dispatch({ type: 'attempt/failed', error });
+    dispatch(restore ? { type: 'attempt/failed', error, restoreGood: restore.restoreGood } : { type: 'attempt/failed', error });
   }
 
   function blockedPlay(cur: Current): void {
@@ -627,6 +637,7 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
       offs: [],
       errorHandled: false,
       hasPlayed: false,
+      prevGood: state.player.lastGoodMode,
       stalled: false,
       loadStartedAt: t,
       lastTime: host.media.currentTime,

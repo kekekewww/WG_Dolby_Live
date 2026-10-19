@@ -45,11 +45,14 @@ Measured in the harness (`/dev/listen.html?wg_event=demo-live-binaural-atmos&chr
 | Viewport | Stage (x, y, size) | Head | Mode panels (top-bottom) | Start (top-bottom) |
 | --- | --- | --- | --- | --- |
 | 1440x1000 | 160, 121, 672x378 | 171-449, right of the stage | 573-798 (both) | 871-919 (the fixed site banner starts at 920) |
-| 1280x800 | 80, 121, 673x379 | 171-450 | 574-798 | 871-919 (below the fold at 800) |
-| 1024x768 | 20, 121, 593x333 | 148-427 | 528-782 | 855-903 |
+| 1366x768 | 123, 121, 567x319 | 141-420 | 491-659 | 708-756 (inside the viewport; the fixed site banner starts at 688) |
+| 1280x800 | 80, 121, 624x351 | 157-436 | 523-691 | 740-788 (inside the viewport; the fixed site banner starts at 720) |
+| 1024x768 | 20, 121, 523x294 | 129-408 | 466-660 | 708-756 (inside the viewport; banner at 688) |
 | 768x1024 | 20, 118, 728x410 (stacked) | 528-765 | 867-1151 (top inside the viewport; banner is 80 px here, so it starts at 944 and about 77 px of the panel shows) | 1232-1280 |
 | 390x844 | 20, 392, 350x197 (under the title) | 118-392 | 645-888 / 904-1147 (first top is inside the viewport, but the 190 px banner starts at 654, so about 9 px shows) | 1228-1280 |
 | 360x800 | 20, 392, 320x180 | 118-392 | 628-871 / 887-1130 (inside the viewport rectangle but fully covered by the 190 px banner, which starts at 610) | 1211-1263 |
+
+Laptop fold (2026-10-20): at 1280x800 Start was at 871-919 and at 1366x768 it was no better, so below the first screen. Under `@media (min-width: 1024px) and (max-height: 900px)` the stage column is sized to the viewport height that is left (`100vh` minus a 449px reserve, 474px below 1200px wide: the site header about 120px plus the compact panels about 316px; never narrower than 420px, never wider than the 62.3% column it has on a tall screen) and the mode panels, legend and help link use tighter padding and line height (panel 225 px to 168 px high at 1280). No copy was removed and the phone order is unchanged; 1440x1000 does not match the query and keeps the roomy layout. Both panels and Start are now fully inside the first viewport at 1366x768, 1280x800 and 1024x768. What is still not met: the harness's fixed bottom banner (80 px, the live site's Backer Plan bar, dismissible) starts above the Start button at these heights (688 at 768, 720 at 800), so Start is inside the viewport but covered by the banner until it is dismissed or the page is scrolled; getting Start above the banner would need a stage under 420 px wide (head 279 px tall) and was judged a worse trade. Gates: `tests/e2e/layout.spec.ts` (laptop fold cases for 1280x800, 1366x768, 1024x768). Screenshots: `evidence/screenshots/video/{1366x768,1280x800,1024x768}-*.png`.
 
 At 1440x1000 both panels and Start were at 1090 and 1396 before; they are now fully inside the first viewport and above the site's fixed bottom banner. After Start the dark bar is at 531-611 (stage bottom 499). Gates: `tests/e2e/layout.spec.ts` (video and audio blocks) and `tests/e2e/video.spec.ts`.
 

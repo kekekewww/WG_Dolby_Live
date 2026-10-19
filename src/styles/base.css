@@ -423,7 +423,12 @@
   gap: var(--wg-space-1) 28px;
 }
 
-/* ---- mount + skeleton: fixed heights keep layout shift near zero ---- */
+/* ---- mount + skeleton: reserved height keeps layout shift near zero ----
+ * The skeleton is replaced by a view that is taller than any viewport (the player, the guide, a list of events).
+ * What shifts then is the page below it (the site footer): if the footer is visible while the skeleton is up, it is
+ * pushed out of the viewport at mount, and that counts as layout shift (lab CLS 0.05-0.07). So the skeleton reserves
+ * about one viewport of height (minus the site header, whatever the width), which keeps the footer below the fold
+ * before and after the mount. The first declaration of each pair is the fallback for engines without svh units. */
 .wg-live .wg-live__mount {
   display: block;
   min-width: 0;
@@ -437,16 +442,15 @@
   animation: wg-live-skeleton-pulse 1.6s ease-in-out infinite;
 }
 
-.wg-live .wg-live__skeleton--events {
-  min-height: 560px;
-}
-
+.wg-live .wg-live__skeleton--events,
 .wg-live .wg-live__skeleton--player {
   min-height: 560px;
+  min-height: clamp(560px, calc(100svh - 120px), 960px);
 }
 
 .wg-live .wg-live__skeleton--help {
   min-height: 480px;
+  min-height: clamp(480px, calc(100svh - 120px), 960px);
 }
 
 @keyframes wg-live-skeleton-pulse {

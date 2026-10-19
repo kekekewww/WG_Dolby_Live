@@ -282,6 +282,39 @@ describe('PS-3 / UI-03: the switch_mode action', () => {
   });
 });
 
+describe('silent source: playing, then reported unsupported by the adapter guard', () => {
+  it('a first start that played silently ends failed with no last good mode, no retry and a stopped adapter', async () => {
+    const h = await make();
+    const adapter = await startPlaying(h, 'atmos');
+    expect(h.state().player).toMatchObject({ status: 'playing', lastGoodMode: 'atmos' });
+    adapter.emit('error', { code: 'unsupported', fatal: true });
+    const s = h.state();
+    expect(s.player).toMatchObject({ status: 'failed', lastGoodMode: null, activeMode: null, confirmedPlaying: false });
+    expect(s.player.error).toMatchObject({ code: 'unsupported', mode: 'atmos', publicCode: 'E-SRC-01' });
+    expect(s.player.retry).toBeNull();
+    expect(selectErrorActions(s)).toEqual(['fallback_binaural']);
+    await h.advance(60_000);
+    expect(h.state().player.status).toBe('failed'); // no endless retry
+    expect(h.alive.size).toBe(0);
+  });
+
+  it('a switch that played silently keeps the previous mode as last good (目前播放 does not move to the silent one)', async () => {
+    const h = await make();
+    await startPlaying(h, 'binaural');
+    await prepare(h, 'atmos');
+    void h.controller.switchMode('atmos');
+    await h.flush();
+    h.last().emit('playing');
+    expect(h.state().player.lastGoodMode).toBe('atmos');
+    h.last().emit('error', { code: 'unsupported', fatal: true });
+    const s = h.state();
+    expect(s.player).toMatchObject({ status: 'failed', lastGoodMode: 'binaural', activeMode: 'binaural', confirmedPlaying: false });
+    expect(s.player.error?.mode).toBe('atmos');
+    expect(selectErrorActions(s)).toEqual(['reload_last_good', 'fallback_binaural']);
+    expect(h.alive.size).toBe(0);
+  });
+});
+
 describe('PS-6: retry and reload respect the gate and the entitlement', () => {
   async function failedWithGuest(h: Harness): Promise<void> {
     await startPlaying(h, 'binaural');
