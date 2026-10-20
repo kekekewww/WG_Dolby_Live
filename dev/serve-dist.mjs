@@ -8,7 +8,7 @@
 // from build-info.json; nothing is bundled or transformed here. The mock REST and the /demo/* files
 // are the same as in the Vite dev harness (dev/core.mjs).
 //
-//   npm run build && node dev/serve-dist.mjs [--port 5175]
+//   npm run build && node dev/serve-dist.mjs [--port 5175] [--host <LAN address>]
 //
 // Exit codes: 0 = stopped, 1 = no build output / bad usage.
 
@@ -185,12 +185,21 @@ export function createDistServer() {
 function main() {
   const args = process.argv.slice(2);
   let port = Number(process.env.PORT) || DEFAULT_PORT;
+  let host = 'localhost';
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--port' && args[i + 1]) port = Number(args[++i]);
+    // Opt-in: listen on a LAN address so phones and tablets on the same network can open the demo.
+    else if (args[i] === '--host' && args[i + 1]) host = args[++i];
     else {
-      console.error('usage: node dev/serve-dist.mjs [--port <n>]');
+      console.error('usage: node dev/serve-dist.mjs [--port <n>] [--host <address>]');
       return 1;
     }
+  }
+  const loopback = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  if (!loopback && localAtmosHook()) {
+    // The local Atmos file is the studio's master: never serve it beyond this machine.
+    console.error('serve-dist: refusing --host with WG_DEV_ATMOS_FILE set (the local Atmos file stays on this machine)');
+    return 1;
   }
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     console.error(`serve-dist: invalid port ${port}`);
@@ -206,8 +215,8 @@ function main() {
   const atmos = localAtmosHook();
   if (atmos) console.log(`serve-dist: local Atmos test hook ON (${basename(atmos.file)}, ${atmos.mimeType}); see docs/implementation/ATMOS-LOCAL-TEST.md`);
   const server = createDistServer();
-  server.listen(port, 'localhost', () => {
-    console.log(`serve-dist: ready on http://localhost:${port}/dev/dist/index.html`);
+  server.listen(port, host, () => {
+    console.log(`serve-dist: ready on http://${host}:${port}/dev/dist/index.html`);
   });
   const stop = () => server.close(() => process.exit(0));
   process.on('SIGINT', stop);
