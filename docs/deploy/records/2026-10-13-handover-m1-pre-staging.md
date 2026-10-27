@@ -4,14 +4,15 @@
 
 四組分開列出，不能混寫：已實作、已測試、已部署、尚待外部條件。**M1 不是「付費直播已安全上線」**：沒有真實票券檢查、播放授權、串流保護，也沒有真實設備上的 Binaural／Atmos 驗證（M2）。
 
-## 2026-10-27 更新：正式站部署步驟 1–9
+## 2026-10-27 更新：正式站部署步驟 1–10
 
-- **已部署（步驟 9）**：Live、Listen、Listening Guide 三頁 2026-10-27 23:36 發布，網址 https://sounds.wgstudiomusic.com/live/、/live/listen/、/live/help/。導覽選單與首頁尚未連到它們（步驟 10）。登出檢查與連結驗收見 [links-production-2026-10-27.md](../../../evidence/test-results/links-production-2026-10-27.md)。
+- **已部署（步驟 10，2026-10-28 00:05）**：主選單在 Video 與 Blog 之間加入 Live；首頁在 Music 之後加入 Live 區塊，顯示精選的示範活動卡。修改前保存了 Elementor 範本「首頁備份 2026-10-28」（ID 980）與 revision 947。
+- **已部署（步驟 9）**：Live、Listen、Listening Guide 三頁 2026-10-27 23:36 發布，網址 https://sounds.wgstudiomusic.com/live/、/live/listen/、/live/help/。登出檢查與連結驗收見 [links-production-2026-10-27.md](../../../evidence/test-results/links-production-2026-10-27.md)。
 
 - **已部署**：正式站 https://sounds.wgstudiomusic.com/ 已安裝並啟用 wg-live 0.1.0（下方 10-20 節的 ZIP，SHA-256 `db4330c1…1c4f1d2b`），部署模式 `demo`，有一場已發布的示範活動 `interface-demo`（ID 978，標示「介面示範」，設為精選活動），聯絡連結指向本站 Contact 頁。部署前用 UpdraftPlus 做了檔案＋資料庫備份（2026-10-27 22:16）。沒有 staging，部署者決定直接上正式站。三個頁面 Live（972）、Listen（973）、Listening Guide（974）已建立為**草稿**並綁定到設定（Elementor Full Width 範本，110 px 頂部留白避開透明頁首，標題用 H1）；前台沒有公開的頁面、選單或區塊。
 - **已測試**：「部署資訊」的版本、commit 與三個 SHA-256 和本機 `build-info.json` 一致；環境 `production`、開發面板關閉；登出狀態的公開活動 API 回應空列表；部署前後版面與效能比對沒有發現外掛造成的變化。
 - **已測試（步驟 8，草稿預覽）**：Brave 桌面版實際播放 Binaural（示範影片 1）並切換到 Dolby Atmos 音軌（示範影片 2），切換後從頭播放、頁面只有一個 `<video>`；390 px 與 569 px 寬度沒有橫向捲動、內容不被頁首遮住。不是真機 Safari，也不是 Atmos 聽感驗證。
-- **尚待外部條件**：步驟 10–13（逐步等部署者核可）、授權人書面授權、回復負責人、示範活動海報（核可圖片）、實際手機 smoke test。
+- **尚待外部條件**：步驟 11–13（逐步等部署者核可，含實際手機 smoke test）、授權人書面授權、回復負責人、示範活動海報（核可圖片）、實際手機 smoke test。
 - 完整紀錄：[2026-10-27-production-0.1.0.md](2026-10-27-production-0.1.0.md)。
 
 ## 2026-10-20 更新：Atmos 無聲防護、版面跳動、筆電首屏（commit `593dde1`）

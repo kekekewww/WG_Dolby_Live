@@ -2,7 +2,7 @@
 
 依 [DEPLOY-RECORD.md](../DEPLOY-RECORD.md) 模板填寫；部署步驟見 [PRODUCTION.md](../PRODUCTION.md)。
 
-**狀態：進行中。** 第 4 節的 13 個部署步驟中，步驟 1–7 已完成：備份、上傳、啟用、建立三個草稿頁面、綁定 Page ID、設定聯絡連結，以及建立示範活動並切到 `demo`。步驟 8（草稿預覽：桌面與手機寬度、兩種模式實際播放與切換）與步驟 9（發布三頁，2026-10-27 23:36）也已完成。三頁已公開，但導覽選單與首頁還沒有連到它們（步驟 10）。之後每一步都要部署者在對話中逐步核可；完成後更新本檔，不另開新檔。
+**狀態：進行中。** 第 4 節的 13 個部署步驟中，步驟 1–7 已完成：備份、上傳、啟用、建立三個草稿頁面、綁定 Page ID、設定聯絡連結，以及建立示範活動並切到 `demo`。步驟 8（草稿預覽：桌面與手機寬度、兩種模式實際播放與切換）、步驟 9（發布三頁，2026-10-27 23:36）與步驟 10（主選單加入 Live、首頁加入 Live 區塊，2026-10-27 23:50 至 2026-10-28 00:05）也已完成。之後每一步都要部署者在對話中逐步核可；完成後更新本檔，不另開新檔。
 
 ## 0. 進度（PRODUCTION.md 第 4 節）
 
@@ -17,7 +17,8 @@
 | 7 | 建立示範活動並切到 `demo`，選取精選活動 | 完成：活動 `interface-demo`（ID 978）已發布；部署模式 `demo`；精選活動 978。部署者在對話中同意公開示範（REST 會公開示範活動的公開欄位） | 2026-10-27 22:55–23:00 |
 | 8 | 草稿預覽檢查 | 完成：桌面結構檢查、兩種模式實際播放與切換、569 px 與 390 px 寬度（見第 3 節） | 2026-10-27 23:01–23:15 |
 | 9 | 依序發布 Live、Listen、Help，發布後立刻以登出視窗檢查 | 完成：972 → 973 → 974 publish；登出檢查通過（見第 3 節與連結驗收表） | 2026-10-27 23:36–23:42 |
-| 10–13 | 導覽與首頁區塊、清快取、smoke test、紀錄 | 未執行 | |
+| 10 | 導覽與首頁連結，不覆寫全站選單 | 完成：主選單 MainNav.20240309a 在 Video 與 Blog 之間加入 Live（頁面項目）；首頁在 Music 之後加入 Live 區塊（`[wg_live_featured heading="h3"]`）。修改前已保存首頁範本、版本與截圖（見第 4 節） | 2026-10-27 23:50 – 2026-10-28 00:05 |
+| 11–13 | 清快取、smoke test（含實際手機）、紀錄 | 未執行 | |
 
 ## 1. 基本資料
 
@@ -26,7 +27,7 @@
 | 紀錄類型 | ☑ 首次部署　☐ 更新　☐ 回復 |
 | 環境 | ☐ staging　☑ 正式站 |
 | 網站網址（公開網址） | https://sounds.wgstudiomusic.com/ |
-| 部署日期與時間（含時區） | 2026-10-27 22:14–23:45（Asia/Taipei，UTC+8） |
+| 部署日期與時間（含時區） | 2026-10-27 22:14 – 2026-10-28 00:10（Asia/Taipei，UTC+8） |
 | 部署者 | Kevin Yang（Git：Kevin_Yang_tw；WordPress 管理員帳號 #18）。Claude Code 透過 Claude in Chrome 代為點選，每一個寫入動作都經部署者在權限提示中逐一核可。 |
 | 授權人與授權方式（誰、何時、範圍；附連結或檔名） | 部署者 2026-10-27 在對話中確認：沒有 staging，直接安裝到正式站並維持 `disabled`；先做檔案＋資料庫備份。管理員帳號由網站建置者開立。**待補**：錄音室負責人的書面授權（PRODUCTION.md 第 1 節第 1 項）。 |
 | 回復負責人 | 待指定 |
@@ -53,7 +54,9 @@
 | staging 通過紀錄 | 未執行：沒有 staging 環境。部署者決定直接上正式站並維持 `disabled`（2026-10-27）。 | — |
 | 自動化測試（單元／e2e／整合；沒跑的寫「未執行」） | 本機 2026-10-20，對應同一個 commit 與 ZIP：單元 1200 通過；`lint:php` 通過；e2e 735 passed、48 skipped、0 failed；WSL2 wp-env 整合 183 passed、1 skipped；ZIP 乾淨安裝檢查通過。 | [2026-10-13-handover-m1-pre-staging.md](2026-10-13-handover-m1-pre-staging.md) 2026-10-20 節、[e2e-summary.md](../../../evidence/test-results/e2e-summary.md)、[integration-summary.md](../../../evidence/test-results/integration-summary.md) |
 | 人工裝置測試 | 未執行（由人工填寫） | `evidence/test-results/manual-devices.md` |
-| 連結驗收 | 步驟 9 後，登出、桌面 1440 與 390 寬手機模擬：第 4、6、7、11、14、15 列通過，第 8 列桌面通過；第 1–3、9 列與第 8 列手機尚待測試（大多等步驟 10）；第 5、10、12、13 列目前不適用。沒有失敗列。 | [links-production-2026-10-27.md](../../../evidence/test-results/links-production-2026-10-27.md) |
+| 連結驗收 | 步驟 9、10 後，登出、桌面 1440 與 390 寬手機模擬：第 1–4、6、7、11、14、15 列通過，第 8 列桌面通過；第 8 列手機與第 9 列尚待測試；第 5、10、12、13 列目前不適用。沒有失敗列。 | [links-production-2026-10-27.md](../../../evidence/test-results/links-production-2026-10-27.md) |
+| 導覽選單（步驟 10） | 登出：桌面 1440 寬頁首為 Homepage｜Biography｜Video｜Live｜Blog｜Contact｜Store，單行不換行，Logo 寬 180 px 不變；點 Live → `/live/`，Live 標示為目前頁面。390 寬手機：選單按鈕打開側邊選單，Live 在 Video 與 Blog 之間，點擊 → `/live/`；選單可再關閉（`aria-expanded` true → false）。 | `evidence/screenshots/production-nav-2026-10-27/header-desktop.jpg`、`menu-phone-open.jpg` |
+| 首頁 Live 區塊（步驟 10） | 登出，桌面與 390 寬：首頁章節順序為 Hero、Biography、Music、**Live**、（Portfolio 隱藏）、Store、Topics、Get in Touch；其他章節高度與修改前完全相同。Live 區塊顯示示範活動卡（日期方塊、「演出中」「介面示範」、標題為 H3、簡介、「體驗播放介面」→ `/live/listen/?wg_event=interface-demo`）。首頁只載入 `wg-live-featured.css?ver=18eddccf9759` 與示範海報 `poster-demo.svg`；沒有 `wg-live.js`、沒有影音請求或影音元素、沒有 console 錯誤、沒有橫向捲動。 | `home-before-*.jpg`、`home-after-*.jpg`、`home-live-section-*.jpg`（同資料夾） |
 | 發布後登出檢查（步驟 9） | `/live/`、`/live/listen/`、`/live/help/` 都回應 200（快取沒有留下先前的 404），HTML 中沒有串流或示範影片網址，也沒有 `staging`、`localhost`、`127.0.0.1`、`:5173`。Playwright Chromium 登出、1440 與 390 寬：每頁一個 H1；沒有橫向捲動；沒有開發面板；沒有 console 錯誤；沒有自動播放。活動頁「體驗播放介面」→ `/live/listen/?wg_event=interface-demo`、「登入」→ `/my-account/`；Help「返回活動列表」→ `/live/`、「聯絡我們」→ `/contact/`；所有連結終點 200。不帶參數的 `/live/listen/` 顯示「找不到這場活動」與返回連結。首頁沒有任何指向 `/live/` 的連結（選單沒有被自動加入）。「部署資訊」三頁為 publish，永久連結正確。 | `evidence/screenshots/production-published-2026-10-27/` |
 | 部署前後版面比對（Homepage／Store／商品頁／Account／Cart／Checkout／Live） | 登出、1440×1000 與 390×844 全頁截圖，逐像素比對。Cart、Checkout、Account 手機版、Store 手機版完全相同。其餘差異都來自原站動態內容，不是外掛：商品頁的「相關商品」每次隨機挑選（頁面因此高 22 px）；Account 桌面版是原站 Backer Plan 彈出橫幅出現時間不同；Home 與 Store 桌面版頁首 17 px 高的小區域（0.05%／0.08% 像素），Store 不載入任何外掛檔案；Home 手機版有一處 44 px 高的極小差異（低於 0.01%）。Checkout 在購物車為空時轉到 Cart，部署前後相同。`/live/` 部署前後都是 404（頁面尚未建立）。 | `evidence/screenshots/production-before-2026-10-27/`、`evidence/screenshots/production-after-2026-10-27/` |
 | smoke test（登出視窗與實際手機） | 部分：登出狀態下 Home、Store、Account、Cart、商品頁回應 200，頁面沒有錯誤文字；`/wp-json/wg-live/v1/events` 回應 200、`{"events":[]}`、`Cache-Control: public, max-age=30`。步驟 4 之後，登出狀態下 `/live/`、`/live/listen/`、`/live/help/`、`/?page_id=972` 都是 404，`/wp-json/wp/v2/pages/972` 回應 401（草稿不公開）。步驟 7 之後（`demo`），登出狀態的 `/wp-json/wg-live/v1/events` 回傳 1 場活動 `interface-demo`（`status: live`、`isDemo: true`、`sourceKind: demo`），欄位只有 id、slug、title、performers、description、startsAt、displayTimezone、status、posterUrl／poster、mediaKind、availableModes、programme、productUrl、replayAvailable、isDemo、sourceKind，沒有任何媒體或來源網址；三個頁面仍是 404。原始碼搜尋 `staging`、`localhost`、`127.0.0.1`、`:5173`：登出首頁與活動 API 都沒有結果；登入管理者看到的頁面有一段 `127.0.0.1/24` 的 IP 範圍說明文字，來自其他外掛的管理工具列，首頁也有，與 wg-live 無關。實際手機未執行（步驟 12）。 | 本檔 |
@@ -75,9 +78,9 @@
 | 頁面 | Live（ID 972，`/live/`） | 用「Live 活動 → 建立建議頁面」建立草稿；範本改為 Elementor Full Width；內容為 110 px Spacer 區塊＋Shortcode 區塊 `[wg_live view="events" heading="h1"]`；2026-10-27 23:36 發布（Listen、Listening Guide 隨後依序發布） | 新頁面，無修改前狀態 |
 | 頁面 | Listen（ID 973，`/live/listen/`，父頁 972） | 同上，`[wg_live view="player" heading="h1"]` | 新頁面 |
 | 頁面 | Listening Guide（ID 974，`/live/help/`，父頁 972） | 同上，`[wg_live view="help" heading="h1"]` | 新頁面 |
-| 首頁 | 首頁 | 內容未修改。外掛啟用後，首頁會自動載入 `wg-live-featured.css?ver=18eddccf9759`（設計如此，不論部署模式）。 | 部署前截圖 `home-*.png` |
-| 選單 | — | 未修改 | — |
-| Header／Footer | 由 ＿＿ 管理（步驟 10 前確認） | 未修改 | — |
+| 首頁 | 首頁（ID 8，設定 → 閱讀為靜態首頁） | 在 Music 章節之後加入 Live 區塊：複製 Music 的錨點容器（新 ID `7f65790`，錨點改為 `h-live`）與 Music 章節（新 ID `6f58692`，高度 75vh、置中），標題改為「Live」（h2，靠右，與相鄰章節一致），刪除音樂播放器那一列，放入一個 Shortcode 元件 `[wg_live_featured heading="h3"]`（快取維持預設），保留指向 `#h-portfolio` 的 ⇊ 箭頭。規格 §4.3 提案位置是 Music 與 Portfolio 之間；Portfolio 章節在三種裝置都隱藏，所以畫面上 Live 在 Music 與 Store 之間。其他章節沒有修改（Music 的 ⇊ 箭頭仍指向 `#h-portfolio`，會跳過 Live） | Elementor 範本「首頁備份 2026-10-28」（ID 980，網站範本，2026-10-28 00:00）；修改前版本為 revision 947（2026-10-11 21:10），修改後為 revision 985（2026-10-28 00:02）；登出全頁截圖 `home-before-desktop.jpg`、`home-before-mobile.jpg`；另有 22:16 UpdraftPlus 備份 |
+| 選單 | MainNav.20240309a（menu ID 26，主選單與手機側邊選單共用；Footer 用另一份 menu 27） | 加入頁面項目「Live」（ID 979，指向頁面 972），位置在 Video 與 Blog 之間；其他項目與 Store 子選單順序不變；「自動加入新頂層頁面」維持關閉 | 修改前順序：Homepage(157)、Biography(159)、Video(161)、Blog(158)、Contact(162)、Store(163，子項 Store 511、Cart 164、Checkout 165、Account 166) |
+| Header／Footer | 由 Astra Header Builder 管理（`ast-hfb-header`、`ast-builder-menu-1`；沒有 Elementor Theme Builder 的頁首） | 未修改（只改了它使用的選單內容） | — |
 | 商品頁 | — | 未修改 | — |
 | 活動 | 代稱 `interface-demo`（ID 978） | 建立並發布：標題「線上音樂會介面示範」；簡介說明是介面示範、播放操作示範影片、不是正式演出也不是驗證素材；開始時間 2026-10-27 20:00 Asia/Taipei；狀態「直播中」（模擬狀態，讓示範播放器可操作）；媒體類型影片；兩種聆聽模式；勾選示範活動；來源類型「示範」；演出者、節目單、商品與購票連結留空；無海報 | 新活動 |
 | 外掛設定 | wg-live 設定 | 建立頁面時自動綁定三個 Page ID（版本 1 → 2）；聯絡連結設為 `https://sounds.wgstudiomusic.com/contact/`（→ 3）；部署模式 `demo`、精選活動 978（→ 4） | 第 5 節記有各版本的狀態 |
@@ -111,8 +114,8 @@
 | 步驟 | 做法 |
 |---|---|
 | 第一步 | 「Live 活動 → 設定」把部署模式改回 `disabled` 並儲存（[ROLLBACK.md](../ROLLBACK.md) 步驟 A）。活動 API 立即回傳空列表，三頁改顯示「線上音樂會尚未開放」 |
-| 撤回頁面 | 三頁改回草稿（ROLLBACK.md 步驟 B）：頁面 → Live／Listen／Listening Guide → 狀態改為草稿。目前選單與首頁沒有連到它們 |
-| 撤回入口 | 目前沒有首頁區塊或選單項目，不需要 |
+| 撤回頁面 | 三頁改回草稿（ROLLBACK.md 步驟 B）：頁面 → Live／Listen／Listening Guide → 狀態改為草稿 |
+| 撤回入口（停用外掛之前做） | 外觀 → 選單 → MainNav.20240309a → 移除「Live」項目 → 儲存選單。首頁：Elementor 開啟首頁 → 刪除 Live 章節與它上方的 20px 錨點容器 → 更新；或在 History → Revisions 還原 revision 947，或插入範本「首頁備份 2026-10-28」取代整頁內容（ROLLBACK.md 步驟 C） |
 | 停用外掛 | 後台「外掛 → WG Studio Live → 停用」（[ROLLBACK.md](../ROLLBACK.md) 步驟 D）。停用後首頁不再載入 `wg-live-featured.css`。 |
 | 還原上一版 | 無上一版（首次部署） |
 | 緊急（後台進不去） | 把 `wp-content/plugins/wg-live` 改名（ROLLBACK.md 步驟 5）；需要主機檔案權限；執行人：網站建置者（姓名待填） |
@@ -125,7 +128,9 @@
 | M1 示範音訊不是 Binaural／Atmos 驗證素材 | 如實保留 | — |
 | 真實驗票與播放授權 | 未實作（M2） | 尚待外部條件：票券規則與授權機制 |
 | 家庭劇院相容表 | 維持「尚待測試」 | 尚待外部條件：設備與實測 |
-| 部署步驟 10–13 | 未執行：導覽與首頁區塊、清快取、smoke test、紀錄 | 每一步等部署者核可 |
+| 部署步驟 11–13 | 未執行：清快取與資源網址檢查、smoke test（含實際手機）、最後紀錄 | 每一步等部署者核可；實際手機要由人操作 |
+| 首頁與選單對所有訪客可見 | 首頁顯示示範活動卡（「演出中」為模擬狀態，標示「介面示範」）。要撤下時見第 7 節 | 部署者 |
+| Music 的 ⇊ 箭頭 | 仍指向 `#h-portfolio`，跳過新的 Live 區塊（沒有修改既有章節）。要讓箭頭依序往下，可把 Music 箭頭改為 `#h-live`，屬於修改原章節，需另外決定 | 部署者 |
 | 不帶活動參數的播放頁 | `/live/listen/` 沒有 `?wg_event=` 時顯示「找不到這場活動」（附返回活動列表）。選單與首頁應只連到 `/live/` | 設計如此；記錄供步驟 10 參考 |
 | 手機上「開始聆聽」在第一個畫面下方 | 390 px 寬時位於 1148 px；原站 Backer Plan 橫幅會蓋住畫面底部直到使用者關閉 | 已知限制（交接紀錄已記）；是否調整版面待決定 |
 | 示範活動海報 | 未設定，前台使用無海報版面 | 需要錄音室核可的正式站媒體庫圖片 |
@@ -142,5 +147,5 @@
 
 | 角色 | 姓名 | 日期 |
 |---|---|---|
-| 部署者 | Kevin Yang | 2026-10-27（步驟 1–9） |
+| 部署者 | Kevin Yang | 2026-10-27 至 2026-10-28（步驟 1–10） |
 | 授權人 | 待填 | |
