@@ -55,6 +55,18 @@ Dist harness on localhost with `WG_DEV_ATMOS_FILE` pointing at the file and the 
 
 The e2e suite covers the same behaviour with a self-generated E-AC-3 fixture (`tests/e2e/unsupported-audio.spec.ts`).
 
+### Re-run 2026-10-27 (same file, built player from `593dde1`)
+
+A fresh download of the file (byte-identical: 154,301,489 bytes, same SHA-256) served by the same dist harness on
+`localhost:5175` (no `--host`), default type, Atmos mode chosen, 開始聆聽 pressed.
+
+| Browser | `canPlayType` / MSE | Result |
+|---|---|---|
+| Brave 156 (the user's own browser, desktop, Windows) | `""` / false (also `""` for `ac-3`) | 「播放失敗：目前環境無法播放這個音訊版本」, error code E-SRC-01, with 改用耳機 Binaural and 聆聽說明; no silent picture: the media is released (paused, no source, 0 audio bytes decoded), one media element |
+| Edge 156 (installed, launched by Playwright with a fresh profile, headed) | `probably` / true | Plays `local-atmos.mp4` at 1920×1080 with sound: 2.2 s → 7.2 s, audio bytes decoded 245,760 → 728,064, 目前播放：Dolby Atmos 音軌, no error, one media element |
+
+Same conclusion as above; this still says nothing about object-based Atmos rendering.
+
 ## What this means
 
 - The file is a valid Dolby Atmos (DD+ JOC) delivery and its 5.1 bed is clean.
