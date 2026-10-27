@@ -1,0 +1,333 @@
+{
+  "takenAt": "2026-10-27T15:39:55.412Z",
+  "report": [
+    {
+      "profile": "desktop",
+      "name": "live",
+      "url": "/live/",
+      "status": 200,
+      "h1": [
+        "Live"
+      ],
+      "headerGap": 27,
+      "hScroll": false,
+      "devPanel": false,
+      "media": 0,
+      "playing": false,
+      "text": "Live 線上音樂會 以耳機或家庭劇院，聆聽維光音樂的現場演出。 精選活動 2026年10月 27 週二 20:00 台北時間 演出中 介面示範 線上音樂會介面示範 2026年10月27日（二）20:00 台北時間 聆聽模式： 耳機 Binaural 家庭劇院 Dolby Atmos 體驗播放介面 活動簡介 登入 聆聽方式 本站提供兩種聆聽方式，請依自己的設備選擇；是否能呈現 Atmos，依裝置與連接方式而定。 耳機聆聽 · Binaural 使用耳機聆聽錄音室製作的雙耳版本。 一般耳機即可播放此版本；音訊效果依錄",
+      "links": [
+        {
+          "text": "體驗播放介面",
+          "href": "https://sounds.wgstudiomusic.com/live/listen/?wg_event=interface-demo"
+        },
+        {
+          "text": "登入",
+          "href": "https://sounds.wgstudiomusic.com/my-account/"
+        },
+        {
+          "text": "閱讀完整聆聽說明",
+          "href": "https://sounds.wgstudiomusic.com/live/help/"
+        },
+        {
+          "text": "查看更多說明",
+          "href": "https://sounds.wgstudiomusic.com/live/help/"
+        }
+      ],
+      "errors": [],
+      "shot": "live-desktop.jpg"
+    },
+    {
+      "profile": "desktop",
+      "name": "listen-noevent",
+      "url": "/live/listen/",
+      "status": 200,
+      "h1": [
+        "找不到這場活動"
+      ],
+      "headerGap": 27,
+      "hScroll": false,
+      "devPanel": false,
+      "media": 0,
+      "playing": false,
+      "text": "找不到這場活動 這場活動可能已下架，或連結有誤。 返回活動列表 聆聽說明",
+      "links": [
+        {
+          "text": "返回活動列表",
+          "href": "https://sounds.wgstudiomusic.com/live/"
+        },
+        {
+          "text": "聆聽說明",
+          "href": "https://sounds.wgstudiomusic.com/live/help/"
+        }
+      ],
+      "errors": [],
+      "shot": "listen-noevent-desktop.jpg"
+    },
+    {
+      "profile": "desktop",
+      "name": "listen-demo",
+      "url": "/live/listen/?wg_event=interface-demo",
+      "status": 200,
+      "h1": [
+        "線上音樂會介面示範"
+      ],
+      "headerGap": 153,
+      "hScroll": false,
+      "devPanel": false,
+      "media": 1,
+      "playing": false,
+      "text": "演出中 介面示範 線上音樂會介面示範 2026年10月27日（二）20:00 台北時間 請先選擇聆聽模式 操作示範音訊，非 Binaural／Atmos 驗證素材 選擇聆聽模式 耳機聆聽 · Binaural 使用耳機聆聽錄音室製作的雙耳版本。 一般耳機即可播放此版本；音訊效果依錄音室交付內容為準。 選擇耳機模式 家庭劇院 · Dolby Atmos 適用於經確認的播放裝置、連接方式與 Atmos 家庭劇院。 請先閱讀支援條件；選用 Atmos 音軌不等於系統已確認最終設備輸出。 選擇家庭劇院模式 閱讀聆聽說明與支",
+      "links": [
+        {
+          "text": "閱讀聆聽說明與支援條件",
+          "href": "https://sounds.wgstudiomusic.com/live/help/"
+        },
+        {
+          "text": "聆聽說明",
+          "href": "https://sounds.wgstudiomusic.com/live/help/"
+        }
+      ],
+      "errors": [],
+      "shot": "listen-demo-desktop.jpg"
+    },
+    {
+      "profile": "desktop",
+      "name": "listen-unknown",
+      "url": "/live/listen/?wg_event=no-such-event",
+      "status": 200,
+      "h1": [
+        "找不到這場活動"
+      ],
+      "headerGap": 27,
+      "hScroll": false,
+      "devPanel": false,
+      "media": 0,
+      "playing": false,
+      "text": "找不到這場活動 這場活動可能已下架，或連結有誤。 返回活動列表 聆聽說明",
+      "links": [
+        {
+          "text": "返回活動列表",
+          "href": "https://sounds.wgstudiomusic.com/live/"
+        },
+        {
+          "text": "聆聽說明",
+          "href": "https://sounds.wgstudiomusic.com/live/help/"
+        }
+      ],
+      "errors": [],
+      "shot": "listen-unknown-desktop.jpg"
+    },
+    {
+      "profile": "desktop",
+      "name": "help",
+      "url": "/live/help/",
+      "status": 200,
+      "h1": [
+        "Listening Guide"
+      ],
+      "headerGap": 27,
+      "hScroll": false,
+      "devPanel": false,
+      "media": 0,
+      "playing": false,
+      "text": "Listening Guide 聆聽說明 開始聆聽前，可以先了解兩種模式的差異、支援條件與常見問題。 返回活動列表 兩種聆聽模式 兩種模式是不同的音訊版本，請依自己的設備選擇。選擇模式後，按下「開始聆聽」才會載入並播放。 耳機聆聽 · Binaural 使用耳機聆聽錄音室製作的雙耳版本。 一般耳機即可播放此版本；音訊效果依錄音室交付內容為準。 家庭劇院 · Dolby Atmos 適用於經確認的播放裝置、連接方式與 Atmos 家庭劇院。 請先閱讀支援條件；選用 Atmos 音軌不等於系統已確認最終設備輸出。 畫面",
+      "links": [
+        {
+          "text": "返回活動列表",
+          "href": "https://sounds.wgstudiomusic.com/live/"
+        },
+        {
+          "text": "聯絡我們",
+          "href": "https://sounds.wgstudiomusic.com/contact/"
+        }
+      ],
+      "errors": [],
+      "shot": "help-desktop.jpg"
+    },
+    {
+      "profile": "mobile",
+      "name": "live",
+      "url": "/live/",
+      "status": 200,
+      "h1": [
+        "Live"
+      ],
+      "headerGap": 30,
+      "hScroll": false,
+      "devPanel": false,
+      "media": 0,
+      "playing": false,
+      "text": "Live 線上音樂會 以耳機或家庭劇院，聆聽維光音樂的現場演出。 精選活動 2026年10月 27 週二 20:00 台北時間 演出中 介面示範 線上音樂會介面示範 2026年10月27日（二）20:00 台北時間 聆聽模式： 耳機 Binaural 家庭劇院 Dolby Atmos 體驗播放介面 活動簡介 登入 聆聽方式 本站提供兩種聆聽方式，請依自己的設備選擇；是否能呈現 Atmos，依裝置與連接方式而定。 耳機聆聽 · Binaural 使用耳機聆聽錄音室製作的雙耳版本。 一般耳機即可播放此版本；音訊效果依錄",
+      "links": [
+        {
+          "text": "體驗播放介面",
+          "href": "https://sounds.wgstudiomusic.com/live/listen/?wg_event=interface-demo"
+        },
+        {
+          "text": "登入",
+          "href": "https://sounds.wgstudiomusic.com/my-account/"
+        },
+        {
+          "text": "閱讀完整聆聽說明",
+          "href": "https://sounds.wgstudiomusic.com/live/help/"
+        },
+        {
+          "text": "查看更多說明",
+          "href": "https://sounds.wgstudiomusic.com/live/help/"
+        }
+      ],
+      "errors": [],
+      "shot": "live-mobile.jpg"
+    },
+    {
+      "profile": "mobile",
+      "name": "listen-noevent",
+      "url": "/live/listen/",
+      "status": 200,
+      "h1": [
+        "找不到這場活動"
+      ],
+      "headerGap": 30,
+      "hScroll": false,
+      "devPanel": false,
+      "media": 0,
+      "playing": false,
+      "text": "找不到這場活動 這場活動可能已下架，或連結有誤。 返回活動列表 聆聽說明",
+      "links": [
+        {
+          "text": "返回活動列表",
+          "href": "https://sounds.wgstudiomusic.com/live/"
+        },
+        {
+          "text": "聆聽說明",
+          "href": "https://sounds.wgstudiomusic.com/live/help/"
+        }
+      ],
+      "errors": [],
+      "shot": "listen-noevent-mobile.jpg"
+    },
+    {
+      "profile": "mobile",
+      "name": "listen-demo",
+      "url": "/live/listen/?wg_event=interface-demo",
+      "status": 200,
+      "h1": [
+        "線上音樂會介面示範"
+      ],
+      "headerGap": 66,
+      "hScroll": false,
+      "devPanel": false,
+      "media": 1,
+      "playing": false,
+      "text": "演出中 介面示範 線上音樂會介面示範 2026年10月27日（二）20:00 台北時間 請先選擇聆聽模式 操作示範音訊，非 Binaural／Atmos 驗證素材 選擇聆聽模式 耳機聆聽 · Binaural 使用耳機聆聽錄音室製作的雙耳版本。 一般耳機即可播放此版本；音訊效果依錄音室交付內容為準。 選擇耳機模式 家庭劇院 · Dolby Atmos 適用於經確認的播放裝置、連接方式與 Atmos 家庭劇院。 請先閱讀支援條件；選用 Atmos 音軌不等於系統已確認最終設備輸出。 選擇家庭劇院模式 閱讀聆聽說明與支",
+      "links": [
+        {
+          "text": "閱讀聆聽說明與支援條件",
+          "href": "https://sounds.wgstudiomusic.com/live/help/"
+        },
+        {
+          "text": "聆聽說明",
+          "href": "https://sounds.wgstudiomusic.com/live/help/"
+        }
+      ],
+      "errors": [],
+      "shot": "listen-demo-mobile.jpg"
+    },
+    {
+      "profile": "mobile",
+      "name": "listen-unknown",
+      "url": "/live/listen/?wg_event=no-such-event",
+      "status": 200,
+      "h1": [
+        "找不到這場活動"
+      ],
+      "headerGap": 30,
+      "hScroll": false,
+      "devPanel": false,
+      "media": 0,
+      "playing": false,
+      "text": "找不到這場活動 這場活動可能已下架，或連結有誤。 返回活動列表 聆聽說明",
+      "links": [
+        {
+          "text": "返回活動列表",
+          "href": "https://sounds.wgstudiomusic.com/live/"
+        },
+        {
+          "text": "聆聽說明",
+          "href": "https://sounds.wgstudiomusic.com/live/help/"
+        }
+      ],
+      "errors": [],
+      "shot": "listen-unknown-mobile.jpg"
+    },
+    {
+      "profile": "mobile",
+      "name": "help",
+      "url": "/live/help/",
+      "status": 200,
+      "h1": [
+        "Listening Guide"
+      ],
+      "headerGap": 30,
+      "hScroll": false,
+      "devPanel": false,
+      "media": 0,
+      "playing": false,
+      "text": "Listening Guide 聆聽說明 開始聆聽前，可以先了解兩種模式的差異、支援條件與常見問題。 返回活動列表 兩種聆聽模式 兩種模式是不同的音訊版本，請依自己的設備選擇。選擇模式後，按下「開始聆聽」才會載入並播放。 耳機聆聽 · Binaural 使用耳機聆聽錄音室製作的雙耳版本。 一般耳機即可播放此版本；音訊效果依錄音室交付內容為準。 家庭劇院 · Dolby Atmos 適用於經確認的播放裝置、連接方式與 Atmos 家庭劇院。 請先閱讀支援條件；選用 Atmos 音軌不等於系統已確認最終設備輸出。 畫面",
+      "links": [
+        {
+          "text": "返回活動列表",
+          "href": "https://sounds.wgstudiomusic.com/live/"
+        },
+        {
+          "text": "聯絡我們",
+          "href": "https://sounds.wgstudiomusic.com/contact/"
+        }
+      ],
+      "errors": [],
+      "shot": "help-mobile.jpg"
+    }
+  ],
+  "linkStatus": [
+    {
+      "text": "體驗播放介面",
+      "href": "/live/listen/?wg_event=interface-demo",
+      "status": 200,
+      "final": "",
+      "https": true,
+      "sameHost": true
+    },
+    {
+      "text": "登入",
+      "href": "/my-account/",
+      "status": 200,
+      "final": "",
+      "https": true,
+      "sameHost": true
+    },
+    {
+      "text": "閱讀完整聆聽說明",
+      "href": "/live/help/",
+      "status": 200,
+      "final": "",
+      "https": true,
+      "sameHost": true
+    },
+    {
+      "text": "返回活動列表",
+      "href": "/live/",
+      "status": 200,
+      "final": "",
+      "https": true,
+      "sameHost": true
+    },
+    {
+      "text": "聯絡我們",
+      "href": "/contact/",
+      "status": 200,
+      "final": "",
+      "https": true,
+      "sameHost": true
+    }
+  ]
+}
