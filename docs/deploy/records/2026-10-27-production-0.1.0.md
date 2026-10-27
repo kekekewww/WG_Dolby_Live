@@ -2,7 +2,7 @@
 
 依 [DEPLOY-RECORD.md](../DEPLOY-RECORD.md) 模板填寫；部署步驟見 [PRODUCTION.md](../PRODUCTION.md)。
 
-**狀態：進行中。** 第 4 節的 13 個部署步驟中，步驟 1–7 已完成：備份、上傳、啟用、建立三個草稿頁面、綁定 Page ID、設定聯絡連結，以及建立示範活動並切到 `demo`。步驟 8（草稿預覽：桌面與手機寬度、兩種模式實際播放與切換）、步驟 9（發布三頁，2026-10-27 23:36）與步驟 10（主選單加入 Live、首頁加入 Live 區塊，2026-10-27 23:50 至 2026-10-28 00:05）也已完成。之後每一步都要部署者在對話中逐步核可；完成後更新本檔，不另開新檔。
+**狀態：進行中。** 第 4 節的 13 個部署步驟中，步驟 1–7 已完成：備份、上傳、啟用、建立三個草稿頁面、綁定 Page ID、設定聯絡連結，以及建立示範活動並切到 `demo`。步驟 8（草稿預覽：桌面與手機寬度、兩種模式實際播放與切換）、步驟 9（發布三頁，2026-10-27 23:36）、步驟 10（主選單加入 Live、首頁加入 Live 區塊，2026-10-27 23:50 至 2026-10-28 00:05）與步驟 11（快取與資源檢查，2026-10-28 00:10–00:25）也已完成。之後每一步都要部署者在對話中逐步核可；完成後更新本檔，不另開新檔。
 
 ## 0. 進度（PRODUCTION.md 第 4 節）
 
@@ -18,7 +18,8 @@
 | 8 | 草稿預覽檢查 | 完成：桌面結構檢查、兩種模式實際播放與切換、569 px 與 390 px 寬度（見第 3 節） | 2026-10-27 23:01–23:15 |
 | 9 | 依序發布 Live、Listen、Help，發布後立刻以登出視窗檢查 | 完成：972 → 973 → 974 publish；登出檢查通過（見第 3 節與連結驗收表） | 2026-10-27 23:36–23:42 |
 | 10 | 導覽與首頁連結，不覆寫全站選單 | 完成：主選單 MainNav.20240309a 在 Video 與 Blog 之間加入 Live（頁面項目）；首頁在 Music 之後加入 Live 區塊（`[wg_live_featured heading="h3"]`）。修改前已保存首頁範本、版本與截圖（見第 4 節） | 2026-10-27 23:50 – 2026-10-28 00:05 |
-| 11–13 | 清快取、smoke test（含實際手機）、紀錄 | 未執行 | |
+| 11 | 清理頁面快取與 CSS／JS 最佳化快取，檢查實際資源網址和版本 | 完成：沒有需要清除的快取（沒有頁面快取；Elementor CSS 不需重建），資源網址與版本正確（見第 3 節） | 2026-10-28 00:10–00:25 |
+| 12–13 | smoke test（含實際手機）、最後紀錄 | 未執行 | |
 
 ## 1. 基本資料
 
@@ -55,6 +56,7 @@
 | 自動化測試（單元／e2e／整合；沒跑的寫「未執行」） | 本機 2026-10-20，對應同一個 commit 與 ZIP：單元 1200 通過；`lint:php` 通過；e2e 735 passed、48 skipped、0 failed；WSL2 wp-env 整合 183 passed、1 skipped；ZIP 乾淨安裝檢查通過。 | [2026-10-13-handover-m1-pre-staging.md](2026-10-13-handover-m1-pre-staging.md) 2026-10-20 節、[e2e-summary.md](../../../evidence/test-results/e2e-summary.md)、[integration-summary.md](../../../evidence/test-results/integration-summary.md) |
 | 人工裝置測試 | 未執行（由人工填寫） | `evidence/test-results/manual-devices.md` |
 | 連結驗收 | 步驟 9、10 後，登出、桌面 1440 與 390 寬手機模擬：第 1–4、6、7、11、14、15 列通過，第 8 列桌面通過；第 8 列手機與第 9 列尚待測試；第 5、10、12、13 列目前不適用。沒有失敗列。 | [links-production-2026-10-27.md](../../../evidence/test-results/links-production-2026-10-27.md) |
+| 快取與資源（步驟 11） | **快取外掛與設定**：伺服器 LiteSpeed，但沒有安裝 LiteSpeed Cache 外掛，回應沒有任何頁面快取標頭（沒有 `x-litespeed-cache`、`age`）。A2 Optimized：頁面快取關、物件快取關、Gzip 關，只有「Minify HTML Pages」開（只縮小頁面 HTML，不動 JS／CSS 檔案；三頁與首頁都在它開啟的情況下檢查過）。Elementor：CSS 輸出為外部檔案；「元素快取」全站 1 天，但 Elementor 4.3 原始碼中 Shortcode 元件沒有覆寫 `is_dynamic_content()`（基底回傳 true），且元件的快取設定為預設，所以首頁的 `[wg_live_featured]` 每次請求都重新產生，不會顯示過期狀態（依本機 Elementor 4.3.4 原始碼判斷，正式站為 4.3.5）。沒有 Service Worker。**清除**：沒有頁面快取可清；Elementor「重新產生 CSS」不需要（新區塊在儲存時已產生 CSS，前台顯示正確），為避免全站 CSS 重建的風險而不執行。**資源**：Live 與 Listen 載入 `wg-live.js?ver=45943cb1ef1b`（`defer`）與 `wg-live.css?ver=c01bf2ff9204`；首頁只載入 `wg-live-featured.css?ver=18eddccf9759`、不載入 `wg-live.js`；`ver` 等於「部署資訊」三個 SHA-256 的前 12 碼；正式站提供的三個檔案位元組與本機 build 完全相同（SHA-256 相符）；沒有被合併、改名、延遲載入或移除查詢字串。靜態檔 `Cache-Control: max-age=604800, public`（版本號會隨更新改變，可安全快取）。**API**：`/wp-json/wg-live/v1/events` 為 `public, max-age=30`（設計如此，不含個人資料）；`/wp-json/wg-live/v1/playback` 為 `no-cache, must-revalidate, max-age=0, no-store, private`，示範活動只回傳內建示範影片。 | 本檔 |
 | 導覽選單（步驟 10） | 登出：桌面 1440 寬頁首為 Homepage｜Biography｜Video｜Live｜Blog｜Contact｜Store，單行不換行，Logo 寬 180 px 不變；點 Live → `/live/`，Live 標示為目前頁面。390 寬手機：選單按鈕打開側邊選單，Live 在 Video 與 Blog 之間，點擊 → `/live/`；選單可再關閉（`aria-expanded` true → false）。 | `evidence/screenshots/production-nav-2026-10-27/header-desktop.jpg`、`menu-phone-open.jpg` |
 | 首頁 Live 區塊（步驟 10） | 登出，桌面與 390 寬：首頁章節順序為 Hero、Biography、Music、**Live**、（Portfolio 隱藏）、Store、Topics、Get in Touch；其他章節高度與修改前完全相同。Live 區塊顯示示範活動卡（日期方塊、「演出中」「介面示範」、標題為 H3、簡介、「體驗播放介面」→ `/live/listen/?wg_event=interface-demo`）。首頁只載入 `wg-live-featured.css?ver=18eddccf9759` 與示範海報 `poster-demo.svg`；沒有 `wg-live.js`、沒有影音請求或影音元素、沒有 console 錯誤、沒有橫向捲動。 | `home-before-*.jpg`、`home-after-*.jpg`、`home-live-section-*.jpg`（同資料夾） |
 | 發布後登出檢查（步驟 9） | `/live/`、`/live/listen/`、`/live/help/` 都回應 200（快取沒有留下先前的 404），HTML 中沒有串流或示範影片網址，也沒有 `staging`、`localhost`、`127.0.0.1`、`:5173`。Playwright Chromium 登出、1440 與 390 寬：每頁一個 H1；沒有橫向捲動；沒有開發面板；沒有 console 錯誤；沒有自動播放。活動頁「體驗播放介面」→ `/live/listen/?wg_event=interface-demo`、「登入」→ `/my-account/`；Help「返回活動列表」→ `/live/`、「聯絡我們」→ `/contact/`；所有連結終點 200。不帶參數的 `/live/listen/` 顯示「找不到這場活動」與返回連結。首頁沒有任何指向 `/live/` 的連結（選單沒有被自動加入）。「部署資訊」三頁為 publish，永久連結正確。 | `evidence/screenshots/production-published-2026-10-27/` |
@@ -128,7 +130,8 @@
 | M1 示範音訊不是 Binaural／Atmos 驗證素材 | 如實保留 | — |
 | 真實驗票與播放授權 | 未實作（M2） | 尚待外部條件：票券規則與授權機制 |
 | 家庭劇院相容表 | 維持「尚待測試」 | 尚待外部條件：設備與實測 |
-| 部署步驟 11–13 | 未執行：清快取與資源網址檢查、smoke test（含實際手機）、最後紀錄 | 每一步等部署者核可；實際手機要由人操作 |
+| 部署步驟 12–13 | 未執行：smoke test（含實際手機）、最後紀錄 | 實際手機要由人操作 |
+| 日後修改活動時的快取 | 目前沒有頁面快取，修改活動狀態後首頁、活動頁與播放頁都會立即反映（播放頁每 60 秒輪詢）。若日後開啟 A2 Optimized 的頁面快取或安裝其他快取外掛，必須依 NAV-HOMEPAGE.md 第 5 節設定短存活時間並排除 `wg-live*.js`，且每次改活動狀態後清除 `/live/`、播放頁與首頁的快取 | 管理者 |
 | 首頁與選單對所有訪客可見 | 首頁顯示示範活動卡（「演出中」為模擬狀態，標示「介面示範」）。要撤下時見第 7 節 | 部署者 |
 | Music 的 ⇊ 箭頭 | 仍指向 `#h-portfolio`，跳過新的 Live 區塊（沒有修改既有章節）。要讓箭頭依序往下，可把 Music 箭頭改為 `#h-live`，屬於修改原章節，需另外決定 | 部署者 |
 | 不帶活動參數的播放頁 | `/live/listen/` 沒有 `?wg_event=` 時顯示「找不到這場活動」（附返回活動列表）。選單與首頁應只連到 `/live/` | 設計如此；記錄供步驟 10 參考 |
@@ -147,5 +150,5 @@
 
 | 角色 | 姓名 | 日期 |
 |---|---|---|
-| 部署者 | Kevin Yang | 2026-10-27 至 2026-10-28（步驟 1–10） |
+| 部署者 | Kevin Yang | 2026-10-27 至 2026-10-28（步驟 1–11） |
 | 授權人 | 待填 | |
