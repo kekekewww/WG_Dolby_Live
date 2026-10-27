@@ -1,0 +1,203 @@
+{
+  "takenAt": "2026-10-27T14:37:42.348Z",
+  "conditions": "Playwright Chromium, logged out, cold cache per run, no CPU/network throttling, this PC's connection. Lab data only.",
+  "links": {
+    "home": "https://sounds.wgstudiomusic.com/",
+    "store": "https://sounds.wgstudiomusic.com/store/",
+    "account": "https://sounds.wgstudiomusic.com/my-account/",
+    "cart": "https://sounds.wgstudiomusic.com/cart/",
+    "checkout": "https://sounds.wgstudiomusic.com/checkout/",
+    "product": "https://sounds.wgstudiomusic.com/product/43-%e9%ad%8f%e5%bb%a3%e6%99%a7%e7%88%b5%e5%a3%ab%e5%85%a8%e5%89%b5%e4%bd%9c%e5%b0%88%e8%bc%af/",
+    "liveStatus": 404
+  },
+  "perf": {
+    "desktop": {
+      "runs": [
+        {
+          "status": 200,
+          "ttfb": 2065,
+          "fcp": 4176,
+          "lcp": 4176,
+          "cls": 0.0007,
+          "load": 8181,
+          "transferKB": 4076,
+          "requests": 173,
+          "wgLiveRequests": 1
+        },
+        {
+          "status": 200,
+          "ttfb": 2036,
+          "fcp": 3988,
+          "lcp": 4088,
+          "cls": 0.0074,
+          "load": 7896,
+          "transferKB": 4078,
+          "requests": 173,
+          "wgLiveRequests": 1
+        },
+        {
+          "status": 200,
+          "ttfb": 2023,
+          "fcp": 3752,
+          "lcp": 3752,
+          "cls": 0.0007,
+          "load": 7995,
+          "transferKB": 4078,
+          "requests": 173,
+          "wgLiveRequests": 1
+        }
+      ],
+      "median": {
+        "ttfb": 2036,
+        "fcp": 3988,
+        "lcp": 4088,
+        "cls": 0.0007,
+        "transferKB": 4078,
+        "requests": 173
+      }
+    },
+    "mobile": {
+      "runs": [
+        {
+          "status": 200,
+          "ttfb": 2135,
+          "fcp": 6052,
+          "lcp": 6052,
+          "cls": 0,
+          "load": 9491,
+          "transferKB": 4092,
+          "requests": 173,
+          "wgLiveRequests": 1
+        },
+        {
+          "status": 200,
+          "ttfb": 2355,
+          "fcp": 4268,
+          "lcp": 4268,
+          "cls": 0,
+          "load": 7771,
+          "transferKB": 4089,
+          "requests": 173,
+          "wgLiveRequests": 1
+        },
+        {
+          "status": 200,
+          "ttfb": 2163,
+          "fcp": 4216,
+          "lcp": 4216,
+          "cls": 0.0009,
+          "load": 7882,
+          "transferKB": 4093,
+          "requests": 174,
+          "wgLiveRequests": 1
+        }
+      ],
+      "median": {
+        "ttfb": 2163,
+        "fcp": 4268,
+        "lcp": 4268,
+        "cls": 0,
+        "transferKB": 4092,
+        "requests": 173
+      }
+    }
+  },
+  "shots": [
+    {
+      "name": "home",
+      "profile": "desktop",
+      "url": "https://sounds.wgstudiomusic.com/",
+      "finalUrl": "https://sounds.wgstudiomusic.com/",
+      "status": 200,
+      "file": "home-desktop.png"
+    },
+    {
+      "name": "home",
+      "profile": "mobile",
+      "url": "https://sounds.wgstudiomusic.com/",
+      "finalUrl": "https://sounds.wgstudiomusic.com/",
+      "status": 200,
+      "file": "home-mobile.png"
+    },
+    {
+      "name": "store",
+      "profile": "desktop",
+      "url": "https://sounds.wgstudiomusic.com/store/",
+      "finalUrl": "https://sounds.wgstudiomusic.com/store/",
+      "status": 200,
+      "file": "store-desktop.png"
+    },
+    {
+      "name": "store",
+      "profile": "mobile",
+      "url": "https://sounds.wgstudiomusic.com/store/",
+      "finalUrl": "https://sounds.wgstudiomusic.com/store/",
+      "status": 200,
+      "file": "store-mobile.png"
+    },
+    {
+      "name": "account",
+      "profile": "desktop",
+      "url": "https://sounds.wgstudiomusic.com/my-account/",
+      "finalUrl": "https://sounds.wgstudiomusic.com/my-account/",
+      "status": 200,
+      "file": "account-desktop.png"
+    },
+    {
+      "name": "account",
+      "profile": "mobile",
+      "url": "https://sounds.wgstudiomusic.com/my-account/",
+      "finalUrl": "https://sounds.wgstudiomusic.com/my-account/",
+      "status": 200,
+      "file": "account-mobile.png"
+    },
+    {
+      "name": "cart",
+      "profile": "desktop",
+      "url": "https://sounds.wgstudiomusic.com/cart/",
+      "finalUrl": "https://sounds.wgstudiomusic.com/cart/",
+      "status": 200,
+      "file": "cart-desktop.png"
+    },
+    {
+      "name": "cart",
+      "profile": "mobile",
+      "url": "https://sounds.wgstudiomusic.com/cart/",
+      "finalUrl": "https://sounds.wgstudiomusic.com/cart/",
+      "status": 200,
+      "file": "cart-mobile.png"
+    },
+    {
+      "name": "checkout",
+      "profile": "desktop",
+      "url": "https://sounds.wgstudiomusic.com/checkout/",
+      "finalUrl": "https://sounds.wgstudiomusic.com/cart/",
+      "status": 200,
+      "file": "checkout-desktop.png"
+    },
+    {
+      "name": "checkout",
+      "profile": "mobile",
+      "url": "https://sounds.wgstudiomusic.com/checkout/",
+      "finalUrl": "https://sounds.wgstudiomusic.com/cart/",
+      "status": 200,
+      "file": "checkout-mobile.png"
+    },
+    {
+      "name": "product",
+      "profile": "desktop",
+      "url": "https://sounds.wgstudiomusic.com/product/43-%e9%ad%8f%e5%bb%a3%e6%99%a7%e7%88%b5%e5%a3%ab%e5%85%a8%e5%89%b5%e4%bd%9c%e5%b0%88%e8%bc%af/",
+      "finalUrl": "https://sounds.wgstudiomusic.com/product/43-%e9%ad%8f%e5%bb%a3%e6%99%a7%e7%88%b5%e5%a3%ab%e5%85%a8%e5%89%b5%e4%bd%9c%e5%b0%88%e8%bc%af/",
+      "status": 200,
+      "file": "product-desktop.png"
+    },
+    {
+      "name": "product",
+      "profile": "mobile",
+      "url": "https://sounds.wgstudiomusic.com/product/43-%e9%ad%8f%e5%bb%a3%e6%99%a7%e7%88%b5%e5%a3%ab%e5%85%a8%e5%89%b5%e4%bd%9c%e5%b0%88%e8%bc%af/",
+      "finalUrl": "https://sounds.wgstudiomusic.com/product/43-%e9%ad%8f%e5%bb%a3%e6%99%a7%e7%88%b5%e5%a3%ab%e5%85%a8%e5%89%b5%e4%bd%9c%e5%b0%88%e8%bc%af/",
+      "status": 200,
+      "file": "product-mobile.png"
+    }
+  ]
+}
