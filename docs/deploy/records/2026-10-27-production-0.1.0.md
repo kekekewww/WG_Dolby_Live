@@ -2,7 +2,9 @@
 
 依 [DEPLOY-RECORD.md](../DEPLOY-RECORD.md) 模板填寫；部署步驟見 [PRODUCTION.md](../PRODUCTION.md)。
 
-**狀態：進行中。** 第 4 節的 13 個部署步驟中，步驟 1–7 已完成：備份、上傳、啟用、建立三個草稿頁面、綁定 Page ID、設定聯絡連結，以及建立示範活動並切到 `demo`。步驟 8（草稿預覽：桌面與手機寬度、兩種模式實際播放與切換）、步驟 9（發布三頁，2026-10-27 23:36）、步驟 10（主選單加入 Live、首頁加入 Live 區塊，2026-10-27 23:50 至 2026-10-28 00:05）與步驟 11（快取與資源檢查，2026-10-28 00:10–00:25）也已完成。之後每一步都要部署者在對話中逐步核可；完成後更新本檔，不另開新檔。
+**狀態：M1 正式站部署完成（2026-10-28 00:35）。** 13 個步驟都已執行；未完成與待補項目見第 8 節。交接紀錄：[2026-10-28-handover-m1-production.md](2026-10-28-handover-m1-production.md)。以下為各步驟的過程紀錄。
+
+**過程：** 步驟 1–7：備份、上傳、啟用、建立三個草稿頁面、綁定 Page ID、設定聯絡連結、建立示範活動並切到 `demo`（2026-10-27 22:14–23:00）。步驟 8：草稿預覽，桌面與手機寬度、兩種模式實際播放與切換。步驟 9：發布三頁（23:36）。步驟 10：主選單加入 Live、首頁加入 Live 區塊（23:50 至 2026-10-28 00:05）。步驟 11：快取與資源檢查（00:10–00:25）。步驟 12–13：smoke test 與紀錄（00:10–00:35）。每一步都由部署者在對話中逐步核可。日後更新或回復時，另存新的部署紀錄。
 
 ## 0. 進度（PRODUCTION.md 第 4 節）
 
@@ -19,7 +21,8 @@
 | 9 | 依序發布 Live、Listen、Help，發布後立刻以登出視窗檢查 | 完成：972 → 973 → 974 publish；登出檢查通過（見第 3 節與連結驗收表） | 2026-10-27 23:36–23:42 |
 | 10 | 導覽與首頁連結，不覆寫全站選單 | 完成：主選單 MainNav.20240309a 在 Video 與 Blog 之間加入 Live（頁面項目）；首頁在 Music 之後加入 Live 區塊（`[wg_live_featured heading="h3"]`）。修改前已保存首頁範本、版本與截圖（見第 4 節） | 2026-10-27 23:50 – 2026-10-28 00:05 |
 | 11 | 清理頁面快取與 CSS／JS 最佳化快取，檢查實際資源網址和版本 | 完成：沒有需要清除的快取（沒有頁面快取；Elementor CSS 不需重建），資源網址與版本正確（見第 3 節） | 2026-10-28 00:10–00:25 |
-| 12–13 | smoke test（含實際手機）、最後紀錄 | 未執行 | |
+| 12 | smoke test（登出視窗＋實際手機） | 完成：第 6 節第 1–13 項以登出的自動化檢查完成（見第 3 節各列）；第 14 項實際手機由部署者以 iPhone 操作，回報通過（細節待部署者填入 `manual-devices.md`）；全部步驟後重拍部署前後比對 | 2026-10-28 00:10–00:35 |
+| 13 | 保存部署紀錄與已知限制 | 完成：本檔、[交接紀錄](2026-10-28-handover-m1-production.md)、[連結驗收表](../../../evidence/test-results/links-production-2026-10-27.md) | 2026-10-28 00:35 |
 
 ## 1. 基本資料
 
@@ -28,7 +31,7 @@
 | 紀錄類型 | ☑ 首次部署　☐ 更新　☐ 回復 |
 | 環境 | ☐ staging　☑ 正式站 |
 | 網站網址（公開網址） | https://sounds.wgstudiomusic.com/ |
-| 部署日期與時間（含時區） | 2026-10-27 22:14 – 2026-10-28 00:10（Asia/Taipei，UTC+8） |
+| 部署日期與時間（含時區） | 2026-10-27 22:14 – 2026-10-28 00:35（Asia/Taipei，UTC+8） |
 | 部署者 | Kevin Yang（Git：Kevin_Yang_tw；WordPress 管理員帳號 #18）。Claude Code 透過 Claude in Chrome 代為點選，每一個寫入動作都經部署者在權限提示中逐一核可。 |
 | 授權人與授權方式（誰、何時、範圍；附連結或檔名） | 部署者 2026-10-27 在對話中確認：沒有 staging，直接安裝到正式站並維持 `disabled`；先做檔案＋資料庫備份。管理員帳號由網站建置者開立。**待補**：錄音室負責人的書面授權（PRODUCTION.md 第 1 節第 1 項）。 |
 | 回復負責人 | 待指定 |
@@ -54,7 +57,8 @@
 |---|---|---|
 | staging 通過紀錄 | 未執行：沒有 staging 環境。部署者決定直接上正式站並維持 `disabled`（2026-10-27）。 | — |
 | 自動化測試（單元／e2e／整合；沒跑的寫「未執行」） | 本機 2026-10-20，對應同一個 commit 與 ZIP：單元 1200 通過；`lint:php` 通過；e2e 735 passed、48 skipped、0 failed；WSL2 wp-env 整合 183 passed、1 skipped；ZIP 乾淨安裝檢查通過。 | [2026-10-13-handover-m1-pre-staging.md](2026-10-13-handover-m1-pre-staging.md) 2026-10-20 節、[e2e-summary.md](../../../evidence/test-results/e2e-summary.md)、[integration-summary.md](../../../evidence/test-results/integration-summary.md) |
-| 人工裝置測試 | 未執行（由人工填寫） | `evidence/test-results/manual-devices.md` |
+| 人工裝置測試 | 部署者 2026-10-28 以實際 iPhone 在正式站完成 smoke test 第 14 項，回報「iPhone test checked」（通過）。裝置型號、iOS 版本與逐項結果尚未記錄；`manual-devices.md` 只能由人填寫，待部署者補上。其他裝置未測 | `evidence/test-results/manual-devices.md`（待填） |
+| 全部步驟後的部署前後比對（步驟 12） | 2026-10-28 00:30 重拍 Home、Store、商品頁、Account、Cart、Checkout（登出，1440 與 390 寬）並與 2026-10-27 22:1x 的部署前截圖逐像素比對。Account、Cart、Checkout 桌面版只有頁首選單多一個 Live（17 px 高的區域）；Account、Checkout、Store 手機版 0 差異；Cart 手機版第一次拍攝時背景照片尚未延遲載入（Elementor「延遲載入背景圖片」開啟），等待後重拍 0 差異；商品頁差異為隨機「相關商品」；首頁只多 Live 區塊（桌面 +770 px、手機 +678 px）。Store 桌面版除頁首外，「加入購物車」按鈕與排序選單文字有 2 px 差異：現在量到按鈕 140×46、`"Noto Sans TC"` 16px、padding 15px 30px，與外掛之前的設計基準實測（`design-baseline.md`）完全相同，Store 不載入任何外掛檔案，判定為部署前截圖當下網頁字型尚未載入。 | `evidence/screenshots/production-final-2026-10-28/`（含 `store-desktop-diff.png`） |
 | 連結驗收 | 步驟 9、10 後，登出、桌面 1440 與 390 寬手機模擬：第 1–4、6、7、11、14、15 列通過，第 8 列桌面通過；第 8 列手機與第 9 列尚待測試；第 5、10、12、13 列目前不適用。沒有失敗列。 | [links-production-2026-10-27.md](../../../evidence/test-results/links-production-2026-10-27.md) |
 | 快取與資源（步驟 11） | **快取外掛與設定**：伺服器 LiteSpeed，但沒有安裝 LiteSpeed Cache 外掛，回應沒有任何頁面快取標頭（沒有 `x-litespeed-cache`、`age`）。A2 Optimized：頁面快取關、物件快取關、Gzip 關，只有「Minify HTML Pages」開（只縮小頁面 HTML，不動 JS／CSS 檔案；三頁與首頁都在它開啟的情況下檢查過）。Elementor：CSS 輸出為外部檔案；「元素快取」全站 1 天，但 Elementor 4.3 原始碼中 Shortcode 元件沒有覆寫 `is_dynamic_content()`（基底回傳 true），且元件的快取設定為預設，所以首頁的 `[wg_live_featured]` 每次請求都重新產生，不會顯示過期狀態（依本機 Elementor 4.3.4 原始碼判斷，正式站為 4.3.5）。沒有 Service Worker。**清除**：沒有頁面快取可清；Elementor「重新產生 CSS」不需要（新區塊在儲存時已產生 CSS，前台顯示正確），為避免全站 CSS 重建的風險而不執行。**資源**：Live 與 Listen 載入 `wg-live.js?ver=45943cb1ef1b`（`defer`）與 `wg-live.css?ver=c01bf2ff9204`；首頁只載入 `wg-live-featured.css?ver=18eddccf9759`、不載入 `wg-live.js`；`ver` 等於「部署資訊」三個 SHA-256 的前 12 碼；正式站提供的三個檔案位元組與本機 build 完全相同（SHA-256 相符）；沒有被合併、改名、延遲載入或移除查詢字串。靜態檔 `Cache-Control: max-age=604800, public`（版本號會隨更新改變，可安全快取）。**API**：`/wp-json/wg-live/v1/events` 為 `public, max-age=30`（設計如此，不含個人資料）；`/wp-json/wg-live/v1/playback` 為 `no-cache, must-revalidate, max-age=0, no-store, private`，示範活動只回傳內建示範影片。 | 本檔 |
 | 導覽選單（步驟 10） | 登出：桌面 1440 寬頁首為 Homepage｜Biography｜Video｜Live｜Blog｜Contact｜Store，單行不換行，Logo 寬 180 px 不變；點 Live → `/live/`，Live 標示為目前頁面。390 寬手機：選單按鈕打開側邊選單，Live 在 Video 與 Blog 之間，點擊 → `/live/`；選單可再關閉（`aria-expanded` true → false）。 | `evidence/screenshots/production-nav-2026-10-27/header-desktop.jpg`、`menu-phone-open.jpg` |
@@ -67,7 +71,7 @@
 | 播放與切換（步驟 8，Brave 桌面版，Windows，管理員登入的草稿預覽） | 選「耳機聆聽 · Binaural」→ 按「開始聆聽」：播放 `demo-video-1.mp4`（960×540），音訊有解碼，播放時間正常前進，頁面只有一個 `<video>`，狀態「播放中」「目前播放：Binaural」，控制列為暫停、靜音、音量、全螢幕、切換模式。按「切換模式」→ 對話框「目前模式為「Binaural」，要切換為「Dolby Atmos 音軌」嗎？」→「確認切換」：改播 `demo-video-2.mp4`，從頭開始（沒有沿用播放時間），仍只有一個 `<video>`，狀態「目前播放：Dolby Atmos 音軌」；畫面燒入字幕「操作示範影片，非 Binaural／Atmos 驗證素材」。按「暫停」後狀態「已暫停」。這是 Playwright 以外的真實瀏覽器，但不是真機 Safari，也不是 Atmos 聽感驗證。 | 本檔 |
 | 手機寬度（步驟 8，草稿預覽） | Brave 視窗最小只能縮到 569 px 寬：Astra 改為手機頁首，內容在頁首下方 29 px，沒有橫向捲動。390×844：在頁面內放一個 390×844 的 sandbox iframe 載入三頁草稿預覽（iframe 的 viewport 就是 390 px）。三頁的內容都在頁首下方 30 px、只有一個 H1、文件寬度 390 px 沒有橫向捲動；Listen 只有一個 `<video>`。已知限制：390 px 時 Listen 的「開始聆聽」位於 1148 px（第一個畫面下方），原站的 Backer Plan 橫幅在使用者關閉前會蓋住畫面底部。不是實體手機。 | 本檔 |
 | 負載測試（如有；環境與核可人） | 未執行 | — |
-| 效能（僅實驗室數據，非真實使用者數據）：部署前基準（外掛啟用前）與部署後，Home 與 `/live/` 的 LCP／CLS／傳輸大小，站本身與外掛增量分開寫 | 基準（Home）：桌面 LCP 3.70 s、CLS 0.0007、4,075 KB、172 個請求；手機 LCP 4.11 s、CLS 0、4,087 KB、172 個請求。部署後：桌面 LCP 4.09 s、CLS 0.0007、4,078 KB、173 個請求；手機 LCP 4.27 s、CLS 0、4,092 KB、173 個請求。增量：多 1 個請求（`wg-live-featured.css`，原始 13,095 bytes），傳輸約多 3–5 KB；CLS 不變。LCP 中位數差異在量測雜訊內：同一頁三次量測相差 0.5–2.5 s（桌面部署前 3.51–4.07 s、部署後 3.75–4.18 s），三次量測無法分出外掛的影響。站本身的伺服器回應約 2 s。`/live/` 尚未建立，未量測。 | 兩個資料夾內的 `baseline.json` |
+| 效能（僅實驗室數據，非真實使用者數據）：部署前基準（外掛啟用前）與部署後，Home 與 `/live/` 的 LCP／CLS／傳輸大小，站本身與外掛增量分開寫 | 基準（Home）：桌面 LCP 3.70 s、CLS 0.0007、4,075 KB、172 個請求；手機 LCP 4.11 s、CLS 0、4,087 KB、172 個請求。部署後：桌面 LCP 4.09 s、CLS 0.0007、4,078 KB、173 個請求；手機 LCP 4.27 s、CLS 0、4,092 KB、173 個請求。增量：多 1 個請求（`wg-live-featured.css`，原始 13,095 bytes），傳輸約多 3–5 KB；CLS 不變。LCP 中位數差異在量測雜訊內：同一頁三次量測相差 0.5–2.5 s（桌面部署前 3.51–4.07 s、部署後 3.75–4.18 s），三次量測無法分出外掛的影響。站本身的伺服器回應約 2 s。`/live/` 尚未建立，未量測。全部步驟完成後（2026-10-28 00:30，首頁含 Live 區塊）：桌面 LCP 3.79 s、CLS 0.0007、4,078 KB、174 個請求；手機 LCP 3.88 s、CLS 0、4,093 KB、174 個請求。外掛對首頁的增量：多 2 個請求（`wg-live-featured.css`、示範海報 `poster-demo.svg`），傳輸約多 3–6 KB，CLS 不變，LCP 差異在量測雜訊內。 | 三個資料夾內的 `baseline.json`（含 `production-final-2026-10-28/`） |
 
 效能量測條件：Playwright Chromium、登出、每次都是空快取、無 CPU／網路節流、部署者電腦的網路，各三次取中位數；不是 Lighthouse，也不是真實使用者數據（CrUX／RUM）。
 
@@ -130,7 +134,8 @@
 | M1 示範音訊不是 Binaural／Atmos 驗證素材 | 如實保留 | — |
 | 真實驗票與播放授權 | 未實作（M2） | 尚待外部條件：票券規則與授權機制 |
 | 家庭劇院相容表 | 維持「尚待測試」 | 尚待外部條件：設備與實測 |
-| 部署步驟 12–13 | 未執行：smoke test（含實際手機）、最後紀錄 | 實際手機要由人操作 |
+| `manual-devices.md` | iPhone 測試由部署者回報通過，但裝置型號、iOS 版本與逐項結果尚未填寫（只能由人填寫） | 部署者 |
+| 其他裝置 | iPad、Mac Safari、Apple TV、Android、家庭劇院設備未測；相容表維持「尚待測試」 | 尚待外部條件：設備與測試者 |
 | 日後修改活動時的快取 | 目前沒有頁面快取，修改活動狀態後首頁、活動頁與播放頁都會立即反映（播放頁每 60 秒輪詢）。若日後開啟 A2 Optimized 的頁面快取或安裝其他快取外掛，必須依 NAV-HOMEPAGE.md 第 5 節設定短存活時間並排除 `wg-live*.js`，且每次改活動狀態後清除 `/live/`、播放頁與首頁的快取 | 管理者 |
 | 首頁與選單對所有訪客可見 | 首頁顯示示範活動卡（「演出中」為模擬狀態，標示「介面示範」）。要撤下時見第 7 節 | 部署者 |
 | Music 的 ⇊ 箭頭 | 仍指向 `#h-portfolio`，跳過新的 Live 區塊（沒有修改既有章節）。要讓箭頭依序往下，可把 Music 箭頭改為 `#h-live`，屬於修改原章節，需另外決定 | 部署者 |
@@ -150,5 +155,5 @@
 
 | 角色 | 姓名 | 日期 |
 |---|---|---|
-| 部署者 | Kevin Yang | 2026-10-27 至 2026-10-28（步驟 1–11） |
+| 部署者 | Kevin Yang | 2026-10-27 至 2026-10-28（步驟 1–13；待本人確認簽核） |
 | 授權人 | 待填 | |
