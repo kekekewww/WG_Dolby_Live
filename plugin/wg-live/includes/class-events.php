@@ -208,12 +208,12 @@ final class Events {
 	/* ------------------------------------------------------------------ */
 
 	/**
-	 * Register wg_live_event: admin-only, no public routes (spec 10.1, D13).
+	 * Register wg_live_event: wp-admin only, no public routes (spec 10.1, D13).
 	 *
 	 * @return void
 	 */
 	public static function register_post_type(): void {
-		$cap = Plugin::cap();
+		$cap = Plugin::events_cap();
 
 		register_post_type(
 			self::POST_TYPE,
@@ -487,6 +487,23 @@ final class Events {
 		echo '<option value="iframe" disabled="disabled">iframe 播放器（M2，尚未提供）</option>';
 		echo '</select>';
 		echo '<p class="description">「示範」需同時勾選「示範活動」。M1 只啟用核可的示範素材。真實來源與觀看資格檢查在 M2 提供。</p>';
+		self::row_close();
+
+		// Homepage featured card (0.2.0).
+		$featured = (int) Settings::get()['featured_event'];
+		self::row_open( '', '首頁精選' );
+		printf(
+			'<label><input type="checkbox" name="%1$s[featured]" value="1"%2$s /> 設為首頁精選（首頁 Live 區塊顯示這場活動）</label>',
+			esc_attr( $key ),
+			checked( $featured, (int) $post->ID, false )
+		);
+		// An unticked box sends nothing: this marker tells save_post() the box was on the form.
+		printf( '<input type="hidden" name="%s[featured_shown]" value="1" />', esc_attr( $key ) );
+		if ( $featured > 0 && $featured !== (int) $post->ID ) {
+			$current = get_the_title( $featured );
+			printf( '<p class="description">目前的首頁精選是「%s」，勾選後會改成這場。</p>', esc_html( '' !== $current ? $current : '（無標題）' ) );
+		}
+		echo '<p class="description">同一時間只有一場首頁精選。活動發布、代稱有效並設定開始時間之後，首頁才會顯示它。</p>';
 		self::row_close();
 
 		echo '</tbody></table></div>';
@@ -904,6 +921,19 @@ final class Events {
 		if ( 'publish' === get_post_status( $post_id ) && empty( self::clean_modes( isset( $in['available_modes'] ) ? $in['available_modes'] : array() ) ) ) {
 			self::flash( 'info', '尚未勾選任何聆聽模式，前台會顯示「即將開放」。' );
 		}
+
+		// Homepage featured card (0.2.0). Unticking clears it only when this event is the featured one and the
+		// form had the box (a screen opened before 0.2.0 has none and must not clear it).
+		$featured = (int) Settings::get()['featured_event'];
+		if ( ! empty( $in['featured'] ) ) {
+			if ( $featured !== $post_id && ! Settings::set_featured_event( $post_id ) ) {
+				self::flash( 'error', '無法設為首頁精選，請重新整理頁面後再試一次。' );
+			} elseif ( 'publish' !== get_post_status( $post_id ) ) {
+				self::flash( 'warning', '這場活動已設為首頁精選，但尚未發布；發布之前首頁不會顯示它。' );
+			}
+		} elseif ( $featured === $post_id && ! empty( $in['featured_shown'] ) ) {
+			Settings::set_featured_event( 0 );
+		}
 	}
 
 	/* ------------------------------------------------------------------ */
@@ -927,6 +957,7 @@ final class Events {
 		$out['wg_live_state'] = '活動狀態';
 		$out['wg_live_demo']  = '示範';
 		$out['wg_live_src']   = '來源';
+		$out['wg_live_home']  = '首頁精選';
 		if ( isset( $columns['date'] ) ) {
 			$out['date'] = $columns['date'];
 		}
@@ -985,6 +1016,9 @@ final class Events {
 				} else {
 					echo 'audio' === $data['media_kind'] ? '示範音訊' : '示範影片';
 				}
+				break;
+			case 'wg_live_home':
+				echo (int) Settings::get()['featured_event'] === (int) $post->ID ? '<span class="wg-live-admin__flag wg-live-admin__flag--ok">首頁精選</span>' : '—';
 				break;
 		}
 	}

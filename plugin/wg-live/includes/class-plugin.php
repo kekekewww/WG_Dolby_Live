@@ -81,13 +81,26 @@ final class Plugin {
 	}
 
 	/**
-	 * The one capability that guards the admin screens and the CPT (plan D13).
+	 * The capability that guards the settings, deploy-info and create-pages screens (plan D13).
 	 *
 	 * @return string
 	 */
 	public static function cap() {
 		$cap = apply_filters( 'wg_live_manage_capability', 'manage_options' );
 		return ( is_string( $cap ) && '' !== $cap ) ? $cap : 'manage_options';
+	}
+
+	/**
+	 * The capability that lets a user create, edit, publish and delete Live events (plan D13, 0.2.0).
+	 *
+	 * Defaults to publish_pages, so Editors and WooCommerce Shop Managers can run the event calendar
+	 * while the settings stay with cap(). Activation still writes no roles.
+	 *
+	 * @return string
+	 */
+	public static function events_cap() {
+		$cap = apply_filters( 'wg_live_events_capability', 'publish_pages' );
+		return ( is_string( $cap ) && '' !== $cap ) ? $cap : 'publish_pages';
 	}
 
 	/**

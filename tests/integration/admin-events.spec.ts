@@ -5,15 +5,15 @@
  *  - A valid 代稱 publishes, the event is public and plays in both modes on the real page.
  *  - An invalid start time keeps the old value; source_type "demo" on a non-demo event is rejected.
  *  - Duplicate or malformed 代稱 are never stored, never auto-suffixed with -2.
- *  - Bad product URLs are rejected, a forged form without the plugin nonce changes nothing,
- *    and a user without the manage capability cannot reach the screens.
+ *  - Bad product URLs are rejected and a forged form without the plugin nonce changes nothing.
+ *  - An Editor manages events but never reaches the settings screens; an Author reaches nothing (0.2.0).
  *
  * The admin account is the default wp-env administrator of this local dev site. The specs create their own
  * events (unique per browser project), run in one worker, and delete them afterwards.
  */
 import { randomUUID } from 'node:crypto';
-import { test, type BrowserContext, type Page } from '@playwright/test';
-import { bootConfigs, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, LISTEN_URL, MODE_NAME, rest, DEMO_VIDEO, waitMounted, wpPhp, type Mode } from './wp';
+import { test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { bootConfigs, createEvents, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, LISTEN_URL, MODE_NAME, rest, DEMO_VIDEO, waitMounted, wpPhp, type Mode } from './wp';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -111,6 +111,7 @@ test.beforeAll(async ({ browser }, testInfo) => {
   deleteEventsByPrefix(DEV, prefix);
   deleteUsersByLoginPrefix(DEV, `it-admin-${projectName}-`);
   deleteUsersByLoginPrefix(DEV, `it-editor-${projectName}-`);
+  deleteUsersByLoginPrefix(DEV, `it-author-${projectName}-`);
   // A private administrator for this file: WordPress queues admin notices per user, so another test that
   // loads an admin page as the shared "admin" account at the same time could consume this file's notices.
   const login = `it-admin-${projectName}-${randomUUID().slice(0, 6)}`;
@@ -461,38 +462,89 @@ test.describe('spec F3/F4: publishing needs a title and a valid start time', () 
   });
 });
 
-test.describe('capabilities', () => {
-  test('a user without the manage capability cannot open the event, settings, deployment or pages screens', async ({ browser }) => {
-    const login = `it-editor-${projectName}-${randomUUID().slice(0, 8)}`;
-    const password = randomUUID();
-    const userId = wpPhp<number>(DEV, `return wp_insert_user( array( 'user_login' => '${login}', 'user_pass' => '${password}', 'user_email' => '${login}@example.invalid', 'role' => 'editor' ) );`);
-    const editor = await browser.newContext({ baseURL: DEV.baseURL });
-    try {
-      const p = await editor.newPage();
-      await p.goto('/wp-login.php');
-      await fillLoginForm(p, login, password);
-      await p.locator('#wp-submit').click();
-      await p.waitForURL(/wp-admin/);
+const SETTINGS_SCREENS = [
+  '/wp-admin/edit.php?post_type=wg_live_event&page=wg-live-settings',
+  '/wp-admin/edit.php?post_type=wg_live_event&page=wg-live-deploy',
+  '/wp-admin/edit.php?post_type=wg_live_event&page=wg-live-pages',
+];
 
-      for (const path of [
-        '/wp-admin/edit.php?post_type=wg_live_event',
-        NEW_EVENT,
-        `/wp-admin/post.php?post=${eventId}&action=edit`,
-        '/wp-admin/edit.php?post_type=wg_live_event&page=wg-live-settings',
-        '/wp-admin/edit.php?post_type=wg_live_event&page=wg-live-deploy',
-        '/wp-admin/edit.php?post_type=wg_live_event&page=wg-live-pages',
-      ]) {
-        const res = await p.goto(path);
-        expect(res?.status(), path).toBe(403);
-        await expect(p.locator('body')).toContainText(/not allowed|沒有權限/);
-      }
-      // The create-pages handler refuses too.
-      const post = await p.request.post('/wp-admin/admin-post.php', { form: { action: 'wg_live_create_pages' }, maxRedirects: 0 });
-      expect(post.status()).toBe(403);
-      expect(wpPhp<number>(DEV, `return count( get_posts( array( 'post_type' => 'page', 'post_status' => 'draft', 'posts_per_page' => -1, 'name' => 'listen' ) ) );`)).toBe(0);
+/** A throwaway user with this role, logged in in its own context. */
+async function loginAs(browser: Browser, role: 'editor' | 'author'): Promise<{ p: Page; userId: number; close: () => Promise<void> }> {
+  const login = `it-${role}-${projectName}-${randomUUID().slice(0, 8)}`;
+  const password = randomUUID();
+  const userId = wpPhp<number>(DEV, `return wp_insert_user( array( 'user_login' => '${login}', 'user_pass' => '${password}', 'user_email' => '${login}@example.invalid', 'role' => '${role}' ) );`);
+  const ctx = await browser.newContext({ baseURL: DEV.baseURL });
+  const p = await ctx.newPage();
+  p.on('dialog', (d) => void d.accept());
+  await p.goto('/wp-login.php');
+  await fillLoginForm(p, login, password);
+  await p.locator('#wp-submit').click();
+  await p.waitForURL(/wp-admin/);
+  return {
+    p,
+    userId,
+    close: async () => {
+      await ctx.close();
+      wpPhp(DEV, `require_once ABSPATH . 'wp-admin/includes/user.php'; return wp_delete_user( ${userId}, 1 );`);
+    },
+  };
+}
+
+async function expectForbidden(p: Page, paths: string[]): Promise<void> {
+  for (const path of paths) {
+    const res = await p.goto(path);
+    expect(res?.status(), path).toBe(403);
+    await expect(p.locator('body')).toContainText(/not allowed|沒有權限/);
+  }
+  // The create-pages handler refuses too.
+  const post = await p.request.post('/wp-admin/admin-post.php', { form: { action: 'wg_live_create_pages' }, maxRedirects: 0 });
+  expect(post.status()).toBe(403);
+  expect(wpPhp<number>(DEV, `return count( get_posts( array( 'post_type' => 'page', 'post_status' => 'draft', 'posts_per_page' => -1, 'name' => 'listen' ) ) );`)).toBe(0);
+}
+
+test.describe('capabilities', () => {
+  // An event made by someone else (no author), so these tests also run alone (-g capabilities).
+  let otherId = 0;
+  test.beforeAll(() => {
+    otherId = createEvents(DEV, [{ slug: `${prefix}-cap-other`, title: `${prefix} cap other` }])[`${prefix}-cap-other`] ?? 0;
+    created.push(otherId);
+  });
+
+  test('an Editor (publish_pages) creates and publishes an event, but cannot open the settings, deployment or pages screens', async ({ browser }) => {
+    // Many slow admin round trips (WebKit on wp-env took 2.3 min of the default 4).
+    test.setTimeout(600_000);
+    const { p, close } = await loginAs(browser, 'editor');
+    try {
+      const list = await p.goto('/wp-admin/edit.php?post_type=wg_live_event');
+      expect(list?.status()).toBe(200);
+      // The menu offers the events but none of the settings screens.
+      await expect(p.locator('#adminmenu a[href="edit.php?post_type=wg_live_event"]').first()).toBeAttached();
+      await expect(p.locator('#adminmenu a[href*="page=wg-live-"]')).toHaveCount(0);
+
+      await openNew(p);
+      const id = await postId(p);
+      // The featured checkbox is offered (it changes shared settings: settings.state.spec.ts ticks it).
+      await expect(p.locator('input[name="wg_live[featured]"]')).not.toBeChecked();
+      await fill(p, { title: `【${prefix}】編輯發布`, slug: `${prefix}-by-editor`, startsLocal: '2030-06-01T20:00', status: 'scheduled', modes: ['binaural', 'atmos'], demo: false, source: 'not_configured' });
+      await publish(p);
+      expect(row(id)).toMatchObject({ status: 'publish', name: `${prefix}-by-editor` });
+      expect((await rest(DEV, `events/${prefix}-by-editor`)).status).toBe(200);
+
+      // The editor can also open an event someone else made.
+      await openEdit(p, otherId);
+
+      await expectForbidden(p, SETTINGS_SCREENS);
     } finally {
-      await editor.close();
-      wpPhp(DEV, `require_once ABSPATH . 'wp-admin/includes/user.php'; return wp_delete_user( ${userId} );`);
+      await close();
+    }
+  });
+
+  test('a user without the events capability (Author) cannot open any wg-live screen', async ({ browser }) => {
+    const { p, close } = await loginAs(browser, 'author');
+    try {
+      await expectForbidden(p, ['/wp-admin/edit.php?post_type=wg_live_event', NEW_EVENT, `/wp-admin/post.php?post=${otherId}&action=edit`, ...SETTINGS_SCREENS]);
+    } finally {
+      await close();
     }
   });
 });

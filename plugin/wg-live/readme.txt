@@ -1,7 +1,7 @@
 === WG Studio Live ===
 Requires at least: 6.3
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Tags: live, concert, audio, binaural, dolby atmos
@@ -44,6 +44,10 @@ The two demo video files (`assets/demo/demo-video-1.mp4`, `assets/demo/demo-vide
 The plugin bundles no third-party code. The built script and stylesheet in `assets/dist` are compiled from this project's own source.
 
 == Changelog ==
+
+= 0.2.0 =
+* Event managers: users with `publish_pages` (Editors, WooCommerce Shop Managers) can create, edit, publish and delete Live events. Filter: `wg_live_events_capability`. Settings, deployment information and page creation still need `manage_options` (filter `wg_live_manage_capability`).
+* The event screen has a 「設為首頁精選」 checkbox that sets or clears the homepage featured event, and the event list shows which event is featured.
 
 = 0.1.0 =
 * First M1 release: interface, event management, demo player, shortcodes and public REST endpoints.

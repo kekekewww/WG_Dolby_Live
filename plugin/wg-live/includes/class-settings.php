@@ -56,6 +56,13 @@ final class Settings {
 	private static $last_output = null;
 
 	/**
+	 * True while set_featured_event() writes the option, so sanitize() lets that one write through.
+	 *
+	 * @var bool
+	 */
+	private static $internal_write = false;
+
+	/**
 	 * Hook everything. Called once by Plugin::instance().
 	 *
 	 * @return void
@@ -132,6 +139,40 @@ final class Settings {
 	 */
 	public static function option_page_capability(): string {
 		return Plugin::cap();
+	}
+
+	/**
+	 * Set (or clear with 0) the homepage featured event from the event screen (0.2.0).
+	 *
+	 * Event managers (Plugin::events_cap()) may change this one key without the settings capability:
+	 * only featured_event is written, everything else in the stored option stays as it is.
+	 *
+	 * @param int $id Event ID, or 0 to clear.
+	 * @return bool True when the stored value changed.
+	 */
+	public static function set_featured_event( int $id ): bool {
+		if ( ! current_user_can( Plugin::events_cap() ) ) {
+			return false;
+		}
+		if ( $id > 0 && ( self::valid_event_id( $id ) !== $id || ! current_user_can( 'edit_post', $id ) ) ) {
+			return false;
+		}
+		$id = max( 0, $id );
+		if ( (int) self::get()['featured_event'] === $id ) {
+			return false;
+		}
+
+		$stored = get_option( self::OPTION, array() );
+		if ( ! is_array( $stored ) ) {
+			$stored = self::get();
+		}
+		$stored['featured_event'] = $id;
+
+		self::$internal_write = true;
+		update_option( self::OPTION, $stored );
+		self::$internal_write = false;
+		self::bump_meta();
+		return true;
 	}
 
 	/**
@@ -598,6 +639,9 @@ final class Settings {
 		}
 		if ( null !== self::$last_output && $input === self::$last_output ) {
 			return $input; // WordPress sanitizes a brand-new option twice.
+		}
+		if ( self::$internal_write ) {
+			return $input; // set_featured_event() changed featured_event only, after its own checks.
 		}
 		if ( ! current_user_can( Plugin::cap() ) ) {
 			return $current;

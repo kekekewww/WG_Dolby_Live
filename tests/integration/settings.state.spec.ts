@@ -1,13 +1,15 @@
 /**
  * Plan 4.3 / 4.5 / 4.6 on a real site: link overrides and the host-mismatch warning, the featured event
- * fallback, and "create suggested pages" (refuses on conflicts, never overwrites, binds only empty slots).
+ * fallback, the event screen's 首頁精選 checkbox (0.2.0), and "create suggested pages" (refuses on conflicts,
+ * never overwrites, binds only empty slots).
  *
  * Changes shared site state (settings, page slugs), so it runs in the *-state projects, one at a time.
  * Every test restores what it changed.
  */
+import { randomUUID } from 'node:crypto';
 import { test, type Page } from '@playwright/test';
 import { DEPLOY_URL, openSettings, PAGES_URL, saveLink, submitSettings } from './settings-ui';
-import { adminContext, bootConfigs, createEvents, DEMO_VIDEO, deleteEventsByPrefix, deletePosts, DEV, expect, fetchText, getSettings, rest, setSettingsKeys, TONE, wpPhp } from './wp';
+import { adminContext, bootConfigs, createEvents, DEMO_VIDEO, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, getSettings, rest, setSettingsKeys, TONE, wpPhp } from './wp';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -64,7 +66,7 @@ test.describe('link overrides and the host-mismatch warning (deployment screen)'
       await expect(page.locator('.notice-warning')).toHaveCount(0);
       // The deployment screen reports the real environment.
       await expect(page.locator('#wpbody-content')).toContainText('local');
-      await expect(page.locator('#wpbody-content')).toContainText('0.1.0');
+      await expect(page.locator('#wpbody-content')).toContainText('0.2.0');
     } finally {
       await close();
     }
@@ -173,6 +175,75 @@ test.describe('the homepage card when the featured event is not usable', () => {
     } finally {
       setSettingsKeys(DEV, { featured_event: settingsSnapshot.featured_event });
       deletePosts(DEV, Object.values(ids));
+      deleteEventsByPrefix(DEV, prefix);
+    }
+    expect((await fetchText(DEV, '/')).text).toContain('wg-live-featured--event');
+  });
+});
+
+test.describe('the 首頁精選 checkbox on the event screen (0.2.0)', () => {
+  test('an Editor sets and clears the homepage featured event; no other setting changes', async ({ browser }) => {
+    test.setTimeout(900_000);
+    const prefix = 'it-feat-editor';
+    deleteEventsByPrefix(DEV, prefix);
+    deleteUsersByLoginPrefix(DEV, `${prefix}-`);
+    const id = createEvents(DEV, [{ slug: `${prefix}-concert`, title: `${prefix} concert` }])[`${prefix}-concert`] ?? 0;
+    expect(id).toBeGreaterThan(0);
+    const login = `${prefix}-${randomUUID().slice(0, 8)}`;
+    const password = randomUUID();
+    const userId = wpPhp<number>(DEV, `return wp_insert_user( array( 'user_login' => '${login}', 'user_pass' => '${password}', 'user_email' => '${login}@example.invalid', 'role' => 'editor' ) );`);
+    const metaVersion = (): number => wpPhp<number>(DEV, `$m = get_option( 'wg_live_settings_meta', array() ); return isset( $m['version'] ) ? (int) $m['version'] : 0;`);
+    const ctx = await browser.newContext({ baseURL: DEV.baseURL });
+    try {
+      const p = await ctx.newPage();
+      p.on('dialog', (d) => void d.accept());
+      await p.goto('/wp-login.php');
+      await fillLoginForm(p, login, password);
+      await p.locator('#wp-submit').click();
+      await p.waitForURL(/wp-admin/);
+
+      const save = async (): Promise<void> => {
+        await Promise.all([p.waitForURL(/post\.php\?post=\d+&action=edit&message=\d+/, { timeout: 120_000 }), p.locator('#publish').click()]);
+      };
+      const box = p.locator('input[name="wg_live[featured]"]');
+      const before = getSettings(DEV);
+      const version = metaVersion();
+      expect(Number(before.featured_event), 'the seed features its demo event').toBeGreaterThan(0);
+
+      await p.goto(`/wp-admin/post.php?post=${id}&action=edit`);
+      await expect(box).not.toBeChecked();
+      await expect(p.locator('#wg-live-event-fields')).toContainText('目前的首頁精選是');
+      await box.check();
+      await save();
+      await expect(box).toBeChecked();
+
+      const after = getSettings(DEV);
+      expect(after.featured_event).toBe(id);
+      expect({ ...after, featured_event: before.featured_event }, 'only featured_event changed').toEqual(before);
+      expect(metaVersion()).toBe(version + 1);
+      const home = (await fetchText(DEV, '/')).text;
+      expect(home).toContain('wg-live-featured--event');
+      expect(home).toContain(`${prefix} concert`);
+      await p.goto('/wp-admin/edit.php?post_type=wg_live_event');
+      await expect(p.locator(`#post-${id} .column-wg_live_home`)).toContainText('首頁精選');
+
+      // An edit screen opened before 0.2.0 has neither the box nor its marker: saving it leaves the featured event alone.
+      await p.goto(`/wp-admin/post.php?post=${id}&action=edit`);
+      await p.locator('input[name="wg_live[featured]"], input[name="wg_live[featured_shown]"]').evaluateAll((els) => els.forEach((el) => el.remove()));
+      await save();
+      expect(getSettings(DEV).featured_event).toBe(id);
+
+      // Unticking clears it (the homepage falls back to the "coming soon" card).
+      await p.goto(`/wp-admin/post.php?post=${id}&action=edit`);
+      await box.uncheck();
+      await save();
+      expect(getSettings(DEV).featured_event).toBe(0);
+      expect((await fetchText(DEV, '/')).text).toContain('wg-live-featured--empty');
+    } finally {
+      await ctx.close();
+      wpPhp(DEV, `require_once ABSPATH . 'wp-admin/includes/user.php'; return wp_delete_user( ${userId}, 1 );`);
+      setSettingsKeys(DEV, { featured_event: settingsSnapshot.featured_event });
+      deletePosts(DEV, [id]);
       deleteEventsByPrefix(DEV, prefix);
     }
     expect((await fetchText(DEV, '/')).text).toContain('wg-live-featured--event');
