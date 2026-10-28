@@ -11,6 +11,9 @@ artifacts/
 .env.*
 !.env.example
 
+# Site backups (customer data, account recovery codes): never commit
+/WP_BackUp/
+
 # Test output (evidence/test-results/ is kept on purpose, see spec §8.3)
 /playwright-report/
 /test-results/
