@@ -22,6 +22,7 @@ import { createDevPanel } from '../components/dev-panel';
 import { h, isFocusable, safeUrl, uid } from '../dom';
 import { DEMO_EVENT_BADGE, playerCopy, statusCopy } from '../i18n/copy';
 import { createAdapterFactory } from '../adapters/factory';
+import { prepareHlsLibrary } from '../adapters/hls';
 import { createEntitlementPlaceholder } from '../adapters/entitlement-placeholder';
 import { createLiveEntitlementProvider, createRestEntitlementProvider, createRestEventProvider, createRestPlaybackProvider, createRestSession } from '../adapters/providers';
 import { createPlayerController } from '../state/coordinator';
@@ -118,6 +119,10 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     root: ctx.root,
     preselect,
     onModeRemembered: writeModePreference,
+    // M2-PLAN C3: fetch the plugin's hls.js before the click, so load() and play() stay inside it.
+    onSourceResolved: (source) => {
+      if (source.kind === 'hls') prepareHlsLibrary(shell.host.media, ctx.env);
+    },
   };
   const controller = createPlayerController(deps);
   const unregister = pageRegistry.register(controller);

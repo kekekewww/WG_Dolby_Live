@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __resetHlsLoaderForTests, createHlsAdapter, type HlsCtor } from '../../../src/adapters/hls';
+import { __resetHlsLoaderForTests, createHlsAdapter, prepareHlsLibrary, type HlsCtor } from '../../../src/adapters/hls';
 import { AdapterLoadError } from '../../../src/adapters/native-media';
 import type { AdapterErrorDetail, AdapterEnv, MediaHost, PlaybackAdapter } from '../../../src/types';
 
@@ -254,6 +254,15 @@ describe('HLS adapter: loading the library', () => {
     expect(last().media).toBe(media);
     expect(theirs).not.toHaveBeenCalled();
     b.destroy();
+  });
+
+  it('prepareHlsLibrary preloads the script only on the hls.js path (M2-PLAN C3)', () => {
+    vi.mocked(media.canPlayType).mockImplementation((t) => (t === 'application/vnd.apple.mpegurl' ? 'maybe' : ''));
+    prepareHlsLibrary(media, env, { ManagedMediaSource: {}, MediaSource: {} } as unknown as Window);
+    expect(document.querySelectorAll('script')).toHaveLength(0);
+    prepareHlsLibrary(media, env, CHROME_LIKE);
+    prepareHlsLibrary(media, env, CHROME_LIKE);
+    expect([...document.querySelectorAll('script')].map((s) => s.src)).toEqual([SCRIPT]);
   });
 
   it('play() before the library is ready waits for the attach and then plays', async () => {

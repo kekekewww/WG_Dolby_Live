@@ -301,6 +301,8 @@ export interface Harness {
   host: MediaHost;
   root: HTMLElement;
   remembered: ListeningMode[];
+  /** Kinds of the descriptors the coordinator reported through onSourceResolved (M2-PLAN C3). */
+  resolved: string[];
   scripts: AdapterScript[];
   /** The newest adapter. */
   last(): FakeAdapter;
@@ -338,6 +340,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
   const log: CallLogEntry[] = [];
   const scripts = [...(options.scripts ?? [])];
   const remembered: ListeningMode[] = [];
+  const resolved: string[] = [];
 
   const media = document.createElement('audio');
   let time = 0;
@@ -371,6 +374,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
     root,
     preselect: options.preselect ?? null,
     onModeRemembered: (mode) => remembered.push(mode),
+    onSourceResolved: (source) => resolved.push(source.kind),
   };
 
   const controller = createPlayerController(deps);
@@ -393,6 +397,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
     host,
     root,
     remembered,
+    resolved,
     scripts,
     last: () => {
       const a = adapters[adapters.length - 1];

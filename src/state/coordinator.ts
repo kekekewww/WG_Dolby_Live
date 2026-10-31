@@ -57,6 +57,11 @@ export interface CoordinatorDeps {
   preselect: ListeningMode | null;
   /** Called when a start/switch is confirmed playing, so the view can remember the mode (plan 6.3). */
   onModeRemembered?(mode: ListeningMode): void;
+  /**
+   * Called with every descriptor the server handed out, before any click (M2-PLAN C3): the view prepares what the
+   * adapter will need, for an hls source the plugin's own hls.js file, so load() and play() stay in the click.
+   */
+  onSourceResolved?(source: Exclude<PlaybackSource, { kind: 'not_ready' }>): void;
 }
 
 /* ---- policy numbers (plan 6.5) ---- */
@@ -295,14 +300,28 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
   /* Source descriptors (JSON only, never media)                       */
   /* ================================================================ */
 
-  function toResult(source: PlaybackSource): ResolveResult {
+  function toResult(source: PlaybackSource, mode: ListeningMode): ResolveResult {
     if (typeof source !== 'object' || source === null) return { ok: false, reason: 'error' };
     if (source.kind === 'not_ready') return { ok: false, reason: 'not_ready', notReady: source.reason };
     if (source.kind === 'demo' && typeof source.url === 'string' && source.url !== '') {
       return { ok: true, source: { kind: 'demo', url: source.url, mimeType: typeof source.mimeType === 'string' ? source.mimeType : '' } };
     }
-    // M1: a server hls/iframe source is treated as not configured (plan D5, 6.9).
+    if (source.kind === 'hls') {
+      // M2-PLAN C3: the signed playlist of exactly the requested mode; anything else fails closed.
+      if (typeof source.url !== 'string' || source.url === '' || source.mode !== mode) return { ok: false, reason: 'error' };
+      return { ok: true, source: { kind: 'hls', url: source.url, mode } };
+    }
+    // An iframe source is not playable by this build yet (M2-PLAN D2): treated as not configured.
     return { ok: false, reason: 'not_ready', notReady: 'source_not_configured' };
+  }
+
+  /** Hand a fresh descriptor to the view (onSourceResolved); a throwing view must not break the coordinator. */
+  function announceSource(source: Playable): void {
+    try {
+      deps.onSourceResolved?.(source);
+    } catch {
+      // ignore
+    }
   }
 
   /**
@@ -340,7 +359,7 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
         finish({ ok: false, reason: 'error' });
       }, DESCRIPTOR_TIMEOUT_MS);
       deps.playbackProvider.resolve(event.id, mode, inner.signal).then(
-        (source) => finish(signal.aborted ? { ok: false, reason: 'aborted' } : toResult(source)),
+        (source) => finish(signal.aborted ? { ok: false, reason: 'aborted' } : toResult(source, mode)),
         (error: unknown) => finish(signal.aborted || isAbort(error) ? { ok: false, reason: 'aborted' } : { ok: false, reason: 'error' }),
       );
     });
@@ -363,6 +382,7 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
       const selected = state.player.selectedMode === mode;
       if (result.ok) {
         descriptors.set(mode, result.source);
+        announceSource(result.source);
         if (selected) {
           dispatch({ type: 'prepare/clear_not_ready' });
           syncPrepared();
@@ -435,6 +455,8 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
   function failAttempt(cur: Current, rawCode: AdapterErrorDetail['code'], variant: FailureVariant): void {
     if (destroyed || current !== cur || cur.errorHandled) return;
     const code = onlineFix(rawCode);
+    // M2-PLAN C3: a signed hls URL may have expired; a cached one is never reused after a network failure.
+    if (code === 'network' && cur.ctx.source.kind === 'hls') descriptors.delete(cur.ctx.mode);
     if (code === 'play_blocked') {
       // Not a failure of the attempt: the user can resume it with a click.
       blockedPlay(cur);
@@ -450,7 +472,7 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
       return;
     }
     if (code === 'network' && retriesUsed < MAX_RETRIES) {
-      scheduleRetry(cur);
+      scheduleRetry(cur.ctx);
       return;
     }
     // A source that already reported `playing` but turns out to be silent (adapter guard) never was "good":
@@ -481,9 +503,11 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
     dispatch({ type: 'attempt/play_blocked', error });
   }
 
-  /** Bounded, network-only automatic retry: 2 s, 5 s, 10 s, then failed (plan 6.5). */
-  function scheduleRetry(cur: Current): void {
-    const ctx = cur.ctx;
+  /**
+   * Bounded, network-only automatic retry: 2 s, 5 s, 10 s, then failed (plan 6.5). An hls attempt asks /playback for
+   * a freshly signed URL first (M2-PLAN C3); a demo attempt reuses its descriptor (M1).
+   */
+  function scheduleRetry(ctx: AttemptCtx): void {
     retriesUsed += 1;
     const attempt = retriesUsed;
     const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1] ?? 10_000;
@@ -498,6 +522,10 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
     const fire = (): void => {
       clearRetry();
       if (!alive()) return;
+      if (ctx.source.kind === 'hls') {
+        void refreshThenRun(ctx);
+        return;
+      }
       void runAttempt(ctx, false);
     };
     retryTimer = setTimeout(fire, delay);
@@ -556,6 +584,12 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
   function onAdapterError(cur: Current, detail: AdapterErrorDetail | undefined): void {
     if (current !== cur) return;
     const d: AdapterErrorDetail = detail ?? { code: 'unknown', fatal: true };
+    if (d.fatal === false && d.code === 'network' && cur.ctx.source.kind === 'hls') {
+      // M2-PLAN C3: the HLS adapter reports a dead source this way (for example a signed URL that expired and now
+      // answers 403). Waiting out the 15 s tolerance would only delay the re-resolve.
+      failAttempt(cur, 'network', 'media');
+      return;
+    }
     if (d.fatal === false) {
       // A library that is still retrying on its own is tolerated for up to 15 s.
       cur.nonFatal = cur.nonFatal ?? { code: d.code, since: nowMs() };
@@ -698,6 +732,38 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
     );
   }
 
+  /**
+   * M2-PLAN C3: ask /playback again for `ctx`'s mode (a signed hls URL can expire mid-show), then attach the new
+   * URL. Used by the retry timer and by a resume after a network error. Not a user action: the state is already
+   * reconnecting (or resuming), and 目前播放 follows only when the new source plays. A failed request is a failed
+   * attempt (bounded like every retry); a not_ready answer (refund, event over) ends playback.
+   */
+  function refreshThenRun(ctx: AttemptCtx): Promise<void> {
+    const id = beginAction();
+    const signal = (actionAbort as AbortController).signal;
+    descriptors.delete(ctx.mode);
+    return fetchDescriptor(ctx.mode, signal).then((result) => {
+      if (destroyed || id !== requestId || signal.aborted) return;
+      if (result.ok) {
+        descriptors.set(ctx.mode, result.source);
+        announceSource(result.source);
+        void runAttempt({ ...ctx, source: result.source }, false);
+        return;
+      }
+      if (result.reason === 'aborted') return;
+      if (result.reason === 'not_ready') {
+        const code = notReadyToErrorCode(result.notReady);
+        terminalFailure(ctx.mode, code, 'resolve');
+        return;
+      }
+      if (retriesUsed < MAX_RETRIES) {
+        scheduleRetry(ctx);
+        return;
+      }
+      terminalFailure(ctx.mode, 'network', 'resolve');
+    });
+  }
+
   /** User action with a descriptor that is not cached yet: resolve first (best effort, no gesture guarantee). */
   function runAfterResolve(kind: AttemptKind, mode: ListeningMode): Promise<void> {
     const id = beginAction();
@@ -713,6 +779,7 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
       if (destroyed || id !== requestId || signal.aborted) return;
       if (result.ok) {
         descriptors.set(mode, result.source);
+        announceSource(result.source);
         void runAttempt({ kind, mode, source: result.source, remembered: false }, false);
         return;
       }
@@ -968,6 +1035,9 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
         retriesUsed = 0;
         dispatch({ type: 'attempt/resume' });
         if (state.player.status !== 'loading') return done;
+        // An hls URL may have expired while paused: ask for a fresh one (M2-PLAN C3; play() then runs after the
+        // request, and a refusal surfaces as play_blocked, one more click).
+        if (ctx.source.kind === 'hls') return refreshThenRun(ctx);
         return runAttempt(ctx, false);
       }
       return done; // loading / switching: pause is unavailable (plan 6.4)

@@ -115,10 +115,15 @@ export function loadHlsScript(url: string | null | undefined): Promise<HlsCtor> 
   return promise;
 }
 
-/** Start fetching the library before the click (no-op on the native path or when loaded). */
+/** Start fetching the library before the click (no-op when loaded or without a URL). */
 export function preloadHls(url: string | null | undefined): void {
   if (!url || loadedHlsCtor()) return;
   loadHlsScript(url).catch(() => undefined);
+}
+
+/** Preload hls.js only where this element will use it (the hls.js path; never on native HLS). */
+export function prepareHlsLibrary(media: HTMLMediaElement, env: AdapterEnv, win: Window = window): void {
+  if (chooseHlsPath(media, win) === 'hlsjs') preloadHls(env.hlsScriptUrl);
 }
 
 export function __resetHlsLoaderForTests(): void {

@@ -51,11 +51,11 @@ export function isBlockingGate(kind: GateKind): boolean {
 }
 
 /**
- * M1 knows two source kinds. A server `hls`/`iframe` value is treated as not configured
- * (plan D5, 6.9), so the rest of the state layer only ever sees 'demo' or 'not_configured'.
+ * The source kinds this build can play: 'demo' (M1) and 'hls' (M2-PLAN C3). An `iframe` value is treated as not
+ * configured until its adapter exists (M2-PLAN D2); anything unknown is not configured.
  */
 export function normalizeSource(kind: SourceKind | null | undefined): SourceKind {
-  return kind === 'demo' ? 'demo' : 'not_configured';
+  return kind === 'demo' || kind === 'hls' ? kind : 'not_configured';
 }
 
 /** Plan 6.2 gating order 0-7. */
@@ -71,7 +71,7 @@ export function selectGate(s: AppState): Gate {
     default:
       break;
   }
-  if (s.source !== 'demo') return { kind: 'not_configured', ...none };
+  if (s.source === 'not_configured') return { kind: 'not_configured', ...none };
   switch (s.event.status) {
     case 'scheduled':
       return { kind: 'scheduled', ...none };

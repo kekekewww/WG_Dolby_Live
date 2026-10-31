@@ -346,9 +346,9 @@ describe('server not_ready and unsupported sources', () => {
     expect(selectCanStart(h.state())).toBe(true);
   });
 
-  it('a server hls source is treated as not configured in M1', async () => {
+  it('a server iframe source is treated as not configured until its adapter exists (M2-PLAN D2)', async () => {
     const h = await make();
-    h.playback.answers.set('binaural', { kind: 'hls', url: 'https://x.example/a.m3u8', mode: 'binaural' } satisfies PlaybackSource);
+    h.playback.answers.set('binaural', { kind: 'iframe', url: 'https://player.example/a', allowedOrigin: 'https://player.example' } satisfies PlaybackSource);
     h.controller.selectMode('binaural');
     await h.flush();
     expect(h.state().notReady).toBe('source_not_configured');
