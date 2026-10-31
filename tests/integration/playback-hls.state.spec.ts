@@ -3,8 +3,9 @@
  * stream signer, and /playback for real sources. Changes settings (shared state), so it runs in the *-state
  * projects and restores them afterwards.
  */
-import { test, type Page } from '@playwright/test';
-import { adminContext, bootConfigs, createEvents, deleteEventsByPrefix, deletePosts, DEV, expect, fetchText, getSettings, rest, setSettingsKeys, TESTS, wp, wpPhp } from './wp';
+import { randomUUID } from 'node:crypto';
+import { test, type Browser, type Page } from '@playwright/test';
+import { adminContext, bootConfigs, createEvents, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, getSettings, rest, setSettingsKeys, TESTS, wp, wpPhp, type WpEnv } from './wp';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -55,6 +56,9 @@ test('B1: an allowlisted https playlist is stored; another host or plain http on
     const refused = await saveSource(page, { atmos: 'https://elsewhere.example.test/a.m3u8' });
     expect(refused).toContain('串流主機');
     expect(meta('source_hls_atmos')).toBe(GOOD);
+    // A second save that does not touch the type keeps hls (the editor shows the stored type).
+    await expect(page.locator('#wg-live-source-type')).toHaveValue('hls');
+    expect(meta('source_type')).toBe('hls');
 
     const plain = await saveSource(page, { atmos: 'http://stream.example.test/a.m3u8' });
     expect(plain).toContain('https');
@@ -114,4 +118,148 @@ test('B2: deploy info says whether a signer is configured and never prints a sec
     await ctx.close();
     wp(DEV, ['config', 'delete', 'WG_LIVE_WOWZA_SECRET', '--type=constant']);
   }
+});
+
+/* B3: /playback for hls sources ------------------------------------------------------------------ */
+
+interface Shop { product: number; order: number; user: { login: string; password: string; id: number } }
+
+/** A customer with a completed order for a fresh ticket product. */
+function shop(env: WpEnv): Shop {
+  const login = `${prefix}-buyer-${randomUUID().slice(0, 6)}`;
+  const password = randomUUID();
+  const id = wpPhp<number>(env, `return wp_insert_user( array( 'user_login' => '${login}', 'user_pass' => '${password}', 'user_email' => '${login}@example.invalid', 'role' => 'customer' ) );`);
+  const product = wpPhp<number>(env, `$p = new WC_Product_Simple(); $p->set_name( '${prefix} ticket' ); $p->set_regular_price( '100' ); $p->set_status( 'publish' ); return $p->save();`);
+  const order = wpPhp<number>(env, `$o = wc_create_order( array( 'customer_id' => ${id} ) ); $o->add_product( wc_get_product( ${product} ), 1 ); $o->calculate_totals(); $o->set_status( 'completed' ); $o->save(); return $o->get_id();`);
+  return { product, order, user: { login, password, id } };
+}
+
+function unshop(env: WpEnv, s: Shop | undefined): void {
+  if (!s) return;
+  wpPhp(env, `$o = wc_get_order( ${s.order} ); if ( $o ) { $o->delete( true ); } $p = wc_get_product( ${s.product} ); if ( $p ) { $p->delete( true ); } return true;`);
+}
+
+function setMeta(env: WpEnv, id: number, m: Record<string, unknown>): void {
+  wpPhp(env, `foreach ( json_decode( '${JSON.stringify(m)}', true ) as $k => $v ) { update_post_meta( ${id}, '_wg_live_' . $k, $v ); } return true;`);
+}
+
+const HLS_EVENT = (product: number): Record<string, unknown> => ({
+  source_type: 'hls',
+  source_hls_binaural: GOOD_BIN,
+  source_hls_atmos: GOOD,
+  product_id: product,
+  status: 'live',
+  available_modes: ['binaural', 'atmos'],
+});
+
+let devShop: Shop | undefined;
+let testsShop: Shop | undefined;
+let testsSnapshot: Record<string, unknown> = {};
+let testsEvent = 0;
+let buyer: { page: Page; close: () => Promise<void> } | undefined;
+
+/** GET /playback as the logged-in buyer, with the bootstrap nonce, from inside the page. */
+async function buyerPlayback(browser: Browser, mode: string): Promise<{ status: number; text: string; cache: string | null; json: Record<string, unknown> }> {
+  if (!buyer) {
+    const ctx = await browser.newContext({ baseURL: DEV.baseURL });
+    const page = await ctx.newPage();
+    await page.goto('/wp-login.php');
+    await fillLoginForm(page, devShop!.user.login, devShop!.user.password);
+    await page.locator('#wp-submit').click();
+    await page.waitForURL(/wp-admin|my-account/);
+    buyer = { page, close: () => ctx.close() };
+  }
+  await buyer.page.goto(`/live/listen/?wg_event=${prefix}-concert`);
+  const nonce = bootConfigs(await buyer.page.content())[0]?.rest?.nonce as string;
+  expect(nonce).toBeTruthy();
+  const r = await buyer.page.evaluate(
+    async ([eid, m, n]) => {
+      const res = await fetch(`/wp-json/wg-live/v1/playback?event=${eid}&mode=${m}`, { credentials: 'same-origin', headers: { 'X-WP-Nonce': n as string } });
+      return { status: res.status, text: await res.text(), cache: res.headers.get('cache-control') };
+    },
+    [eventId, mode, nonce] as const,
+  );
+  return { ...r, json: JSON.parse(r.text) as Record<string, unknown> };
+}
+
+test.describe('B3', () => {
+  test.beforeAll(() => {
+    devShop = shop(DEV);
+    setSettingsKeys(DEV, { deployment_mode: 'live', stream_hosts: ['stream.example.test'] });
+    setMeta(DEV, eventId, HLS_EVENT(devShop.product));
+  });
+
+  test.afterAll(async () => {
+    await buyer?.close();
+    unshop(DEV, devShop);
+    deleteUsersByLoginPrefix(DEV, `${prefix}-`);
+    if (testsEvent) {
+      setSettingsKeys(TESTS, { deployment_mode: testsSnapshot.deployment_mode, stream_hosts: testsSnapshot.stream_hosts ?? [] });
+      deletePosts(TESTS, [testsEvent]);
+      unshop(TESTS, testsShop);
+      deleteUsersByLoginPrefix(TESTS, `${prefix}-`);
+    }
+  });
+
+  test('B3: the public event says hls (never a URL) only in live mode', async () => {
+    const live = await rest(DEV, `events/${prefix}-concert`);
+    expect(live.json.event.sourceKind).toBe('hls');
+    expect(live.text).not.toContain('stream.example.test');
+    setSettingsKeys(DEV, { deployment_mode: 'demo' });
+    expect((await rest(DEV, `events/${prefix}-concert`)).json.event.sourceKind).toBe('not_configured');
+    setSettingsKeys(DEV, { deployment_mode: 'live' });
+  });
+
+  test('B3: a guest gets not_entitled and the answer holds no URL', async () => {
+    const { json, text, headers } = await rest(DEV, `playback?event=${eventId}&mode=binaural`);
+    expect(json).toEqual({ kind: 'not_ready', reason: 'not_entitled' });
+    expect(text).not.toMatch(/http/);
+    expect(headers.get('cache-control')).toMatch(/no-store/);
+  });
+
+  test('B3: a buyer gets the playlist of the requested mode, never cached', async ({ browser }) => {
+    const bin = await buyerPlayback(browser, 'binaural');
+    expect(bin.status).toBe(200);
+    expect(bin.json).toEqual({ kind: 'hls', url: GOOD_BIN, mode: 'binaural' });
+    expect(bin.cache).toMatch(/no-store/);
+    expect(bin.cache).toMatch(/private/);
+    const atmos = await buyerPlayback(browser, 'atmos');
+    expect(atmos.json).toEqual({ kind: 'hls', url: GOOD, mode: 'atmos' });
+  });
+
+  test('B3: only live and intermission play; doors_open is event_not_playable', async ({ browser }) => {
+    setMeta(DEV, eventId, { status: 'doors_open' });
+    expect((await buyerPlayback(browser, 'binaural')).json).toEqual({ kind: 'not_ready', reason: 'event_not_playable' });
+    setMeta(DEV, eventId, { status: 'intermission' });
+    expect((await buyerPlayback(browser, 'binaural')).json).toMatchObject({ kind: 'hls', mode: 'binaural' });
+    setMeta(DEV, eventId, { status: 'live' });
+  });
+
+  test('B3: Atmos on a binaural-only event is mode_unavailable; a missing playlist is source_not_configured', async ({ browser }) => {
+    setMeta(DEV, eventId, { available_modes: ['binaural'] });
+    expect((await buyerPlayback(browser, 'atmos')).json).toEqual({ kind: 'not_ready', reason: 'mode_unavailable' });
+    setMeta(DEV, eventId, { available_modes: ['binaural', 'atmos'], source_hls_atmos: '' });
+    expect((await buyerPlayback(browser, 'atmos')).json).toEqual({ kind: 'not_ready', reason: 'source_not_configured' });
+    setMeta(DEV, eventId, { source_hls_atmos: GOOD });
+  });
+
+  test('B3: a host taken off the allowlist after saving stops resolving', async ({ browser }) => {
+    setSettingsKeys(DEV, { stream_hosts: ['ok.example.org'] });
+    const r = await buyerPlayback(browser, 'binaural');
+    expect(r.json).toEqual({ kind: 'not_ready', reason: 'source_not_configured' });
+    expect(r.text).not.toMatch(/http/);
+    setSettingsKeys(DEV, { stream_hosts: ['stream.example.test'] });
+  });
+
+  test('B3: production without a signer is source_not_configured; the escape hatch hands out the URL', () => {
+    testsSnapshot = getSettings(TESTS);
+    testsShop = shop(TESTS);
+    deleteEventsByPrefix(TESTS, prefix);
+    testsEvent = createEvents(TESTS, [{ slug: `${prefix}-prod`, title: `${prefix} prod`, meta: { is_demo: '0', ...HLS_EVENT(testsShop.product) } }])[`${prefix}-prod`] ?? 0;
+    setSettingsKeys(TESTS, { deployment_mode: 'live', stream_hosts: ['stream.example.test'] });
+    const resolve = `return WG_Live\\Playback_Provider::resolve( ${testsEvent}, 'binaural', ${testsShop.user.id} );`;
+    expect(wpPhp(TESTS, `return WG_Live\\Entitlement::check( ${testsEvent}, ${testsShop.user.id} );`)).toEqual({ status: 'entitled', reason: 'ticket' });
+    expect(wpPhp(TESTS, resolve)).toEqual({ kind: 'not_ready', reason: 'source_not_configured' });
+    expect(wpPhp(TESTS, `define( 'WG_LIVE_ALLOW_UNSIGNED_STREAMS', true ); ${resolve}`)).toEqual({ kind: 'hls', url: GOOD_BIN, mode: 'binaural' });
+  });
 });

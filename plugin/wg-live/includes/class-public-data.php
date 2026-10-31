@@ -182,8 +182,14 @@ final class Public_Data {
 
 		$is_demo     = ! empty( $data['is_demo'] );
 		$source_type = isset( $data['source_type'] ) ? $data['source_type'] : 'not_configured';
-		// Plan D5: 'demo' only for a demo event with a demo source while the deployment mode is demo.
-		$source_kind = ( $is_demo && 'demo' === $source_type && self::is_enabled() ) ? 'demo' : 'not_configured';
+		// Plan D5: 'demo' only for a demo event with a demo source while the plugin is enabled. M2-PLAN B3: a
+		// real event's own type (never its URL) only in deployment mode "live"; /playback still decides.
+		$source_kind = 'not_configured';
+		if ( $is_demo && 'demo' === $source_type && self::is_enabled() ) {
+			$source_kind = 'demo';
+		} elseif ( ! $is_demo && 'hls' === $source_type && 'live' === Settings::get()['deployment_mode'] ) {
+			$source_kind = $source_type;
+		}
 
 		$poster = self::poster( $post, $is_demo );
 

@@ -3,8 +3,8 @@
  * Server-side playback source resolution (plan 5.1).
  *
  * Order: deployment mode, event visibility, available mode, entitlement, source configuration,
- * event status. A source URL is only ever produced after every earlier step passed. In M1 the only
- * source is the approved demo media; hls and iframe are never emitted.
+ * event status. A source URL is only ever produced after every earlier step passed. Demo events get
+ * the approved demo media; real events (M2) get their signed hls URL, only while live or in intermission.
  *
  * @package WG_Live
  */
@@ -77,19 +77,22 @@ final class Playback_Provider {
 			return self::not_ready( 'entitlement_unavailable' );
 		}
 
-		// 5. A demo source must be configured.
+		// 5. A source must be configured: demo events use demo media, real events an hls source (M2-PLAN B3).
 		$is_demo = ! empty( $data['is_demo'] );
 		$type    = isset( $data['source_type'] ) ? $data['source_type'] : 'not_configured';
-		if ( ! $is_demo || 'demo' !== $type ) {
+		if ( $is_demo ? 'demo' !== $type : 'hls' !== $type ) {
 			return self::not_ready( 'source_not_configured' );
 		}
 
 		// 6. Non-demo events must be live. Demo events skip this: the media is public test material
-		// and the client gates by the (possibly simulated) status. In M1 step 5 already rejects every
-		// non-demo event, so this is the guard for the M2 sources that will follow.
+		// and the client gates by the (possibly simulated) status.
 		$event_status = isset( $data['status'] ) ? $data['status'] : '';
 		if ( ! $is_demo && 'live' !== $event_status && 'intermission' !== $event_status ) {
 			return self::not_ready( 'event_not_playable' );
+		}
+
+		if ( ! $is_demo ) {
+			return self::real_source( $event_id, $type, $mode );
 		}
 
 		// 7. The demo source.
@@ -102,6 +105,41 @@ final class Playback_Provider {
 			'kind'     => 'demo',
 			'url'      => $source['url'],
 			'mimeType' => $source['mimeType'],
+		);
+	}
+
+	/**
+	 * Step 7 for a real event (M2-PLAN B3): the stored URL for the mode, still on an approved host, signed.
+	 * Only reached after the deployment mode, visibility, mode, entitlement, source type and status checks.
+	 * Every failure is source_not_configured and carries no URL.
+	 *
+	 * @param int    $event_id Event post ID.
+	 * @param string $type     hls.
+	 * @param string $mode     binaural|atmos.
+	 * @return array
+	 */
+	private static function real_source( $event_id, $type, $mode ) {
+		// Real sources only in deployment mode "live" (Entitlement already refuses otherwise; kept explicit).
+		if ( 'live' !== Settings::get()['deployment_mode'] ) {
+			return self::not_ready( 'source_not_configured' );
+		}
+		$url = Events::source_url( (int) $event_id, $type, $mode );
+		// Re-checked here: the host may have been taken off the allowlist after the event was saved.
+		if ( '' === $url || '' !== Events::stream_url_error( $url ) ) {
+			return self::not_ready( 'source_not_configured' );
+		}
+		$signer = Stream_Signers::current();
+		if ( null === $signer ) {
+			return self::not_ready( 'source_not_configured' );
+		}
+		$signed = $signer->sign( $url, time() + Stream_Signers::ttl( (int) $event_id ) );
+		if ( '' === $signed ) {
+			return self::not_ready( 'source_not_configured' );
+		}
+		return array(
+			'kind' => 'hls',
+			'url'  => $signed,
+			'mode' => $mode,
 		);
 	}
 

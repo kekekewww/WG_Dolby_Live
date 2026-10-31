@@ -40,6 +40,9 @@ final class Events {
 
 	const META_PREFIX = '_wg_live_';
 
+	/** Stored source types read back as themselves; anything else reads as not_configured (M2-PLAN B3). */
+	const SOURCE_TYPES = array( 'not_configured', 'demo', 'hls' );
+
 	const DEFAULT_TIMEZONE = 'Asia/Taipei';
 
 	const NONCE_ACTION = 'wg_live_save_event_';
@@ -179,7 +182,8 @@ final class Events {
 		$media_kind = 'audio' === self::meta( $id, 'media_kind' ) ? 'audio' : 'video';
 
 		$is_demo     = self::meta_bool( $id, 'is_demo' );
-		$source_type = 'demo' === self::meta( $id, 'source_type' ) ? 'demo' : 'not_configured';
+		$source_type = self::meta( $id, 'source_type' );
+		$source_type = in_array( $source_type, self::SOURCE_TYPES, true ) ? $source_type : 'not_configured';
 
 		$product_url = self::meta( $id, 'product_url' );
 		if ( '' !== $product_url && '' === self::clean_http_url( $product_url ) ) {
@@ -1083,7 +1087,9 @@ final class Events {
 				echo $data['is_demo'] ? '是' : '—';
 				break;
 			case 'wg_live_src':
-				if ( 'demo' !== $data['source_type'] ) {
+				if ( 'hls' === $data['source_type'] ) {
+					echo 'HLS 串流';
+				} elseif ( 'demo' !== $data['source_type'] ) {
 					echo '尚未設定';
 				} else {
 					echo 'audio' === $data['media_kind'] ? '示範音訊' : '示範影片';
