@@ -1,7 +1,7 @@
 === WG Studio Live ===
 Requires at least: 6.3
 Requires PHP: 7.4
-Stable tag: 0.2.0
+Stable tag: 0.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Tags: live, concert, audio, binaural, dolby atmos
@@ -44,6 +44,13 @@ The two demo video files (`assets/demo/demo-video-1.mp4`, `assets/demo/demo-vide
 The plugin bundles hls.js (Apache-2.0), unmodified, as `assets/dist/wg-live-hls.js`; it is loaded only when a real event plays an HLS stream. Its license and copyright notices are in `assets/dist/THIRD-PARTY-NOTICES.txt`. The other built scripts and stylesheets in `assets/dist` are compiled from this project's own source.
 
 == Changelog ==
+
+= 0.3.0 =
+* M2 groundwork, all of it inactive until the deployment mode is set to 「正式」 (live); demo and disabled behave as in 0.2.0.
+* Tickets: a logged-in viewer is entitled when one of their paid WooCommerce orders contains the event's ticket product (not fully refunded). Never inferred from roles or e-mail addresses.
+* Sources: per event either HLS playlists (on hosts listed under 設定 → 串流主機) played by the plugin's own player, or the streaming provider's player page (on origins listed under 設定 → 播放器網域). URLs reach a viewer only through /playback, after the ticket check, while the event is live or in intermission.
+* Production hands out no stream URL until a provider URL signer is configured (escape hatch: WG_LIVE_ALLOW_UNSIGNED_STREAMS, a documented risk). The deployment-information screen shows the signer state.
+* Bundles hls.js 1.7.3 (Apache-2.0) as a separate file, loaded only for HLS sources.
 
 = 0.2.0 =
 * Event managers: users with `publish_pages` (Editors, WooCommerce Shop Managers) can create, edit, publish and delete Live events. Filter: `wg_live_events_capability`. Settings, deployment information and page creation still need `manage_options` (filter `wg_live_manage_capability`).

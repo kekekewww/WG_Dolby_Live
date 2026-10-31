@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name:       WG Studio Live
- * Description:       Live / 線上音樂會: event pages and a Binaural / Dolby Atmos listening-mode player interface. M1 ships the interface and a demo player with test video and audio only; it does not check tickets or protect streams.
- * Version:           0.2.0
+ * Description:       Live / 線上音樂會: event pages and a Binaural / Dolby Atmos listening-mode player interface with a demo player. Ticket checks and real sources (HLS or the provider's player page) work only in deployment mode 「正式」, which is off until an administrator switches it on; stream URL signing waits on the streaming provider.
+ * Version:           0.3.0
  * Requires at least: 6.3
  * Requires PHP:      7.4
  * Author:            WG Studio
@@ -16,7 +16,7 @@
 defined( 'ABSPATH' ) || exit;
 
 // Keep in sync with package.json, readme.txt (Stable tag) and assets/dist/build-info.json (check:artifact).
-define( 'WG_LIVE_VERSION', '0.2.0' );
+define( 'WG_LIVE_VERSION', '0.3.0' );
 define( 'WG_LIVE_FILE', __FILE__ );
 define( 'WG_LIVE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WG_LIVE_URL', plugin_dir_url( __FILE__ ) );
