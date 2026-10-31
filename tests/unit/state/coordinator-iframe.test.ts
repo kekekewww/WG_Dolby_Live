@@ -3,7 +3,7 @@
  * 「已選擇：…（由串流服務播放器播放）」, never 「目前播放」, and no watchdog or retry runs on it.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { primaryAction } from '../../../src/components/player-controls';
+import { handlePlayerKeydown, primaryAction } from '../../../src/components/player-controls';
 import { parsePlaybackSource } from '../../../src/adapters/providers';
 import { selectGate, selectModeLabel } from '../../../src/state/model';
 import type { PlaybackSource } from '../../../src/types';
@@ -67,6 +67,22 @@ describe('iframe sources (M2-PLAN D2)', () => {
     expect(h.state().player.status).toBe('playing');
     expect(h.adapters).toHaveLength(1);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('review I2: pause/resume (button, K or Space) does nothing on a frame; the state never fakes a pause', async () => {
+    const h = await make();
+    await prepare(h);
+    const started = h.controller.start();
+    h.last().capabilities = { ...FRAME_CAPS };
+    await started;
+    await h.flush();
+    await h.controller.togglePlay();
+    expect(h.state().player.status).toBe('playing');
+    const key = new KeyboardEvent('keydown', { key: 'k', cancelable: true });
+    expect(handlePlayerKeydown(key, h.controller)).toBe(false);
+    expect(key.defaultPrevented).toBe(false);
+    expect(h.state().player.status).toBe('playing');
+    expect(h.last().pauseCalls).toBe(0);
   });
 
   it('switching modes replaces the frame and the label follows the selection', async () => {

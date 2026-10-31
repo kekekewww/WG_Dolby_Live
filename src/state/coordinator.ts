@@ -1002,6 +1002,8 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
       if (destroyed) return done;
       const cur = current;
       const status = state.player.status;
+      // A provider player frame has its own controls; ours must not fake a pause it cannot perform (review I2).
+      if (cur !== null && !cur.adapter.capabilities.playPause) return done;
 
       if (status === 'playing' || (status === 'reconnecting' && cur !== null)) {
         if (cur === null) return done;

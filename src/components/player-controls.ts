@@ -135,8 +135,11 @@ export function handlePlayerKeydown(event: KeyboardEvent, controller: PlayerCont
   if (isEditableTarget(target)) return false;
   if (isSpace && isActivatableTarget(target)) return false;
 
-  const { status } = controller.getState().player;
+  const state = controller.getState();
+  const { status } = state.player;
   if (status !== 'playing' && status !== 'paused' && status !== 'reconnecting') return false;
+  // No shortcut for an adapter that cannot pause (a provider player frame, M2-PLAN D2).
+  if (state.capabilities !== null && !state.capabilities.playPause) return false;
 
   event.preventDefault();
   controller.togglePlay().catch(() => undefined);
