@@ -3,9 +3,13 @@ import {
   ProviderError,
   createBootstrapEventProvider,
   createRestEventProvider,
+  createLiveEntitlementProvider,
+  createRestEntitlementProvider,
   createRestPlaybackProvider,
+  createRestSession,
   parsePlaybackSource,
 } from '../../../src/adapters/providers';
+import { createEntitlementPlaceholder } from '../../../src/adapters/entitlement-placeholder';
 import { demoEvents } from '../../../src/fixtures/demo-events';
 import type { PublicEvent } from '../../../src/types';
 
@@ -405,5 +409,68 @@ describe('types', () => {
   it('REST providers satisfy the contract interfaces', () => {
     const list: PublicEvent[] = events;
     expect(typeof createBootstrapEventProvider(list).list).toBe('function');
+  });
+});
+
+/* ---------------- M2-PLAN A3: REST entitlement with the wp_rest nonce ---------------- */
+describe('M2 REST entitlement and nonce', () => {
+  const ROOT = 'https://sounds.example.com/wp-json/wg-live/v1/';
+  const NONCE_URL = 'https://sounds.example.com/wp-admin/admin-ajax.php?action=rest-nonce';
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+  const badNonce = () => json({ code: 'rest_cookie_invalid_nonce', message: 'Cookie check failed' }, 403);
+  const headerOf = (call: unknown[]): string | null => new Headers((call[1] as RequestInit | undefined)?.headers).get('X-WP-Nonce');
+
+  it('sends X-WP-Nonce when logged in and no nonce header for guests', async () => {
+    fetchMock.mockResolvedValue(json({ status: 'entitled' }));
+    await createRestEntitlementProvider(ROOT, createRestSession({ root: ROOT, nonce: '0a1b2c3d4e', nonceUrl: NONCE_URL })).get(7);
+    expect(headerOf(fetchMock.mock.calls[0] as unknown[])).toBe('0a1b2c3d4e');
+    fetchMock.mockClear();
+    fetchMock.mockResolvedValue(json({ status: 'guest' }));
+    expect(await createRestEntitlementProvider(ROOT, createRestSession({ root: ROOT, nonce: null, nonceUrl: NONCE_URL })).get(7)).toEqual({ status: 'guest' });
+    expect(headerOf(fetchMock.mock.calls[0] as unknown[])).toBeNull();
+  });
+
+  it('an expired nonce is refreshed from nonceUrl once and the request retried', async () => {
+    fetchMock.mockResolvedValueOnce(badNonce()).mockResolvedValueOnce(new Response('9f8e7d6c5b', { status: 200 })).mockResolvedValueOnce(json({ status: 'entitled' }));
+    const result = await createRestEntitlementProvider(ROOT, createRestSession({ root: ROOT, nonce: '0a1b2c3d4e', nonceUrl: NONCE_URL })).get(7);
+    expect(result).toEqual({ status: 'entitled' });
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe(NONCE_URL);
+    expect(headerOf(fetchMock.mock.calls[2] as unknown[])).toBe('9f8e7d6c5b');
+  });
+
+  it('a nonce that stays invalid is unavailable/session_expired, never not_entitled', async () => {
+    fetchMock.mockResolvedValueOnce(badNonce()).mockResolvedValueOnce(new Response('0', { status: 400 })).mockResolvedValue(badNonce());
+    const result = await createRestEntitlementProvider(ROOT, createRestSession({ root: ROOT, nonce: '0a1b2c3d4e', nonceUrl: NONCE_URL })).get(7);
+    expect(result).toEqual({ status: 'unavailable', reason: 'session_expired' });
+  });
+
+  it('network failures, other HTTP errors and unknown statuses are unavailable', async () => {
+    const provider = createRestEntitlementProvider(ROOT, createRestSession({ root: ROOT, nonce: null, nonceUrl: NONCE_URL }));
+    fetchMock.mockRejectedValueOnce(new TypeError('offline'));
+    expect(await provider.get(7)).toEqual({ status: 'unavailable', reason: 'network' });
+    fetchMock.mockResolvedValueOnce(json({}, 500));
+    expect(await provider.get(7)).toEqual({ status: 'unavailable', reason: 'http' });
+    fetchMock.mockResolvedValueOnce(json({ status: 'owner' }));
+    expect(await provider.get(7)).toEqual({ status: 'unavailable', reason: 'invalid_response' });
+  });
+
+  it('in live mode demo events keep the placeholder rule and never call the entitlement endpoint', async () => {
+    const demo = demoEvents().find((e) => e.isDemo) as PublicEvent;
+    const real: PublicEvent = { ...demo, id: 4242, slug: 'real-concert', isDemo: false };
+    fetchMock.mockResolvedValue(json({ status: 'not_entitled' }));
+    const provider = createLiveEntitlementProvider(
+      createEntitlementPlaceholder([demo, real]),
+      createRestEntitlementProvider(ROOT, createRestSession({ root: ROOT, nonce: null, nonceUrl: NONCE_URL })),
+      [demo, real],
+    );
+    await provider.get(demo.id);
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('entitlement'))).toBe(false);
+    expect(await provider.get(real.id)).toEqual({ status: 'not_entitled' });
+  });
+
+  it('the playback request carries the nonce too', async () => {
+    fetchMock.mockResolvedValue(json({ kind: 'not_ready', reason: 'not_entitled' }));
+    await createRestPlaybackProvider(ROOT, createRestSession({ root: ROOT, nonce: '0a1b2c3d4e', nonceUrl: NONCE_URL })).resolve(7, 'binaural');
+    expect(headerOf(fetchMock.mock.calls[0] as unknown[])).toBe('0a1b2c3d4e');
   });
 });

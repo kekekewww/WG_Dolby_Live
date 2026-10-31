@@ -23,7 +23,7 @@ import { h, isFocusable, safeUrl, uid } from '../dom';
 import { DEMO_EVENT_BADGE, playerCopy, statusCopy } from '../i18n/copy';
 import { createAdapterFactory } from '../adapters/factory';
 import { createEntitlementPlaceholder } from '../adapters/entitlement-placeholder';
-import { createRestEventProvider, createRestPlaybackProvider } from '../adapters/providers';
+import { createLiveEntitlementProvider, createRestEntitlementProvider, createRestEventProvider, createRestPlaybackProvider, createRestSession } from '../adapters/providers';
 import { createPlayerController } from '../state/coordinator';
 import type { CoordinatorDeps } from '../state/coordinator';
 import { startEventPoller } from '../state/event-poller';
@@ -100,14 +100,20 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     fromParam ?? (remembered !== null && event.availableModes.includes(remembered) ? remembered : null);
 
   const eventProvider = createRestEventProvider(boot.rest.root, boot.events);
+  // M2-PLAN A3: one REST session (wp_rest nonce) for playback and entitlement; real events ask the server in live mode.
+  const session = createRestSession(boot.rest);
+  const placeholder = createEntitlementPlaceholder(boot.events);
   const deps: CoordinatorDeps = {
     boot,
     event,
     host: shell.host,
     env: ctx.env,
     adapterFactory: createAdapterFactory(),
-    playbackProvider: createRestPlaybackProvider(boot.rest.root),
-    entitlementProvider: createEntitlementPlaceholder(boot.events),
+    playbackProvider: createRestPlaybackProvider(boot.rest.root, session),
+    entitlementProvider:
+      boot.deploymentMode === 'live'
+        ? createLiveEntitlementProvider(placeholder, createRestEntitlementProvider(boot.rest.root, session), boot.events)
+        : placeholder,
     eventProvider,
     root: ctx.root,
     preselect,
