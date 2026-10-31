@@ -17,7 +17,7 @@ export function createAdapterFactory(): AdapterFactory {
       case 'hls':
         return createHlsAdapter(host, env);
       case 'iframe':
-        return createIframeAdapter();
+        return createIframeAdapter(host, env);
       default:
         return createInertAdapter('iframe');
     }

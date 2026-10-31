@@ -170,7 +170,9 @@ describe('event resolution and controller dependencies', () => {
     const d = deps();
     expect(d.boot).toBe(m.boot);
     expect(d.root).toBe(m.root);
-    expect(d.env).toEqual({ volumeSettable: true });
+    // M2-PLAN D2: the env also names a provider player frame after the event.
+    expect(d.env).toMatchObject({ volumeSettable: true });
+    expect(d.env.frameTitle).toMatch(/・串流服務播放器$/);
     expect(d.host.media).toBeInstanceOf(HTMLVideoElement); // video is the default media kind
     expect(m.mount.querySelector('.wg-live__stage')?.contains(d.host.media)).toBe(true);
     expect(typeof d.adapterFactory).toBe('function');

@@ -226,9 +226,11 @@ export interface AdapterEnv {
   volumeSettable: boolean;
   /** BootConfig.assets.hls: the plugin's own hls.js file (M2-PLAN C2). Absent or null: no hls.js path. */
   hlsScriptUrl?: string | null;
+  /** Accessible name of a provider player frame: "<event title>・串流服務播放器" (M2-PLAN D2). */
+  frameTitle?: string;
 }
 
-/** 'hls' plays through the HLS adapter (M2-PLAN C2); 'iframe' is still an inert stub until D2. */
+/** 'hls' plays through the HLS adapter (M2-PLAN C2); 'iframe' embeds the provider player (D2). */
 export type AdapterFactory = (
   kind: PlaybackAdapter['kind'],
   host: MediaHost,

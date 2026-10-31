@@ -223,7 +223,21 @@ export function parsePlaybackSource(raw: unknown): PlaybackSource {
     return { kind: 'hls', url: safe, mode: mode as ListeningMode };
   }
 
-  // 'iframe' (until M2-PLAN D2) and everything else.
+  if (raw.kind === 'iframe') {
+    // M2-PLAN D2: an https provider player page whose origin is exactly allowedOrigin.
+    const { url, allowedOrigin } = raw;
+    if (typeof url !== 'string' || typeof allowedOrigin !== 'string') return NOT_CONFIGURED;
+    const safe = safeUrl(url);
+    if (safe === null) return NOT_CONFIGURED;
+    try {
+      const parsed = new URL(safe);
+      if (parsed.protocol !== 'https:' || parsed.origin !== allowedOrigin) return NOT_CONFIGURED;
+    } catch {
+      return NOT_CONFIGURED;
+    }
+    return { kind: 'iframe', url: safe, allowedOrigin };
+  }
+
   return NOT_CONFIGURED;
 }
 

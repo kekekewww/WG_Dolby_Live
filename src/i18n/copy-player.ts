@@ -50,6 +50,8 @@ export const playerCopy = {
     unmute: '取消靜音',
     volume: '音量',
     seekToLive: '返回直播',
+    /** M2-PLAN D2 (proposed copy, for approval): shown instead of our controls for a provider player. */
+    providerControls: '播放控制在下方的串流服務播放器中',
     fullscreen: '全螢幕',
     exitFullscreen: '結束全螢幕',
     /** aria-keyshortcuts on the play/pause button (documented on the help page). */

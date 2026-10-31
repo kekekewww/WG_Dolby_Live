@@ -126,6 +126,19 @@
   inset: 0;
 }
 
+/* M2-PLAN D2: the provider's own player page fills the stage. */
+.wg-live .wg-live__provider-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.wg-live .wg-live__provider-note {
+  margin: 0;
+  font-size: var(--wg-font-size-sm, 0.875rem);
+}
+
 .wg-live .wg-live__stage-art {
   display: block;
   width: 100%;

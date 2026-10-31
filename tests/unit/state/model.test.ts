@@ -61,11 +61,11 @@ describe('createInitialState', () => {
     expect(createInitialState(makeBoot(), null, 'atmos').player.selectedMode).toBeNull();
   });
 
-  it('carries the deployment mode and treats demo and hls (M2-PLAN C3) as configured sources', () => {
+  it('carries the deployment mode and treats demo, hls (M2-PLAN C3) and iframe (D2) as configured sources', () => {
     expect(createInitialState(makeBoot({ deploymentMode: 'disabled' }), makeEvent(), null).deploymentMode).toBe('disabled');
     expect(normalizeSource('demo')).toBe('demo');
     expect(normalizeSource('hls')).toBe('hls');
-    expect(normalizeSource('iframe')).toBe('not_configured');
+    expect(normalizeSource('iframe')).toBe('iframe');
     expect(normalizeSource(undefined)).toBe('not_configured');
     const s = createInitialState(makeBoot(), makeEvent({ sourceKind: 'hls' }), null);
     expect(s.source).toBe('hls');
@@ -82,7 +82,7 @@ describe('selectGate (plan 6.2 order 0-7)', () => {
     ['3 ended', stateOf(makeEvent({ status: 'ended' })), 'ended', false],
     ['4 not configured', stateOf(makeEvent({ sourceKind: 'not_configured' })), 'not_configured', false],
     ['4 beats scheduled', stateOf(makeEvent({ status: 'scheduled', sourceKind: 'not_configured' })), 'not_configured', false],
-    ['4 server iframe is not configured until M2-PLAN D2', stateOf(makeEvent({ sourceKind: 'iframe' })), 'not_configured', false],
+    ['4 server iframe is a configured source (M2-PLAN D2)', stateOf(makeEvent({ sourceKind: 'iframe' })), 'open', false],
     ['4 server hls is a configured source (M2-PLAN C3)', stateOf(makeEvent({ sourceKind: 'hls' })), 'open', false],
     ['5 scheduled', stateOf(makeEvent({ status: 'scheduled' })), 'scheduled', false],
     ['6 doors open', stateOf(makeEvent({ status: 'doors_open' })), 'doors_open', false],

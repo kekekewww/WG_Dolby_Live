@@ -311,7 +311,11 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
       if (typeof source.url !== 'string' || source.url === '' || source.mode !== mode) return { ok: false, reason: 'error' };
       return { ok: true, source: { kind: 'hls', url: source.url, mode } };
     }
-    // An iframe source is not playable by this build yet (M2-PLAN D2): treated as not configured.
+    if (source.kind === 'iframe') {
+      // M2-PLAN D2: an https provider player page of exactly the allowed origin (the adapter checks again).
+      if (typeof source.url !== 'string' || source.url === '' || typeof source.allowedOrigin !== 'string') return { ok: false, reason: 'error' };
+      return { ok: true, source: { kind: 'iframe', url: source.url, allowedOrigin: source.allowedOrigin } };
+    }
     return { ok: false, reason: 'not_ready', notReady: 'source_not_configured' };
   }
 
@@ -602,6 +606,19 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
     if (current !== cur) return;
     // Capabilities are per instance and final once load() resolved (plan 6.10).
     dispatch({ type: 'attempt/capabilities', capabilities: cur.adapter.capabilities });
+    if (!cur.adapter.capabilities.reliablePlaybackEvents) {
+      // M2-PLAN D2: a provider player frame. "Loaded" is all it can tell us: show the selection, run no watchdog.
+      cur.hasPlayed = true;
+      dispatch({ type: 'adapter/frame_ready' });
+      if (state.player.status === 'playing' && !cur.ctx.remembered) {
+        cur.ctx.remembered = true;
+        try {
+          deps.onModeRemembered?.(cur.ctx.mode);
+        } catch {
+          // A storage failure must not affect playback.
+        }
+      }
+    }
   }
 
   function onLoadRejected(cur: Current, error: unknown): void {
@@ -805,7 +822,8 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
   /* ================================================================ */
 
   function syncWatchdog(): void {
-    const want = !destroyed && current !== null && WATCHED_STATUSES.includes(state.player.status);
+    // A provider frame (no reliable playback events) has no media progress to watch (M2-PLAN D2).
+    const want = !destroyed && current !== null && current.adapter.capabilities.reliablePlaybackEvents && WATCHED_STATUSES.includes(state.player.status);
     if (want && watchdog === null) {
       watchdog = setInterval(tick, TICK_MS);
     } else if (!want && watchdog !== null) {

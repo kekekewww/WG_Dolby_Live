@@ -42,6 +42,8 @@ export function primaryAction(state: AppState): PrimaryAction {
       return { kind: 'busy', label: playerCopy.controls.switching, disabled: true };
     case 'playing':
     case 'reconnecting':
+      // A provider player frame has its own controls; ours would control nothing (M2-PLAN D2).
+      if (state.capabilities !== null && !state.capabilities.playPause) return { kind: 'hidden', label: statusCopy.action.pause, disabled: true };
       return { kind: 'toggle', label: statusCopy.action.pause, disabled: false };
     case 'paused':
       // After a blocked play() the next click calls adapter.play() directly (plan 6.3).
@@ -266,7 +268,9 @@ export function createPlayerControls(options: PlayerControlsOptions): PlayerCont
     live,
     fullscreen,
   );
-  const el = h('div', { className: 'wg-live__controls-main' }, primary, reason, secondary);
+  // M2-PLAN D2: for a provider player frame, the controls are the provider's own (shown instead of ours).
+  const providerNote = h('p', { className: 'wg-live__provider-note', text: playerCopy.controls.providerControls, hidden: true });
+  const el = h('div', { className: 'wg-live__controls-main' }, primary, reason, secondary, providerNote);
 
   /* ---- events ---- */
   listen(primary, 'click', () => {
@@ -336,6 +340,7 @@ export function createPlayerControls(options: PlayerControlsOptions): PlayerCont
     live.hidden = !showLive;
     fullscreen.hidden = !showFullscreen;
     secondary.hidden = !(showMute || showVolume || showLive || showFullscreen);
+    providerNote.hidden = !(engaged && caps !== null && !caps.reliablePlaybackEvents && status !== 'failed');
 
     const muted = state.player.muted;
     mute.setAttribute('aria-pressed', muted ? 'true' : 'false');

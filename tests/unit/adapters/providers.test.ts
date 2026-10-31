@@ -341,7 +341,7 @@ describe('createRestPlaybackProvider', () => {
     ['hls with credentials in the url', { kind: 'hls', url: 'https://u:p@x.test/live.m3u8', mode: 'binaural' }],
     ['hls without a mode', { kind: 'hls', url: 'https://x.test/live.m3u8' }],
     ['hls with an unknown mode', { kind: 'hls', url: 'https://x.test/live.m3u8', mode: 'surround' }],
-    ['iframe (until M2-PLAN D2)', { kind: 'iframe', url: 'https://x.test/p', allowedOrigin: 'https://x.test' }],
+    ['iframe on another origin than allowedOrigin', { kind: 'iframe', url: 'https://x.test/p', allowedOrigin: 'https://y.test' }],
     ['no kind', { url: 'https://x.test/a.mp3' }],
     ['array', []],
     ['null', null],

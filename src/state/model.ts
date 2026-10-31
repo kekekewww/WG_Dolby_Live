@@ -50,12 +50,9 @@ export function isBlockingGate(kind: GateKind): boolean {
   return BLOCKING_GATES.includes(kind);
 }
 
-/**
- * The source kinds this build can play: 'demo' (M1) and 'hls' (M2-PLAN C3). An `iframe` value is treated as not
- * configured until its adapter exists (M2-PLAN D2); anything unknown is not configured.
- */
+/** The source kinds this build can play: 'demo' (M1), 'hls' (M2-PLAN C3), 'iframe' (D2); anything else is not configured. */
 export function normalizeSource(kind: SourceKind | null | undefined): SourceKind {
-  return kind === 'demo' || kind === 'hls' ? kind : 'not_configured';
+  return kind === 'demo' || kind === 'hls' || kind === 'iframe' ? kind : 'not_configured';
 }
 
 /** Plan 6.2 gating order 0-7. */
@@ -336,6 +333,10 @@ export function selectModeLabel(s: AppState): string | null {
   const { player } = s;
   if (player.confirmedPlaying && player.activeMode !== null) {
     return statusCopy.currentMode(modeName(player.activeMode));
+  }
+  // M2-PLAN D2: a provider player frame plays on its own; we only know what was chosen.
+  if (s.capabilities !== null && !s.capabilities.reliablePlaybackEvents && player.status === 'playing' && player.activeMode !== null) {
+    return statusCopy.providerSelectedMode(modeName(player.activeMode));
   }
   const mode = player.status === 'switching' && player.pendingMode !== null ? player.pendingMode : player.selectedMode;
   return mode !== null ? statusCopy.selectedMode(modeName(mode)) : null;

@@ -80,6 +80,20 @@ describe('real (hls) sources in the UI (M2-PLAN C3)', () => {
     expect(selector.inputs.binaural.disabled).toBe(false);
   });
 
+  it('a provider player frame (M2-PLAN D2): no play, pause, mute or volume, no 目前播放, and the provider-controls note', () => {
+    const FRAME = { playPause: false, mute: false, volume: false, seekToLive: false, fullscreen: false, remotePlayback: false, reliablePlaybackEvents: false };
+    const state = playing(FRAME);
+    const controls = createPlayerControls({ controller: createFakeController(state), media: document.createElement('video'), mediaKind: 'video' } as never);
+    attach(controls.el);
+    controls.update(state);
+    const visibleText = shown(controls.el);
+    expect(visibleText).toContain('播放控制在下方的串流服務播放器中');
+    const buttons = Array.from(controls.el.querySelectorAll<HTMLElement>('button, input')).filter((b) => !b.hidden && !b.closest('[hidden]'));
+    expect(buttons).toEqual([]);
+    expect(shown(panelFor(state))).not.toContain('目前播放');
+    controls.destroy();
+  });
+
   it('返回直播 appears only when the adapter reports a live edge', () => {
     for (const [seekToLive, expected] of [
       [false, 0],

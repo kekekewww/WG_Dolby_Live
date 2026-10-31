@@ -108,7 +108,8 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     boot,
     event,
     host: shell.host,
-    env: ctx.env,
+    // M2-PLAN D2: a provider player frame is named after the event.
+    env: { ...ctx.env, frameTitle: `${event.title}・串流服務播放器` },
     adapterFactory: createAdapterFactory(),
     playbackProvider: createRestPlaybackProvider(boot.rest.root, session),
     entitlementProvider:

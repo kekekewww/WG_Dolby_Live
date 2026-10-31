@@ -38,6 +38,8 @@ export type Action =
   | { type: 'attempt/resume' }
   | { type: 'attempt/capabilities'; capabilities: PlayerCapabilities }
   | { type: 'adapter/playing' }
+  /** M2-PLAN D2: a provider player frame loaded. It cannot confirm playback, so confirmedPlaying stays false. */
+  | { type: 'adapter/frame_ready' }
   | { type: 'adapter/paused' }
   | { type: 'adapter/ended' }
   /** The watchdog saw no progress for the grace period while playing. */
@@ -188,6 +190,20 @@ export function reduce(state: AppState, action: Action): AppState {
         retry: null,
       });
       return next;
+    }
+
+    case 'adapter/frame_ready': {
+      if (p.loadedMode === null) return state;
+      return moveTo(state, 'playing', {
+        activeMode: p.loadedMode,
+        selectedMode: p.loadedMode,
+        preparedMode: p.loadedMode,
+        lastGoodMode: p.loadedMode,
+        confirmedPlaying: false,
+        pendingMode: null,
+        error: null,
+        retry: null,
+      });
     }
 
     case 'adapter/paused':

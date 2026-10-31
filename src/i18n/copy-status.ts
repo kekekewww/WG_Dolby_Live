@@ -61,6 +61,8 @@ export const statusCopy = {
   } satisfies Record<ListeningMode, string>,
   /** 已選擇：Dolby Atmos 音軌 */
   selectedMode: (modeName: string): string => `已選擇：${modeName}`,
+  /** M2-PLAN D2 (proposed copy, for approval): a provider player frame cannot confirm playback. */
+  providerSelectedMode: (modeName: string): string => `已選擇：${modeName}（由串流服務播放器播放）`,
   /** 目前播放：Binaural — only after the adapter confirmed playing. */
   currentMode: (modeName: string): string => `目前播放：${modeName}`,
   /** Help text for the label (never claims device output). */

@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEntitlementPlaceholder } from '../../../src/adapters/entitlement-placeholder';
 import { createAdapterFactory } from '../../../src/adapters/factory';
-import { createIframeAdapter } from '../../../src/adapters/iframe';
 import { demoEvents } from '../../../src/fixtures/demo-events';
-import type { MediaHost, PlaybackAdapter, PublicEvent } from '../../../src/types';
+import type { MediaHost, PublicEvent } from '../../../src/types';
 
 function makeHost(): MediaHost {
   const media = document.createElement('audio');
@@ -33,40 +32,11 @@ describe('createAdapterFactory', () => {
     adapter.destroy();
   });
 
-  it.each(['iframe'] as const)('returns an inert %s stub that never touches the shared element', async (kind) => {
-    const media = host.media;
-    const spies = [vi.spyOn(media, 'play'), vi.spyOn(media, 'pause'), vi.spyOn(media, 'load'), vi.spyOn(media, 'removeAttribute')];
-    const addListener = vi.spyOn(media, 'addEventListener');
-    media.setAttribute('src', 'https://cdn.example.test/other.mp3'); // owned by someone else
-    spies[3]!.mockClear();
-
-    const adapter: PlaybackAdapter = createAdapterFactory()(kind, host, { volumeSettable: true });
-    expect(adapter.kind).toBe(kind);
-    const seen: unknown[] = [];
-    for (const event of ['playing', 'paused', 'waiting', 'stalled', 'ended', 'error'] as const) {
-      adapter.on(event, (d) => seen.push([event, d]))();
-      adapter.on(event, (d) => seen.push([event, d]));
-    }
-
-    await expect(adapter.load({ kind: 'demo', url: 'https://x.test/a.mp3', mimeType: 'audio/mpeg' }, new AbortController().signal)).resolves.toBeUndefined();
-    await expect(adapter.play()).resolves.toBeUndefined();
-    adapter.pause();
-    adapter.setMuted(true);
-    adapter.setVolume(0.5);
-    adapter.seekToLive();
+  it('returns the provider player adapter for kind iframe (M2-PLAN D2): no capabilities, so none of our controls render', () => {
+    const adapter = createAdapterFactory()('iframe', host, { volumeSettable: true });
+    expect(adapter.kind).toBe('iframe');
+    expect(Object.values(adapter.capabilities).every((v) => v === false)).toBe(true);
     adapter.destroy();
-    adapter.destroy();
-
-    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
-    expect(addListener).not.toHaveBeenCalled();
-    expect(media.getAttribute('src')).toBe('https://cdn.example.test/other.mp3');
-    expect(seen).toEqual([]); // never reports anything, in particular never 'unsupported'
-  });
-
-  it('stubs expose no capabilities, so no control renders', () => {
-    for (const adapter of [createIframeAdapter()]) {
-      expect(Object.values(adapter.capabilities).every((v) => v === false)).toBe(true);
-    }
   });
 
   it('an unknown runtime kind still yields an inert adapter instead of throwing', () => {
