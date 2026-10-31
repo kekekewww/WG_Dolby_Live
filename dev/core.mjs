@@ -228,13 +228,33 @@ export function hlsHarnessEvent(now = Date.now()) {
   };
 }
 
+/** M2-PLAN D4: the real event of ?harness=hls whose source is a provider player page (iframe). */
+export const IFRAME_EVENT_SLUG = 'iframe-fixture-live';
+/** The fake provider origin: the e2e tests serve dev/fake-player/ there through Playwright routing. */
+export const FAKE_PLAYER_ORIGIN = 'https://player.fake.test';
+
+/**
+ * @param {number} [now]
+ * @returns {PublicEvent}
+ */
+export function iframeHarnessEvent(now = Date.now()) {
+  return {
+    ...hlsHarnessEvent(now),
+    id: 9006,
+    slug: IFRAME_EVENT_SLUG,
+    title: '【測試資料】串流服務播放器測試',
+    description: '開發測試資料：服務商播放器頁面（dev/fake-player），由服務商播放器自己的控制鈕播放。',
+    sourceKind: 'iframe',
+  };
+}
+
 /**
  * Every event the REST mock can answer for by slug or id (the list endpoint shows only harnessEvents).
  * @param {number} [now]
  * @returns {PublicEvent[]}
  */
 function knownEvents(now = Date.now()) {
-  return [...harnessEvents(now), hlsHarnessEvent(now)];
+  return [...harnessEvents(now), hlsHarnessEvent(now), iframeHarnessEvent(now)];
 }
 
 /** @type {CompatibilityRow[]} */
@@ -458,7 +478,7 @@ export function injectSiteMock(html, pageBase = '/dev/') {
 export function entitlementFor(event) {
   if (event.isDemo && event.sourceKind === 'demo') return 'entitled';
   // M2-PLAN C4: the harness viewer owns a ticket for the hls fixture event.
-  return event.slug === HLS_EVENT_SLUG ? 'entitled' : 'unavailable';
+  return event.slug === HLS_EVENT_SLUG || event.slug === IFRAME_EVENT_SLUG ? 'entitled' : 'unavailable';
 }
 
 /**
@@ -471,12 +491,13 @@ export function resolvePlayback({ disabled, event, mode, env = process.env }) {
   if (!event) return { kind: 'not_ready', reason: 'event_not_found' }; // 2
   if (!event.availableModes.includes(mode)) return { kind: 'not_ready', reason: 'mode_unavailable' }; // 3
   if (entitlementFor(event) !== 'entitled') return { kind: 'not_ready', reason: 'entitlement_unavailable' }; // 4
-  if (event.isDemo ? event.sourceKind !== 'demo' : event.sourceKind !== 'hls') return { kind: 'not_ready', reason: 'source_not_configured' }; // 5
+  if (event.isDemo ? event.sourceKind !== 'demo' : event.sourceKind !== 'hls' && event.sourceKind !== 'iframe') return { kind: 'not_ready', reason: 'source_not_configured' }; // 5
   if (!event.isDemo && event.status !== 'live' && event.status !== 'intermission') {
     return { kind: 'not_ready', reason: 'event_not_playable' }; // 6 (demo events skip it)
   }
   // 7 (M2): a real event's playlist for the mode, from the local fixture (unsigned: the harness is a local site).
   if (event.sourceKind === 'hls') return { kind: 'hls', url: `/hls/${mode}/index.m3u8`, mode };
+  if (event.sourceKind === 'iframe') return { kind: 'iframe', url: `${FAKE_PLAYER_ORIGIN}/embed?track=${mode}`, allowedOrigin: FAKE_PLAYER_ORIGIN };
   // 7a: dev-only local Atmos file for the live demo event (hook above; unset = nothing changes).
   if (mode === 'atmos' && event.slug === LOCAL_ATMOS_EVENT_SLUG) {
     const local = localAtmosHook(env);

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fake provider player (dev only)</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #fff; font: 14px/1.4 system-ui, sans-serif; }
+  video { display: block; width: 100%; height: calc(100% - 2em); }
+  p { margin: 0; padding: 0.25em 0.5em; }
+</style>
+</head>
+<body>
+<!--
+  M2-PLAN D4: a stand-in for a streaming provider's player page, served by the e2e tests on a second (https) origin
+  through Playwright routing. It has its own controls; the plugin never drives it (no postMessage API, D3 blocked).
+-->
+<p id="fake-track">Fake provider player</p>
+<video id="fake-video" controls playsinline preload="none"></video>
+<script>
+  const track = new URLSearchParams(location.search).get('track') || 'binaural';
+  document.getElementById('fake-track').textContent = 'Fake provider player: ' + track;
+  document.getElementById('fake-video').src = '/media/' + (track === 'atmos' ? 'atmos' : 'binaural') + '.mp4';
+</script>
+</body>
+</html>
