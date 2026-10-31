@@ -68,7 +68,7 @@ test.describe('link overrides and the host-mismatch warning (deployment screen)'
       await expect(page.locator(PLUGIN_WARNING)).toHaveCount(0);
       // The deployment screen reports the real environment.
       await expect(page.locator('#wpbody-content')).toContainText('local');
-      await expect(page.locator('#wpbody-content')).toContainText('0.3.0');
+      await expect(page.locator('#wpbody-content')).toContainText('0.4.0');
     } finally {
       await close();
     }
@@ -479,22 +479,20 @@ test.describe('the demo audio override (M1-PLAN 4.3: it applies to AUDIO events 
       const video = ids[`${TOKEN}-video`] as number;
 
       // Selected but NOT approved (the picker sets the flag): the bundled tone is used.
-      setSettingsKeys(DEV, { demo_audio_binaural: attachment.id });
-      expect((await playback(audio, 'binaural')).url, 'unapproved attachment is ignored').toMatch(new RegExp(`/assets/demo/${TONE.binaural}\\?ver=`));
+      setSettingsKeys(DEV, { demo_audio_atmos: attachment.id });
+      expect((await playback(audio, 'atmos')).url, 'unapproved attachment is ignored').toMatch(new RegExp(`/assets/demo/${TONE.atmos}\\?ver=`));
 
-      // Approved: the audio event plays the library file, only in the mode it was chosen for.
+      // Approved: the audio event plays the library file (Atmos is the only mode an event offers).
       wpPhp(DEV, `update_post_meta( ${attachment.id}, '_wg_live_demo_approved', '1' ); return true;`);
-      const overridden = await playback(audio, 'binaural');
+      const overridden = await playback(audio, 'atmos');
       expect(overridden).toEqual({ kind: 'demo', url: attachment.url, mimeType: 'audio/mpeg' });
-      expect((await playback(audio, 'atmos')).url, 'the other mode keeps the bundled tone').toMatch(new RegExp(`/assets/demo/${TONE.atmos}\\?ver=`));
+      expect(await playback(audio, 'binaural'), 'binaural is not offered: no URL').toEqual({ kind: 'not_ready', reason: 'mode_unavailable' });
 
-      // The video event ignores the audio picker in both modes.
-      for (const mode of ['binaural', 'atmos'] as const) {
-        const v = await playback(video, mode);
-        expect(v.mimeType, mode).toBe('video/mp4');
-        expect(v.url, mode).toMatch(new RegExp(`/assets/demo/${DEMO_VIDEO[mode]}\\?ver=`));
-        expect(v.url, mode).not.toContain(TOKEN);
-      }
+      // The video event ignores the audio picker.
+      const v = await playback(video, 'atmos');
+      expect(v.mimeType).toBe('video/mp4');
+      expect(v.url).toMatch(new RegExp(`/assets/demo/${DEMO_VIDEO.atmos}\\?ver=`));
+      expect(v.url).not.toContain(TOKEN);
       // The override file is real, public test media.
       const media = await fetch(attachment.url, { method: 'GET', headers: { Range: 'bytes=0-1' } });
       expect([200, 206]).toContain(media.status);
