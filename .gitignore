@@ -33,3 +33,6 @@ Thumbs.db
 .vscode/
 .idea/
 /playwright-report-integration/
+
+# Generated local test fixtures (npm run demo:hls)
+/tests/.fixtures/

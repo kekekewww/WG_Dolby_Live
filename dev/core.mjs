@@ -13,6 +13,7 @@
 
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { basename, extname, resolve } from 'node:path';
+import { renderHls } from '../scripts/build-hls.mjs';
 
 /** @typedef {import('../src/types.ts').BootConfig} BootConfig */
 /** @typedef {import('../src/types.ts').PublicEvent} PublicEvent */
@@ -190,6 +191,52 @@ export function harnessEvents(now = Date.now()) {
   return [live, scheduled, ended, pending];
 }
 
+/* ------------------------------------------------------------------ */
+/* M2-PLAN C4: one real (hls) event, local fixture                     */
+/* ------------------------------------------------------------------ */
+
+/** The real event of ?harness=hls. Not in GET events (the event list stays the four fixtures above). */
+export const HLS_EVENT_SLUG = 'hls-fixture-live';
+/** Where the harness serves the plugin's own hls.js file (built from node_modules on request). */
+export const HLS_LIB_URL = '/hls-lib/wg-live-hls.js';
+/** `npm run demo:hls` writes the playlists here. */
+const HLS_DIR = resolve(ROOT, 'tests/.fixtures/hls');
+
+/**
+ * @param {number} [now]
+ * @returns {PublicEvent}
+ */
+export function hlsHarnessEvent(now = Date.now()) {
+  return {
+    id: 9005,
+    slug: HLS_EVENT_SLUG,
+    title: '【測試資料】HLS 測試串流（非 Atmos 驗證素材）',
+    performers: ['測試用表演者'],
+    description: '開發測試資料：本機 HLS 測試串流（npm run demo:hls）。\n耳機版本為 AAC 立體聲；家庭劇院版本為 E-AC-3 5.1，不是 Dolby Atmos。',
+    startsAt: iso(now - 10 * MINUTE),
+    displayTimezone: 'Asia/Taipei',
+    status: 'live',
+    posterUrl: null,
+    mediaKind: 'video',
+    availableModes: ['binaural', 'atmos'],
+    programme: [],
+    productUrl: null,
+    replayAvailable: false,
+    isDemo: false,
+    poster: null,
+    sourceKind: 'hls',
+  };
+}
+
+/**
+ * Every event the REST mock can answer for by slug or id (the list endpoint shows only harnessEvents).
+ * @param {number} [now]
+ * @returns {PublicEvent[]}
+ */
+function knownEvents(now = Date.now()) {
+  return [...harnessEvents(now), hlsHarnessEvent(now)];
+}
+
 /** @type {CompatibilityRow[]} */
 const COMPAT_ROWS = [
   {
@@ -223,6 +270,8 @@ const COMPAT_ROWS = [
  *   ?harness=disabled   deployment mode `disabled` (D16): empty events, REST answers like the kill switch
  *   ?harness=plain      REST root in the plain-permalink form (?rest_route=)
  *   ?harness=nodev      devTools: false (what production sends)
+ *   ?harness=hls        deployment mode `live` with a REST nonce, BootConfig.assets.hls, and the real event
+ *                       hls-fixture-live (M2-PLAN C4) that the viewer "bought"
  *   ?featured=<slug>    BootConfig.featuredEventSlug      ?heading=h1|h2    BootConfig.heading
  *   ?fixed=<slug>       BootConfig.fixedEventSlug (the shortcode `event` attribute)
  *   ?view=events|player|help   only on the stress pages (dev/stress.html): which view the page hosts
@@ -230,7 +279,7 @@ const COMPAT_ROWS = [
  * @typedef {{
  *   disabled: boolean, plain: boolean, devTools: boolean,
  *   featured: string | null, heading: 'h1' | 'h2', fixed: string | null,
- *   pageBase: '/dev/' | '/dev/dist/', stressView: LiveView,
+ *   pageBase: '/dev/' | '/dev/dist/', stressView: LiveView, hls: boolean,
  * }} HarnessOptions
  */
 
@@ -255,6 +304,7 @@ export function parseHarnessOptions(search, defaults = {}) {
     fixed: slug(params.get('fixed')),
     pageBase: defaults.pageBase ?? '/dev/',
     stressView: STRESS_VIEWS.get(params.get('view') ?? '') ?? 'events',
+    hls: flags.has('hls'),
   };
 }
 
@@ -290,6 +340,7 @@ export const DEFAULT_OPTIONS = {
   fixed: null,
   pageBase: '/dev/',
   stressView: 'events',
+  hls: false,
 };
 
 /**
@@ -300,17 +351,19 @@ export const DEFAULT_OPTIONS = {
  */
 export function buildBootConfig(view, now = Date.now(), overrides = {}) {
   const options = { ...DEFAULT_OPTIONS, ...overrides };
-  const events = options.disabled ? [] : harnessEvents(now);
+  const live = options.hls && !options.disabled;
+  const events = options.disabled ? [] : live ? knownEvents(now) : harnessEvents(now);
   const featured = options.featured && events.some((e) => e.slug === options.featured) ? options.featured : null;
   const fixed = options.fixed && events.some((e) => e.slug === options.fixed) ? options.fixed : null;
   return {
     schema: 1,
     pluginVersion: '0.0.0-dev',
     view,
-    deploymentMode: options.disabled ? 'disabled' : 'demo',
+    deploymentMode: options.disabled ? 'disabled' : live ? 'live' : 'demo',
     timezone: 'Asia/Taipei',
-    rest: { root: restRootFor(options), nonce: null, nonceUrl: '' },
-    assets: { hls: null },
+    // ?harness=hls: a logged-in viewer (the harness ignores the nonce; the client sends it like on WordPress).
+    rest: { root: restRootFor(options), nonce: live ? '0a1b2c3d4e' : null, nonceUrl: '' },
+    assets: { hls: live ? HLS_LIB_URL : null },
     links: harnessLinks(options.pageBase),
     fixedEventSlug: options.disabled ? null : fixed,
     featuredEventSlug: options.disabled ? null : featured,
@@ -403,7 +456,9 @@ export function injectSiteMock(html, pageBase = '/dev/') {
  * @returns {'entitled' | 'unavailable'}
  */
 export function entitlementFor(event) {
-  return event.isDemo && event.sourceKind === 'demo' ? 'entitled' : 'unavailable';
+  if (event.isDemo && event.sourceKind === 'demo') return 'entitled';
+  // M2-PLAN C4: the harness viewer owns a ticket for the hls fixture event.
+  return event.slug === HLS_EVENT_SLUG ? 'entitled' : 'unavailable';
 }
 
 /**
@@ -416,10 +471,12 @@ export function resolvePlayback({ disabled, event, mode, env = process.env }) {
   if (!event) return { kind: 'not_ready', reason: 'event_not_found' }; // 2
   if (!event.availableModes.includes(mode)) return { kind: 'not_ready', reason: 'mode_unavailable' }; // 3
   if (entitlementFor(event) !== 'entitled') return { kind: 'not_ready', reason: 'entitlement_unavailable' }; // 4
-  if (!(event.isDemo && event.sourceKind === 'demo')) return { kind: 'not_ready', reason: 'source_not_configured' }; // 5
+  if (event.isDemo ? event.sourceKind !== 'demo' : event.sourceKind !== 'hls') return { kind: 'not_ready', reason: 'source_not_configured' }; // 5
   if (!event.isDemo && event.status !== 'live' && event.status !== 'intermission') {
     return { kind: 'not_ready', reason: 'event_not_playable' }; // 6 (demo events skip it)
   }
+  // 7 (M2): a real event's playlist for the mode, from the local fixture (unsigned: the harness is a local site).
+  if (event.sourceKind === 'hls') return { kind: 'hls', url: `/hls/${mode}/index.m3u8`, mode };
   // 7a: dev-only local Atmos file for the live demo event (hook above; unset = nothing changes).
   if (mode === 'atmos' && event.slug === LOCAL_ATMOS_EVENT_SLUG) {
     const local = localAtmosHook(env);
@@ -486,7 +543,7 @@ export function handleRest({ method, route, searchParams, disabled, now = Date.n
   if (slugMatch) {
     const slug = slugMatch[1] ?? '';
     if (!SLUG_RE.test(slug) || slug.length > 100) return NO_ROUTE();
-    const event = events.find((e) => e.slug === slug);
+    const event = (disabled ? [] : knownEvents(now)).find((e) => e.slug === slug);
     return event ? ok({ event }) : restError(404, 'wg_live_not_found', 'Event not found.');
   }
 
@@ -496,8 +553,17 @@ export function handleRest({ method, route, searchParams, disabled, now = Date.n
     if (!/^\d+$/.test(eventParam)) return restError(400, 'rest_invalid_param', 'Invalid parameter(s): event');
     if (mode !== 'binaural' && mode !== 'atmos') return restError(400, 'rest_invalid_param', 'Invalid parameter(s): mode');
     // `events` is empty while disabled, but the answer for disabled is decided first (5.1 step 1).
-    const event = harnessEvents(now).find((e) => e.id === Number(eventParam));
+    const event = knownEvents(now).find((e) => e.id === Number(eventParam));
     return ok(resolvePlayback({ disabled, event, mode }));
+  }
+
+  // M2-PLAN A2 shape: { status, reason }. Mirrors entitlementFor (the harness viewer is logged in).
+  if (route === 'entitlement') {
+    const eventParam = searchParams.get('event') ?? '';
+    if (!/^\d+$/.test(eventParam)) return restError(400, 'rest_invalid_param', 'Invalid parameter(s): event');
+    const event = disabled ? undefined : knownEvents(now).find((e) => e.id === Number(eventParam));
+    if (!event) return ok({ status: 'unavailable', reason: disabled ? 'disabled' : 'event_not_found' });
+    return ok(entitlementFor(event) === 'entitled' ? { status: 'entitled', reason: event.isDemo ? 'demo' : 'ticket' } : { status: 'unavailable', reason: 'not_live_mode' });
   }
 
   return NO_ROUTE();
@@ -615,4 +681,38 @@ export function serveDemoFile(req, res, url, env = process.env) {
     return;
   }
   sendFile(req, res, file);
+}
+
+/* ------------------------------------------------------------------ */
+/* /hls/* fixture and /hls-lib/ (M2-PLAN C4)                           */
+/* ------------------------------------------------------------------ */
+
+const HLS_TYPES = /** @type {Record<string, string>} */ ({ '.m3u8': 'application/vnd.apple.mpegurl', '.m4s': 'video/iso.segment', '.mp4': 'video/mp4' });
+
+/**
+ * GET /hls/<binaural|atmos>/<file> from tests/.fixtures/hls (npm run demo:hls), and GET /hls-lib/wg-live-hls.js: the
+ * plugin's own hls.js file, rendered from node_modules exactly as the build writes it.
+ * @param {import('node:http').IncomingMessage} req
+ * @param {import('node:http').ServerResponse} res
+ * @param {URL} url
+ * @returns {boolean} false when the URL is not one of these
+ */
+export function serveHls(req, res, url) {
+  if (url.pathname === HLS_LIB_URL) {
+    const { js } = renderHls({ root: ROOT });
+    res.setHeader('Content-Type', 'text/javascript; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    res.end(req.method === 'HEAD' ? undefined : js);
+    return true;
+  }
+  if (!url.pathname.startsWith('/hls/')) return false;
+  const m = /^\/hls\/(binaural|atmos)\/([A-Za-z0-9_-]+\.(?:m3u8|m4s|mp4))$/.exec(url.pathname);
+  const file = m ? resolve(HLS_DIR, m[1] ?? '', m[2] ?? '') : '';
+  if (!m || !existsSync(file)) {
+    res.statusCode = 404;
+    res.end('Not found (run npm run demo:hls)');
+    return true;
+  }
+  sendFile(req, res, file, HLS_TYPES[extname(file).toLowerCase()]);
+  return true;
 }

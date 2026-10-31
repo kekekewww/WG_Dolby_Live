@@ -1,5 +1,5 @@
 import type { Plugin } from 'vite';
-import { injectConfig, injectSiteMock, matchRestUrl, parseHarnessOptions, sendRest, serveDemoFile } from './core.mjs';
+import { injectConfig, injectSiteMock, matchRestUrl, parseHarnessOptions, sendRest, serveDemoFile, serveHls } from './core.mjs';
 
 /**
  * Vite dev-server plugin (never packaged). Stateless (M1-PLAN D11); the logic lives in dev/core.mjs
@@ -39,6 +39,8 @@ export function wgLiveDev(): Plugin {
           serveDemoFile(req, res, url);
           return;
         }
+        // M2-PLAN C4: the local HLS fixture and the plugin's own hls.js file (?harness=hls).
+        if (serveHls(req, res, url)) return;
         const alias = PAGE_ALIASES[url.pathname];
         if (alias) req.url = alias + url.search;
         next();

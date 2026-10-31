@@ -19,11 +19,12 @@ export const HLS_FILE = 'wg-live-hls.js';
 export const NOTICES_FILE = 'THIRD-PARTY-NOTICES.txt';
 
 /**
- * @param {{ root: string, dist?: string, expectVersion?: string }} options
- * @returns {{ version: string, bytes: number }}
+ * The two files as strings (the dev harness serves the script from memory).
+ * @param {{ root: string, expectVersion?: string }} options
+ * @returns {{ version: string, js: string, notices: string }}
  * @throws {Error} when hls.js is missing or not the pinned version
  */
-export function buildHls({ root, dist = join(root, 'plugin', 'wg-live', 'assets', 'dist'), expectVersion }) {
+export function renderHls({ root, expectVersion }) {
   const pkgDir = join(root, 'node_modules', 'hls.js');
   const lib = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'));
   const own = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
@@ -49,11 +50,20 @@ export function buildHls({ root, dist = join(root, 'plugin', 'wg-live', 'assets'
     `File: assets/dist/${HLS_FILE}\n` +
     'License: Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)\n\n' +
     `${license}\n`;
+  return { version: lib.version, js, notices };
+}
 
+/**
+ * @param {{ root: string, dist?: string, expectVersion?: string }} options
+ * @returns {{ version: string, bytes: number }}
+ * @throws {Error} when hls.js is missing or not the pinned version
+ */
+export function buildHls({ root, dist = join(root, 'plugin', 'wg-live', 'assets', 'dist'), expectVersion }) {
+  const { version, js, notices } = renderHls({ root, expectVersion });
   mkdirSync(dist, { recursive: true });
   writeFileSync(join(dist, HLS_FILE), js);
   writeFileSync(join(dist, NOTICES_FILE), notices);
-  return { version: lib.version, bytes: Buffer.byteLength(js) };
+  return { version, bytes: Buffer.byteLength(js) };
 }
 
 function main() {

@@ -332,7 +332,8 @@ export function watchErrors(page: Page, ignore: RegExp[] = []): string[] {
     if (!skip(error.message)) errors.push(`pageerror: ${error.message}`);
   });
   page.on('console', (msg) => {
-    if (msg.type() === 'error' && !skip(msg.text())) errors.push(`console: ${msg.text()}`);
+    // Edge fetches /favicon.ico itself; its 404 names the URL only in the message location.
+    if (msg.type() === 'error' && !skip(msg.text()) && !/\/favicon\.ico$/i.test(msg.location().url)) errors.push(`console: ${msg.text()}`);
   });
   return errors;
 }

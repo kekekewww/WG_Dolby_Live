@@ -177,8 +177,8 @@ const NOT_CONFIGURED: PlaybackSource = { kind: 'not_ready', reason: 'source_not_
 
 /**
  * Strictly validate a /playback response (plan 5.1). Anything unknown becomes
- * not_ready/source_not_configured. In M1 the server never emits `hls` or `iframe` and the client treats
- * them as not configured (plan D5, 6.9), so they are downgraded here too and no URL leaves this function.
+ * not_ready/source_not_configured. `demo` and (M2-PLAN C3) `hls` pass with a safe http(s) URL; `iframe` is
+ * downgraded until its adapter exists (M2-PLAN D2), so no URL of it leaves this function.
  */
 export function parsePlaybackSource(raw: unknown): PlaybackSource {
   if (!isRecord(raw)) return NOT_CONFIGURED;
@@ -207,7 +207,23 @@ export function parsePlaybackSource(raw: unknown): PlaybackSource {
     return { kind: 'demo', url: safe, mimeType };
   }
 
-  // 'hls' | 'iframe' (M2) and everything else.
+  if (raw.kind === 'hls') {
+    // M2-PLAN C3: the signed playlist of one mode. Same URL rules as a demo file.
+    const { url, mode } = raw;
+    if (typeof url !== 'string' || !(MODES as readonly unknown[]).includes(mode)) return NOT_CONFIGURED;
+    const safe = safeUrl(url);
+    if (safe === null) return NOT_CONFIGURED;
+    let protocol: string;
+    try {
+      protocol = new URL(safe).protocol;
+    } catch {
+      return NOT_CONFIGURED;
+    }
+    if (protocol !== 'http:' && protocol !== 'https:') return NOT_CONFIGURED;
+    return { kind: 'hls', url: safe, mode: mode as ListeningMode };
+  }
+
+  // 'iframe' (until M2-PLAN D2) and everything else.
   return NOT_CONFIGURED;
 }
 

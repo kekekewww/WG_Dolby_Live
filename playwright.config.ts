@@ -80,5 +80,9 @@ export default defineConfig({
     { name: 'harness-dev-firefox', testIgnore: DIST_SPEC, use: { ...devices['Desktop Firefox'], baseURL: DEV_URL } },
     { name: 'harness-dev-webkit', testIgnore: DIST_SPEC, use: { ...devices['Desktop Safari'], baseURL: DEV_URL } },
     { name: 'harness-dist', testMatch: DIST_SPEC, use: { ...devices['Desktop Chrome'], baseURL: DIST_URL } },
+    // M2-PLAN C4, optional: the installed Microsoft Edge decodes E-AC-3 (WG_E2E_EDGE=1 --project=harness-dev-msedge).
+    ...(process.env.WG_E2E_EDGE === '1'
+      ? [{ name: 'harness-dev-msedge', testMatch: '**/hls.spec.ts', use: { ...devices['Desktop Edge'], channel: 'msedge', baseURL: DEV_URL } }]
+      : []),
   ],
 });

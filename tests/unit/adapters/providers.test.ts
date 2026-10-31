@@ -337,8 +337,11 @@ describe('createRestPlaybackProvider', () => {
     ['malformed mimeType', { kind: 'demo', url: 'https://x.test/a.mp3', mimeType: 'audio/<script>' }],
     ['giant mimeType', { kind: 'demo', url: 'https://x.test/a.mp3', mimeType: `audio/${'a'.repeat(500)}` }],
     ['unknown kind', { kind: 'dash', url: 'https://x.test/a.mpd' }],
-    ['hls (M2, downgraded in M1)', { kind: 'hls', url: 'https://x.test/live.m3u8', mode: 'atmos' }],
-    ['iframe (M2, downgraded in M1)', { kind: 'iframe', url: 'https://x.test/p', allowedOrigin: 'https://x.test' }],
+    ['hls with a javascript url', { kind: 'hls', url: 'javascript:alert(1)', mode: 'binaural' }],
+    ['hls with credentials in the url', { kind: 'hls', url: 'https://u:p@x.test/live.m3u8', mode: 'binaural' }],
+    ['hls without a mode', { kind: 'hls', url: 'https://x.test/live.m3u8' }],
+    ['hls with an unknown mode', { kind: 'hls', url: 'https://x.test/live.m3u8', mode: 'surround' }],
+    ['iframe (until M2-PLAN D2)', { kind: 'iframe', url: 'https://x.test/p', allowedOrigin: 'https://x.test' }],
     ['no kind', { url: 'https://x.test/a.mp3' }],
     ['array', []],
     ['null', null],
@@ -346,6 +349,12 @@ describe('createRestPlaybackProvider', () => {
   ])('unknown shape (%s) -> not_ready/source_not_configured', async (_name, body) => {
     fetchMock.mockResolvedValue(json(body));
     await expect(createRestPlaybackProvider(PRETTY).resolve(9001, 'binaural')).resolves.toEqual(NOT_CONFIGURED);
+  });
+
+  it('accepts a signed hls playlist for a known mode (M2-PLAN C3), the URL made absolute', async () => {
+    fetchMock.mockResolvedValue(json({ kind: 'hls', url: 'https://cdn.example.test/live/atmos/index.m3u8?token=abc', mode: 'atmos' }));
+    await expect(createRestPlaybackProvider(PRETTY).resolve(9001, 'atmos')).resolves.toEqual({ kind: 'hls', url: 'https://cdn.example.test/live/atmos/index.m3u8?token=abc', mode: 'atmos' });
+    expect(parsePlaybackSource({ kind: 'hls', url: '/hls/binaural/index.m3u8', mode: 'binaural' })).toEqual({ kind: 'hls', url: `${window.location.origin}/hls/binaural/index.m3u8`, mode: 'binaural' });
   });
 
   it('accepts a mime type with a codecs parameter', () => {

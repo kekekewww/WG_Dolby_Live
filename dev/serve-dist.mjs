@@ -16,7 +16,7 @@ import { readFileSync, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { basename, extname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { harnessEvents, harnessLinks, injectConfig, injectSiteMock, localAtmosHook, matchRestUrl, MIME, parseHarnessOptions, ROOT, sendFile, sendRest, serveDemoFile } from './core.mjs';
+import { harnessEvents, harnessLinks, injectConfig, injectSiteMock, localAtmosHook, matchRestUrl, MIME, parseHarnessOptions, ROOT, sendFile, sendRest, serveDemoFile, serveHls } from './core.mjs';
 import { renderFeaturedCard } from './featured-card.mjs';
 
 export const DEFAULT_PORT = 5175;
@@ -139,6 +139,7 @@ export function createDistServer() {
       if (rest) return sendRest(req, res, rest, url);
 
       if (url.pathname.startsWith('/demo/')) return serveDemoFile(req, res, url);
+      if (serveHls(req, res, url)) return undefined;
 
       if (req.method !== 'GET' && req.method !== 'HEAD') return sendText(res, 405, 'Method not allowed');
 
