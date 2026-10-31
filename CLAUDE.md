@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The M1 code now exists (`src/`, `plugin/wg-live/`, `scripts/`, `dev/`, `docs/deploy/`). The single source of truth is `WG_Studio_Live_Design_and_WordPress_Deployment_Spec.md` (written in Traditional Chinese). Section numbers below (§N) refer to it. Read the relevant section before you implement anything; section 20 holds the spec's direct instructions to the coding agent.
 
-The project is **`wg-live`**, a WordPress plugin. It adds a "Live / 線上音樂會" area to https://sounds.wgstudiomusic.com/ (Astra theme + Elementor/Elementor Pro + WooCommerce, timezone Asia/Taipei). Viewers choose **Binaural (headphones)** or **Dolby Atmos (home theater)** playback. The studio supplies the streams; this project builds the UI and the platform integration.
+The project is **`wg-live`**, a WordPress plugin. It adds a "Live / 線上音樂會" area to https://sounds.wgstudiomusic.com/ (Astra theme + Elementor/Elementor Pro + WooCommerce, timezone Asia/Taipei). Each concert is streamed as **one Dolby Atmos stream** (E-AC-3 JOC); there is no Binaural track and no listening-mode choice (product decision 2026-11-01, [docs/implementation/DECISION-2026-11-01-atmos-only.md](docs/implementation/DECISION-2026-11-01-atmos-only.md)). Ticket holders whose browser cannot play it get a personal stream link for VLC or Safari. The studio supplies the streams; this project builds the UI and the platform integration.
 
 ## Milestones: what you may claim
 
@@ -52,7 +52,7 @@ Two halves live in one repo. Only the PHP plugin and the built static assets shi
   - `styles/theme-bridge.css`: maps measured site styles to `--wg-*` variables (§3.5).
 - **`plugin/wg-live/` (PHP).** It provides the shortcodes, the asset loading, the `wg_live_event` CPT, the settings, the public data endpoint, the site links, and the playback-provider stub.
   - Shortcodes: `[wg_live view="events|player|help"]`, with an optional validated `event` attribute, and `[wg_live_featured]` for the homepage. These are lightweight: they don't load hls.js or start a player.
-  - Pages: `/live/`, `/live/listen/` (`?wg_event=<slug>&wg_mode=binaural|atmos`), and `/live/help/`. These are ordinary WP parent/child pages, not SPA routes and not a CPT archive.
+  - Pages: `/live/`, `/live/listen/` (`?wg_event=<slug>`; `wg_mode` is ignored except `atmos`), and `/live/help/`. These are ordinary WP parent/child pages, not SPA routes and not a CPT archive.
   - Links come from **stored Page IDs + `get_permalink()`**. Page IDs differ between environments, so never hardcode them (the production homepage is currently ID 8; check this in the admin).
   - Settings deployment modes in M1: only `disabled` and `demo`. The plugin activates in `disabled` mode.
 
@@ -81,7 +81,7 @@ Two halves live in one repo. Only the PHP plugin and the built static assets shi
 - One coordinator owns bounded retries, with no parallel infinite timers.
 - Never fake capabilities: no fake spectrum, no fake viewer counts, no fake track sync, no "Atmos certified" or "7.1.4 connected" labels, and no Dolby badges. Keep demo audio labeled 操作示範音訊，非 Binaural／Atmos 驗證素材 ("demo audio, not Binaural/Atmos validation material") in both modes. Hide controls the adapter can't perform.
 - iframe adapter: only HTTPS player URLs approved by an admin. Don't overlay controls that can't actually control the iframe. `postMessage` checks `origin`, `source`, and schema, and never uses `*`.
-- Use feature detection to pick the playback path, not the browser name. Don't block Binaural for non-Safari browsers. When support is unclear, show 尚未確認 ("not yet confirmed").
+- Use feature detection to pick the playback path, not the browser name. When the browser cannot decode E-AC-3, refuse in-page Atmos before any download and offer the ticket holder's VLC / Safari link; never claim Atmos. When support is unclear, show 尚未確認 ("not yet confirmed").
 
 **UI language and quality**
 - UI copy is Taiwan Traditional Chinese, with English section names (`Live`, `Listening Guide`). The exact copy for states and errors is in §5 and §6.

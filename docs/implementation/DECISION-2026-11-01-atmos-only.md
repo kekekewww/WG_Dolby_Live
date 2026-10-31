@@ -30,9 +30,33 @@ Live HLS, MPEG-TS segments, one rendition: H.264 1080p + E-AC-3 "Dolby Digital P
 
 **Apple HLS Authoring Specification** ([source](https://developer.apple.com/streaming/hls-authoring-specification-for-apple-devices.html)): rule 2.3 says stereo audio in AAC/HE-AAC **MUST** be provided; rule 2.6 says that when Dolby Digital Plus is offered to devices without it, Dolby Digital (AC-3) must also be provided. Dolby's delivery guidance also recommends a 5.1 fallback in the same manifest.
 
-## Recommendation (for the owner)
+## Recommendation (for the owner) and answer
 
-Keep **one link** and drop the listening-mode choice, but ask the provider to put a **stereo AAC rendition inside the same master playlist** next to the Atmos one. Apple devices with Atmos support pick Atmos by themselves; Windows browsers then play stereo instead of failing outright; nobody chooses a mode. Without it, every Chrome/Edge/Firefox viewer gets an error and must use VLC.
+Recommended: keep one link but add a stereo AAC rendition inside the same master playlist, so Windows browsers play stereo instead of failing.
+
+**Answer (2026-11-01): no stereo rendition. Only Dolby Atmos is streamed.** Windows users, and anyone whose playback fails, are told to use VLC with their personal link. The boss tests on real devices on 2026-11-02.
+
+## What the plugin does (0.4.0)
+
+| Area | Behaviour |
+|---|---|
+| Listening modes | Server offers only `atmos` (`Events::mode_labels()`); stored `binaural` values are dropped; admin shows one 「開放聆聽」 checkbox and only the Atmos HLS / provider-page fields. `?wg_mode=binaural` and `/playback` for binaural get no URL. |
+| Player page | An event with one mode preselects it; no 聆聽方式 selector, no 切換模式. Playback still starts only on 開始聆聽. |
+| Stage | Media type defaults to 音訊: the event thumbnail (featured image) on the stage and an `<audio>` element; video only when an event is saved as 影片. |
+| Ticket holders' link | For an entitled viewer of a live HLS event, when the browser cannot play E-AC-3 (feature detection) or playback failed: 「取得我的播放連結」 asks `/playback` on a click (a fresh link per click), then shows the link, 複製連結, 在新分頁開啟 and the VLC / Safari steps. Never at page load, never in public data. Proposed copy, for approval. |
+| Browsers | Chrome / Edge / Firefox on Windows: the page player refuses Atmos before any download (no E-AC-3) and shows the link panel. Safari: plays natively when the stream is https. |
+
+The link is "one-time" only once the provider signs URLs (M2-PLAN B3b); until then it is the plain stream address and anyone holding it can play.
+
+## Before the boss can test on the real site
+
+The test stream is plain http on an IP address. On https://sounds.wgstudiomusic.com:
+
+1. The page player cannot load it (browsers block http media on an https page), so only the link route works.
+2. The plugin refuses http stream addresses in production and hands out no URL without a signer unless `WG_LIVE_ALLOW_UNSIGNED_STREAMS` is set in wp-config.php.
+3. Real sources need deployment mode 「正式」, which turns on ticket checks: the tester needs a paid order for the event's ticket product.
+
+Testing the boss's device claims needs none of this: open the stream address directly in Safari (Mac / iPhone / iPad with AirPods or HDMI to a receiver) or in VLC on Windows.
 
 ## Consequences to settle before go-live
 
