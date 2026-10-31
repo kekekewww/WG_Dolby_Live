@@ -221,7 +221,7 @@ test.describe('F10 dev panel states', () => {
       title: '即將開放聆聽',
       badge: '即將開放',
       extra: async (p) => {
-        await expect(p.statusDetail).toHaveText('現在可以先選擇聆聽模式，開放後即可開始。');
+        await expect(p.statusDetail).toHaveText('開放後即可按「開始聆聽」。');
         await p.radio('binaural').check(); // mode selection works, Start stays disabled
         await expect(p.radio('binaural')).toBeChecked();
         await expect(p.primary).toHaveAttribute('aria-disabled', 'true');
@@ -482,11 +482,10 @@ test.describe('F12 mode parameter', () => {
       for (const e of config.events) if (e.slug === SLUG_LIVE) e.availableModes = ['binaural'];
     });
     const p = await gotoPlayer(page, { mode: 'atmos' });
-    await expect(p.radio('atmos')).toBeDisabled();
-    await expect(p.radio('atmos')).not.toBeChecked();
-    await expect(p.root.locator('.wg-live__mode[data-mode="atmos"] .wg-live__mode-unavailable')).toHaveText('即將開放');
-    await expect(p.root.locator('.wg-live__mode[data-mode="binaural"] .wg-live__mode-unavailable')).toBeHidden();
-    await expect(p.statusTitle).toHaveText('請先選擇聆聽模式');
+    // Decision 2026-11-01: a single-mode event shows no selector and preselects its only mode; ?wg_mode=atmos is ignored.
+    await expect(p.root.getByRole('radio')).toHaveCount(0);
+    await expect(p.modeLabel).toHaveText('已選擇：Binaural');
+    await expect(p.statusTitle).not.toHaveText('請先選擇聆聽模式');
   });
 
   test('the remembered mode preselects after a successful start; garbage in storage is ignored', async ({ page }) => {

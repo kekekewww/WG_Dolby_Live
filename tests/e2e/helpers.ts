@@ -179,6 +179,8 @@ export function player(page: Page): Player {
       return root.getByRole('button', { name });
     },
     async choose(mode) {
+      // The mode card is tall; centre it so a fixed bottom banner of the host page cannot sit under the click.
+      await p.radio(mode).evaluate((el) => el.scrollIntoView({ block: 'center' }));
       await p.radio(mode).check();
       await expect(p.primary).toBeVisible();
       await expect(p.primary).not.toHaveAttribute('aria-disabled', 'true');

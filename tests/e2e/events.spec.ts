@@ -203,8 +203,8 @@ test.describe('F01 events list', () => {
     await expect(faq.locator('details').first()).toHaveAttribute('open', '');
     await expectHref(faq.getByRole('link', { name: '查看更多說明' }), '/dev/help.html');
     const guide = root.getByRole('heading', { name: '聆聽方式' }).locator('xpath=ancestor::section[1]');
-    await expect(guide).toContainText('耳機聆聽 · Binaural');
-    await expect(guide).toContainText('家庭劇院 · Dolby Atmos');
+    await expect(guide).toContainText('Mac、iPhone、iPad · Safari');
+    await expect(guide).toContainText('Windows 與其他瀏覽器 · VLC');
     await expectHref(guide.getByRole('link', { name: '閱讀完整聆聽說明' }), '/dev/help.html');
   });
 

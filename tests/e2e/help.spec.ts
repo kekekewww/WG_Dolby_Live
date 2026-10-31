@@ -8,7 +8,8 @@ import { expect, expectHref, gotoView, isMediaUrl, isRestUrl, recordRequests } f
 
 test.describe.configure({ timeout: 60_000 });
 
-const SECTION_HEADINGS = ['兩種聆聽模式', '瀏覽器與驗收說明', '家庭劇院連接方式', '沒有聲音時', '重新連線', '切換模式', '鍵盤操作', '聯絡我們'];
+// Decision 2026-11-01: one Dolby Atmos stream; 切換模式 became 用 VLC 收聽.
+const SECTION_HEADINGS = ['播放方式', '瀏覽器與驗收說明', '家庭劇院連接方式', '沒有聲音時', '重新連線', '用 VLC 收聽', '鍵盤操作', '聯絡我們'];
 
 test('the fixed sections appear in the documented order, followed by the admin FAQ', async ({ page }) => {
   const rest = recordRequests(page, (u) => isRestUrl(u) || isMediaUrl(u));
@@ -23,22 +24,21 @@ test('the fixed sections appear in the documented order, followed by the admin F
   expect(rest.count(), 'static page: no REST, no media').toBe(0);
 });
 
-test('modes section carries the spec 5.2 copy and the label note', async ({ page }) => {
+test('the 播放方式 section describes one Dolby Atmos stream, Safari and VLC, and the label note', async ({ page }) => {
   await gotoView(page, 'help');
   const modes = page.locator('.wg-live__help-section--modes');
-  await expect(modes).toContainText('耳機聆聽 · Binaural');
-  await expect(modes).toContainText('使用耳機聆聽錄音室製作的雙耳版本。');
-  await expect(modes).toContainText('家庭劇院 · Dolby Atmos');
-  await expect(modes).toContainText('適用於經確認的播放裝置、連接方式與 Atmos 家庭劇院。');
-  await expect(modes).toContainText('選用 Atmos 音軌不等於系統已確認最終設備輸出');
-  await expect(modes).toContainText('只代表所選的音訊版本，不代表已確認裝置的輸出方式');
+  await expect(modes).toContainText('每場音樂會提供一個 Dolby Atmos 串流');
+  await expect(modes).toContainText('Mac、iPhone、iPad · Safari');
+  await expect(modes).toContainText('Windows 與其他瀏覽器 · VLC');
+  await expect(modes).not.toContainText('Binaural');
+  await expect(modes).toContainText('只代表播放的音訊版本，不代表已確認裝置的輸出方式');
 });
 
 test('the Safari-first note does not block other browsers and promises no state the UI never shows', async ({ page }) => {
   await gotoView(page, 'help');
   const safari = page.locator('.wg-live__help-section--safari');
   await expect(safari).toContainText('Safari');
-  await expect(safari).toContainText('不會被擋在 Binaural 模式之外');
+  await expect(safari).toContainText('不依瀏覽器名稱限制使用');
   await expect(safari).not.toContainText('尚未確認');
 });
 
@@ -60,25 +60,25 @@ test('the compatibility table is a real table; untested rows read 尚待測試; 
   await expect(section.locator('.wg-live__compat-row').first()).toContainText('iPhone / iPad');
 });
 
-test('no-sound steps, reconnecting and switching sections state the real behaviour', async ({ page }) => {
+test('no-sound steps, reconnecting and the VLC section state the real behaviour', async ({ page }) => {
   await gotoView(page, 'help');
   await expect(page.locator('.wg-live__help-section--no-sound')).toBeVisible();
   const root = page.locator('.wg-live');
   await expect(root).toContainText('確認已按下「開始聆聽」，且畫面顯示「播放中」');
   await expect(root).toContainText('自動重試，最多 3 次');
   await expect(root).toContainText('無法播放，請重試');
-  await expect(root).toContainText('不會在未告知的情況下替您更換音軌');
-  await expect(root).toContainText('改用耳機 Binaural');
-  await expect(root).toContainText('新模式成功播放後，「目前播放」才會更新');
+  await expect(root).toContainText('取得我的播放連結');
+  await expect(root).toContainText('媒體 → 開啟網路串流');
+  await expect(root).not.toContainText('改用耳機 Binaural'); // the demo label 「非 Binaural／Atmos 驗證素材」 stays (CLAUDE.md)
 });
 
-test('keyboard section documents Tab, Enter/Space, K in the player, and Esc', async ({ page }) => {
+test('keyboard section documents Tab, Enter/Space and K in the player (no Esc: no switch dialog)', async ({ page }) => {
   await gotoView(page, 'help');
   const keyboard = page.locator('.wg-live__help-section--keyboard');
   await expect(keyboard).toContainText('Tab');
   await expect(keyboard).toContainText('Enter');
   await expect(keyboard).toContainText('K');
-  await expect(keyboard).toContainText('Esc');
+  await expect(keyboard).not.toContainText('Esc');
   await expect(keyboard).toContainText('焦點在播放器內（輸入欄位除外）時，切換播放與暫停');
   await expect(keyboard.locator('kbd').first()).toBeVisible();
 });
@@ -119,7 +119,7 @@ test('an empty FAQ is valid: no FAQ section, no empty heading', async ({ page })
 
 test('the help page stays available when the deployment mode is disabled (D16)', async ({ page }) => {
   await gotoView(page, 'help', { harness: 'disabled' });
-  await expect(page.locator('.wg-live').getByRole('heading', { name: '兩種聆聽模式' })).toBeVisible();
+  await expect(page.locator('.wg-live').getByRole('heading', { name: '播放方式' })).toBeVisible();
   await expect(page.locator('.wg-live__help-section--compat')).toBeVisible();
 });
 
