@@ -29,7 +29,7 @@ async function surface(): Promise<Surface> {
   const list = await rest(DEV, 'events');
   const single = await rest(DEV, `events/${SLUG_LIVE}`);
   const liveId = wpPhp<number>(DEV, `$p = get_posts( array( 'post_type' => 'wg_live_event', 'name' => '${SLUG_LIVE}', 'post_status' => 'publish', 'numberposts' => 1 ) ); return $p[0]->ID;`);
-  const playback = await rest(DEV, `playback?event=${liveId}&mode=binaural`);
+  const playback = await rest(DEV, `playback?event=${liveId}&mode=atmos`);
   const modes: Record<string, string> = {};
   const bootEvents: Record<string, number> = {};
   for (const [name, path] of Object.entries({ live: LIVE_URL, listen: `${LISTEN_URL}?wg_event=${SLUG_LIVE}`, help: HELP_URL, elementor: `${ELEMENTOR_URL}?wg_event=${SLUG_LIVE}` })) {

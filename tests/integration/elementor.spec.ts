@@ -54,7 +54,7 @@ test.describe('F14 Elementor page, front end', () => {
     // Play, tag the element, mount again in every way the API allows.
     const audio = page.locator('.wg-live audio, .wg-live video');
     const primary = page.locator('.wg-live .wg-live__play');
-    await page.getByRole('radio', { name: /選擇耳機模式/ }).check();
+    await expect(page.getByRole('radio')).toHaveCount(0); // one mode: no selector, Atmos preselected
     await primary.click();
     await expect.poll(() => audio.evaluate((a: HTMLMediaElement) => a.currentTime), { timeout: 30_000 }).toBeGreaterThan(0.3);
     await audio.evaluate((a: HTMLMediaElement) => {
@@ -93,7 +93,7 @@ test.describe('F14 Elementor page, front end', () => {
     await waitMounted(page);
     const html = await (await page.request.get(PUBLIC_URL)).text();
 
-    await page.getByRole('radio', { name: /選擇耳機模式/ }).check();
+    await expect(page.getByRole('radio')).toHaveCount(0);
     await page.locator('.wg-live .wg-live__play').click();
     await expect.poll(() => page.locator('.wg-live audio, .wg-live video').evaluate((a: HTMLMediaElement) => a.currentTime), { timeout: 30_000 }).toBeGreaterThan(0.3);
 
@@ -113,7 +113,7 @@ test.describe('F14 Elementor page, front end', () => {
     expect(old, 'the old element is gone and silent').toEqual({ connected: false, paused: true });
     // The fresh player starts idle (no autoplay) and plays on its own gesture, alone.
     expect(await page.locator('.wg-live audio, .wg-live video').evaluate((a: HTMLMediaElement) => a.paused)).toBe(true);
-    await page.getByRole('radio', { name: /選擇家庭劇院模式/ }).check();
+    await expect(page.getByRole('radio')).toHaveCount(0);
     await page.locator('.wg-live .wg-live__play').click();
     await expect.poll(() => page.locator('.wg-live audio, .wg-live video').evaluate((a: HTMLMediaElement) => a.currentTime), { timeout: 30_000 }).toBeGreaterThan(0.3);
     expect(await page.locator('.wg-live audio, .wg-live video').evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_VIDEO.atmos);

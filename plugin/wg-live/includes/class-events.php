@@ -140,9 +140,10 @@ final class Events {
 	 * @return array<string,string>
 	 */
 	public static function mode_labels(): array {
+		// Product decision 2026-11-01 (docs/implementation/DECISION-2026-11-01-atmos-only.md): one Dolby Atmos
+		// stream per concert, no Binaural track. Stored 'binaural' values are dropped by clean_modes().
 		return array(
-			'binaural' => '耳機 Binaural',
-			'atmos'    => '家庭劇院 Dolby Atmos',
+			'atmos' => 'Dolby Atmos',
 		);
 	}
 
@@ -182,7 +183,8 @@ final class Events {
 			$status = 'scheduled';
 		}
 
-		$media_kind = 'audio' === self::meta( $id, 'media_kind' ) ? 'audio' : 'video';
+		// Audio (the event thumbnail on the stage) is the default since 0.4.0; video only when saved as video.
+		$media_kind = 'video' === self::meta( $id, 'media_kind' ) ? 'video' : 'audio';
 
 		$is_demo     = self::meta_bool( $id, 'is_demo' );
 		$source_type = self::meta( $id, 'source_type' );
@@ -415,14 +417,14 @@ final class Events {
 		// Media kind.
 		self::row_open( 'wg-live-media-kind', '媒體類型' );
 		printf( '<select id="wg-live-media-kind" name="%s[media_kind]">', esc_attr( $key ) );
-		printf( '<option value="video"%s>影片 video（預設）</option>', selected( $data['media_kind'], 'video', false ) );
-		printf( '<option value="audio"%s>音訊 audio</option>', selected( $data['media_kind'], 'audio', false ) );
+		printf( '<option value="audio"%s>音訊：播放時顯示活動縮圖（預設）</option>', selected( $data['media_kind'], 'audio', false ) );
+		printf( '<option value="video"%s>影片 video</option>', selected( $data['media_kind'], 'video', false ) );
 		echo '</select>';
 		self::row_close();
 
 		// Available modes.
-		self::row_open( '', '可用聆聽模式' );
-		echo '<fieldset><legend class="screen-reader-text">可用聆聽模式</legend>';
+		self::row_open( '', '開放聆聽' );
+		echo '<fieldset><legend class="screen-reader-text">開放聆聽</legend>';
 		foreach ( self::mode_labels() as $value => $label ) {
 			printf(
 				'<label class="wg-live-admin__check"><input type="checkbox" name="%1$s[available_modes][]" value="%2$s"%3$s /> %4$s</label><br />',
@@ -433,7 +435,7 @@ final class Events {
 			);
 		}
 		echo '</fieldset>';
-		echo '<p class="description">兩者都不勾選時，前台會顯示「即將開放」。</p>';
+		echo '<p class="description">每場音樂會只提供 Dolby Atmos 串流。不勾選時，前台會顯示「即將開放」。</p>';
 		self::row_close();
 
 		// Programme.
@@ -497,7 +499,7 @@ final class Events {
 		self::row_close();
 
 		// HLS playlists per mode (M2-PLAN B1). Never sent to viewers except through /playback after the ticket check.
-		foreach ( array( 'binaural' => 'HLS 播放清單（耳機 Binaural）', 'atmos' => 'HLS 播放清單（家庭劇院 Dolby Atmos）' ) as $mode => $label ) {
+		foreach ( array( 'atmos' => 'HLS 播放清單（Dolby Atmos）' ) as $mode => $label ) {
 			self::row_open( 'wg-live-source-hls-' . $mode, $label );
 			printf(
 				'<input type="url" id="wg-live-source-hls-%1$s" name="%2$s[source_hls_%1$s]" value="%3$s" class="large-text code" spellcheck="false" placeholder="https://" />',
@@ -510,7 +512,7 @@ final class Events {
 		echo '<tr><th scope="row"></th><td><p class="description">網址必須使用 https，且主機在「Live 活動 → 設定 → 串流主機」清單內（由管理員設定）。</p></td></tr>';
 
 		// Provider player pages per mode (M2-PLAN D1). Same rule: only through /playback after the ticket check.
-		foreach ( array( 'binaural' => '串流服務播放器頁面（耳機 Binaural）', 'atmos' => '串流服務播放器頁面（家庭劇院 Dolby Atmos）' ) as $mode => $label ) {
+		foreach ( array( 'atmos' => '串流服務播放器頁面（Dolby Atmos）' ) as $mode => $label ) {
 			self::row_open( 'wg-live-source-iframe-' . $mode, $label );
 			printf(
 				'<input type="url" id="wg-live-source-iframe-%1$s" name="%2$s[source_iframe_%1$s]" value="%3$s" class="large-text code" spellcheck="false" placeholder="https://" />',
@@ -1052,7 +1054,7 @@ final class Events {
 		} else {
 			self::flash( 'warning', '活動狀態不在允許的清單內，已保留原本的狀態。' );
 		}
-		update_post_meta( $post_id, $p . 'media_kind', isset( $in['media_kind'] ) && 'audio' === $in['media_kind'] ? 'audio' : 'video' );
+		update_post_meta( $post_id, $p . 'media_kind', isset( $in['media_kind'] ) && 'video' === $in['media_kind'] ? 'video' : 'audio' );
 		update_post_meta( $post_id, $p . 'available_modes', self::clean_modes( isset( $in['available_modes'] ) ? $in['available_modes'] : array() ) );
 
 		// Flags and source.
@@ -1123,7 +1125,7 @@ final class Events {
 		}
 
 		if ( 'publish' === get_post_status( $post_id ) && empty( self::clean_modes( isset( $in['available_modes'] ) ? $in['available_modes'] : array() ) ) ) {
-			self::flash( 'info', '尚未勾選任何聆聽模式，前台會顯示「即將開放」。' );
+			self::flash( 'info', '尚未勾選「開放聆聽」，前台會顯示「即將開放」。' );
 		}
 
 		// Homepage featured card (0.2.0). Unticking clears it only when this event is the featured one and the

@@ -6,7 +6,7 @@
  * Read-only: nothing here changes site state.
  */
 import { test } from '@playwright/test';
-import { bootConfigs, expect, fetchText, HELP_URL, LISTEN_URL, LIVE_URL, MODE_NAME, SEEDED_SLUGS, SLUG_LIVE, SLUG_PENDING, DEMO_VIDEO, waitMounted, DEV, type Mode } from './wp';
+import { bootConfigs, expect, fetchText, HELP_URL, LISTEN_URL, LIVE_URL, MODE_NAME, SEEDED_SLUGS, SLUG_LIVE, SLUG_PENDING, DEMO_VIDEO, waitMounted, DEV } from './wp';
 
 const DEMO_NOTICE = '操作示範音訊，非 Binaural／Atmos 驗證素材';
 const isMediaUrl = (url: string): boolean => /\/assets\/demo\/(?:demo-tone-[12]\.mp3|demo-video-[12]\.mp4)/.test(url);
@@ -14,7 +14,7 @@ const isMediaUrl = (url: string): boolean => /\/assets\/demo\/(?:demo-tone-[12]\
 const root = (page: import('@playwright/test').Page) => page.locator('.wg-live').first();
 /** The one media element: a <video> for the seeded (video) demo events. */
 const mediaEl = (page: import('@playwright/test').Page) => root(page).locator('audio, video');
-const radio = (page: import('@playwright/test').Page, mode: Mode) => root(page).getByRole('radio', { name: mode === 'binaural' ? /選擇耳機模式/ : /選擇家庭劇院模式/ });
+const radios = (page: import('@playwright/test').Page) => root(page).getByRole('radio');
 const primary = (page: import('@playwright/test').Page) => root(page).locator('.wg-live__play');
 
 async function expectAdvancing(page: import('@playwright/test').Page): Promise<void> {
@@ -89,7 +89,7 @@ test.describe('F02 / F11 direct link, reload, back and forward', () => {
     await expect(root(page).locator('.wg-live__player-title')).toContainText('【介面示範】直播中的線上音樂會');
     await expect(page.locator('audio, video')).toHaveCount(1);
     await expect(primary(page)).toHaveText('開始聆聽');
-    await expect(primary(page)).toHaveAttribute('aria-disabled', 'true'); // no mode chosen yet
+    await expect(primary(page)).not.toHaveAttribute('aria-disabled', 'true'); // Atmos is preselected, so it is ready
     await expect(root(page).locator('.wg-live__demo-notice')).toHaveText(DEMO_NOTICE);
     await page.waitForTimeout(1000);
     const el = await mediaEl(page).evaluate((a: HTMLMediaElement) => ({ paused: a.paused, preload: a.preload, autoplay: a.autoplay, src: a.currentSrc }));
@@ -114,18 +114,16 @@ test.describe('F02 / F11 direct link, reload, back and forward', () => {
     await expect(mediaEl(page)).toHaveJSProperty('currentSrc', '');
   });
 
-  test('a valid wg_mode preselects the mode but never starts playback; an invalid one is ignored', async ({ page }) => {
-    await page.goto(`${LISTEN_URL}?wg_event=${SLUG_LIVE}&wg_mode=atmos`);
-    await waitMounted(page);
-    await expect(radio(page, 'atmos')).toBeChecked();
-    await expect(root(page).locator('.wg-live__mode-label')).toHaveText('已選擇：Dolby Atmos 音軌');
-    await page.waitForTimeout(800);
-    expect(await mediaEl(page).evaluate((a: HTMLMediaElement) => a.paused)).toBe(true);
-
-    await page.goto(`${LISTEN_URL}?wg_event=${SLUG_LIVE}&wg_mode=surround`);
-    await waitMounted(page);
-    await expect(radio(page, 'binaural')).not.toBeChecked();
-    await expect(radio(page, 'atmos')).not.toBeChecked();
+  test('wg_mode=atmos keeps Atmos preselected without playing; wg_mode=binaural and unknown values are ignored', async ({ page }) => {
+    for (const q of ['atmos', 'binaural', 'surround']) {
+      await page.goto(`${LISTEN_URL}?wg_event=${SLUG_LIVE}&wg_mode=${q}`);
+      await waitMounted(page);
+      await expect(radios(page)).toHaveCount(0);
+      await expect(root(page).locator('.wg-live__mode-label')).toHaveText('已選擇：Dolby Atmos 音軌');
+      await page.waitForTimeout(800);
+      expect(await mediaEl(page).evaluate((a: HTMLMediaElement) => a.paused), `wg_mode=${q}`).toBe(true);
+      await expect(primary(page)).toHaveText('開始聆聽');
+    }
   });
 
   test('F11 reload while playing stops playback, keeps one media element and requires a new gesture', async ({ page }) => {
@@ -138,7 +136,8 @@ test.describe('F02 / F11 direct link, reload, back and forward', () => {
     await waitMounted(page);
     await expect(page.locator('audio, video')).toHaveCount(1);
     expect(await mediaEl(page).evaluate((a: HTMLMediaElement) => ({ paused: a.paused, t: a.currentTime }))).toEqual({ paused: true, t: 0 });
-    await expect(radio(page, 'binaural')).toBeChecked(); // preselected from the URL
+    await expect(radios(page)).toHaveCount(0);
+    await expect(root(page).locator('.wg-live__mode-label')).toHaveText('已選擇：Dolby Atmos 音軌');
     await expect(primary(page)).toHaveText('開始聆聽');
     await page.waitForTimeout(800);
     expect(await mediaEl(page).evaluate((a: HTMLMediaElement) => a.paused)).toBe(true);
@@ -153,7 +152,7 @@ test.describe('F02 / F11 direct link, reload, back and forward', () => {
     await waitMounted(page);
     await expect(root(page).locator('.wg-live__player-title')).toContainText('直播中');
 
-    await radio(page, 'atmos').check();
+    await expect(radios(page)).toHaveCount(0);
     await primary(page).click();
     await expectAdvancing(page);
 
@@ -185,49 +184,42 @@ test.describe('F02 / F11 direct link, reload, back and forward', () => {
   });
 });
 
-test.describe('the demo plays in both modes on the real page', () => {
-  for (const mode of ['binaural', 'atmos'] as const satisfies readonly Mode[]) {
-    test(`${mode}: choose, start, the video advances, one media element, demo notice, now-playing label`, async ({ page, browserName }) => {
-      const media: string[] = [];
-      page.on('request', (r) => {
-        if (isMediaUrl(r.url())) media.push(r.url());
-      });
-      await page.goto(`${LISTEN_URL}?wg_event=${SLUG_LIVE}`);
-      await waitMounted(page);
-
-      await radio(page, mode).check();
-      await expect(root(page).locator('.wg-live__mode-label')).toHaveText(`已選擇：${MODE_NAME[mode]}`);
-      await expect(primary(page)).not.toHaveAttribute('aria-disabled', 'true');
-      await primary(page).click();
-
-      await expectAdvancing(page);
-      await expect(root(page).locator('.wg-live__status-title')).toHaveText('播放中');
-      await expect(root(page).locator('.wg-live__mode-label')).toHaveText(`目前播放：${MODE_NAME[mode]}`);
-      await expect(page.locator('audio, video')).toHaveCount(1);
-      const src = await mediaEl(page).evaluate((a: HTMLMediaElement) => a.currentSrc);
-      expect(src).toContain(DEMO_VIDEO[mode]);
-      expect(src).toMatch(/\/wp-content\/plugins\/wg-live\/assets\/demo\//);
-      await expect(root(page).locator('.wg-live__demo-notice')).toHaveText(DEMO_NOTICE);
-      if (browserName !== 'webkit') expect(media.every((u) => u.includes(DEMO_VIDEO[mode])), media.join(', ')).toBe(true);
+test.describe('the demo plays in Atmos, the only mode, on the real page', () => {
+  test('no mode selector: Atmos preselected, start, the video advances, one media element, demo notice, now-playing label', async ({ page, browserName }) => {
+    const media: string[] = [];
+    page.on('request', (r) => {
+      if (isMediaUrl(r.url())) media.push(r.url());
     });
-  }
-
-  test('switching mode on the real page asks for confirmation, then replaces the source without a second element', async ({ page }) => {
     await page.goto(`${LISTEN_URL}?wg_event=${SLUG_LIVE}`);
     await waitMounted(page);
-    await radio(page, 'binaural').check();
+
+    await expect(radios(page)).toHaveCount(0);
+    await expect(root(page).getByRole('radio', { name: /選擇耳機模式|選擇家庭劇院模式/ })).toHaveCount(0);
+    await expect(root(page).locator('.wg-live__mode-label')).toHaveText(`已選擇：${MODE_NAME.atmos}`);
+    await expect(primary(page)).not.toHaveAttribute('aria-disabled', 'true');
     await primary(page).click();
+
     await expectAdvancing(page);
-    expect(await mediaEl(page).evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_VIDEO.binaural);
-
-    await root(page).locator('.wg-live__modebar .wg-live__switch').click();
-    const dialog = root(page).locator('dialog.wg-live__dialog');
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole('button', { name: /確認切換/ }).click();
-
-    await expect.poll(() => mediaEl(page).evaluate((a: HTMLMediaElement) => a.currentSrc), { timeout: 30_000 }).toContain(DEMO_VIDEO.atmos);
+    await expect(root(page).locator('.wg-live__status-title')).toHaveText('播放中');
     await expect(root(page).locator('.wg-live__mode-label')).toHaveText(`目前播放：${MODE_NAME.atmos}`);
     await expect(page.locator('audio, video')).toHaveCount(1);
+    const src = await mediaEl(page).evaluate((a: HTMLMediaElement) => a.currentSrc);
+    expect(src).toContain(DEMO_VIDEO.atmos);
+    expect(src).toMatch(/\/wp-content\/plugins\/wg-live\/assets\/demo\//);
+    await expect(root(page).locator('.wg-live__demo-notice')).toHaveText(DEMO_NOTICE);
+    if (browserName !== 'webkit') expect(media.every((u) => u.includes(DEMO_VIDEO.atmos)), media.join(', ')).toBe(true);
+  });
+
+  test('no mode switch is offered, before or during playback', async ({ page }) => {
+    await page.goto(`${LISTEN_URL}?wg_event=${SLUG_LIVE}`);
+    await waitMounted(page);
+    await expect(root(page).locator('.wg-live__switch')).toBeHidden();
+    await expect(root(page).getByRole('button', { name: /切換模式/ })).toHaveCount(0);
+    await primary(page).click();
     await expectAdvancing(page);
+    await expect(root(page).locator('.wg-live__switch')).toBeHidden();
+    await expect(root(page).getByRole('button', { name: /切換模式/ })).toHaveCount(0);
+    await expect(root(page).locator('dialog.wg-live__dialog[open]')).toHaveCount(0);
+    await expect(page.locator('audio, video')).toHaveCount(1);
   });
 });

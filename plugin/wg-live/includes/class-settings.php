@@ -263,9 +263,11 @@ final class Settings {
 	 */
 	public static function default_compatibility(): array {
 		$rows = array(
-			array( 'iPhone／iPad', 'iOS／iPadOS', 'Safari', '耳機（Binaural）' ),
+			// Decision 2026-11-01: one Dolby Atmos stream; every row stays pending until tested on real devices.
+			array( 'iPhone／iPad', 'iOS／iPadOS', 'Safari', '耳機（例如 AirPods）' ),
 			array( 'Mac', 'macOS', 'Safari', '家庭劇院（HDMI 輸出）' ),
 			array( 'Apple TV 4K', 'tvOS', '尚待確認', '家庭劇院（HDMI 輸出）' ),
+			array( 'Windows 電腦', 'Windows', 'VLC（個人播放連結）', '喇叭、耳機或家庭劇院' ),
 		);
 		$out  = array();
 		foreach ( $rows as $row ) {
@@ -676,7 +678,7 @@ final class Settings {
 		add_settings_field( 'wg_live_f_compat', '家庭劇院相容表', array( __CLASS__, 'field_compat' ), $page, 'wg_live_help' );
 
 		add_settings_section( 'wg_live_audio', '示範音訊', array( __CLASS__, 'section_audio' ), $page );
-		add_settings_field( 'wg_live_f_audio_b', 'Binaural 示範音訊', array( __CLASS__, 'field_audio' ), $page, 'wg_live_audio', array( 'key' => 'demo_audio_binaural' ) );
+		// Decision 2026-11-01: no Binaural mode, so no Binaural demo audio picker (the stored value is kept, unused).
 		add_settings_field( 'wg_live_f_audio_a', 'Atmos 示範音訊', array( __CLASS__, 'field_audio' ), $page, 'wg_live_audio', array( 'key' => 'demo_audio_atmos' ) );
 
 		add_settings_section( 'wg_live_style', '樣式覆寫', array( __CLASS__, 'section_style' ), $page );

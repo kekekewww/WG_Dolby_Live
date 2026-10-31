@@ -13,7 +13,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { test, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { bootConfigs, clickPublish, createEvents, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, LISTEN_URL, MODE_NAME, rest, DEMO_VIDEO, waitMounted, wpPhp, type Mode } from './wp';
+import { bootConfigs, clickPublish, createEvents, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, LISTEN_URL, MODE_NAME, rest, DEMO_VIDEO, waitMounted, wpPhp } from './wp';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -22,7 +22,8 @@ interface EventForm {
   slug?: string;
   startsLocal?: string;
   status?: string;
-  modes?: Array<'binaural' | 'atmos'>;
+  modes?: Array<'atmos'>;
+  mediaKind?: 'audio' | 'video';
   demo?: boolean;
   source?: 'not_configured' | 'demo';
   productUrl?: string;
@@ -48,10 +49,9 @@ async function fill(p: Page, f: Partial<EventForm>): Promise<void> {
   if (f.startsLocal !== undefined) await p.locator('#wg-live-starts-local').fill(f.startsLocal);
   if (f.status !== undefined) await p.locator('#wg-live-status').selectOption(f.status);
   if (f.modes !== undefined) {
-    for (const mode of ['binaural', 'atmos'] as const) {
-      await p.locator(`input[name="wg_live[available_modes][]"][value="${mode}"]`).setChecked(f.modes.includes(mode));
-    }
+    await p.locator('input[name="wg_live[available_modes][]"][value="atmos"]').setChecked(f.modes.includes('atmos'));
   }
+  if (f.mediaKind !== undefined) await p.locator('#wg-live-media-kind').selectOption(f.mediaKind);
   if (f.demo !== undefined) await p.locator('input[name="wg_live[is_demo]"]').setChecked(f.demo);
   if (f.source !== undefined) await p.locator('#wg-live-source-type').selectOption(f.source);
   if (f.productUrl !== undefined) await p.locator('#wg-live-product-url').fill(f.productUrl);
@@ -160,11 +160,14 @@ test.describe('F13 admin save validation', () => {
 
   test('an empty 代稱 on the server: the event stays a draft, a notice says why, nothing is derived from the title', async () => {
     await openNew(page);
-    // Every concert is streamed with video: a new event starts as 影片 (video), and 影片 is listed first.
-    await expect(page.locator('#wg-live-media-kind')).toHaveValue('video');
-    await expect(page.locator('#wg-live-media-kind option').first()).toHaveAttribute('value', 'video');
+    // A new event starts as 音訊 (audio: the thumbnail on the stage), and 音訊 is listed first.
+    await expect(page.locator('#wg-live-media-kind')).toHaveValue('audio');
+    await expect(page.locator('#wg-live-media-kind option').first()).toHaveAttribute('value', 'audio');
+    // One Atmos stream per concert: a single 開放聆聽 checkbox, no Binaural one.
+    await expect(page.locator('input[name="wg_live[available_modes][]"]')).toHaveCount(1);
+    await expect(page.locator('input[name="wg_live[available_modes][]"][value="atmos"]')).toHaveCount(1);
     eventId = await postId(page);
-    await fill(page, { title: TITLE(), startsLocal: '2030-01-01T20:00', status: 'live', modes: ['binaural', 'atmos'], demo: true, source: 'demo' });
+    await fill(page, { title: TITLE(), startsLocal: '2030-01-01T20:00', status: 'live', modes: ['atmos'], demo: true, source: 'demo', mediaKind: 'video' });
     await publishWithoutScript(page);
 
     expect(await noticeText(page)).toContain('代稱是必填欄位');
@@ -193,29 +196,27 @@ test.describe('F13 admin save validation', () => {
       startsAt: '2030-01-01T12:00:00Z', // 20:00 Asia/Taipei (UTC+8)
       displayTimezone: 'Asia/Taipei',
       status: 'live',
-      availableModes: ['binaural', 'atmos'],
+      availableModes: ['atmos'],
       isDemo: true,
       sourceKind: 'demo',
-      mediaKind: 'video', // the form default, saved as video
+      mediaKind: 'video', // explicitly saved as video (the default is audio)
     });
     expect(row(eventId).meta.media_kind).toBe('video');
     const list = (await rest(DEV, 'events')).json.events as Array<{ slug: string }>;
     expect(list.map((e) => e.slug)).toContain(slug());
   });
 
-  for (const mode of ['binaural', 'atmos'] as const satisfies readonly Mode[]) {
-    test(`the Chinese-titled event plays in ${mode} on the real page`, async ({ page: viewer }) => {
-      await viewer.goto(`${LISTEN_URL}?wg_event=${slug()}`);
-      await waitMounted(viewer);
-      await expect(viewer.locator('.wg-live__player-title')).toContainText(`【${prefix}】春季音樂會`);
-      await viewer.getByRole('radio', { name: mode === 'binaural' ? /選擇耳機模式/ : /選擇家庭劇院模式/ }).check();
-      await viewer.locator('.wg-live__play').click();
-      await expect.poll(() => viewer.locator('audio, video').evaluate((a: HTMLMediaElement) => a.currentTime), { timeout: 30_000 }).toBeGreaterThan(0.3);
-      expect(await viewer.locator('audio, video').evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_VIDEO[mode]);
-      await expect(viewer.locator('.wg-live__mode-label')).toHaveText(`目前播放：${MODE_NAME[mode]}`);
-      await expect(viewer.locator('audio, video')).toHaveCount(1);
-    });
-  }
+  test('the Chinese-titled event plays in Atmos on the real page, with no mode selector', async ({ page: viewer }) => {
+    await viewer.goto(`${LISTEN_URL}?wg_event=${slug()}`);
+    await waitMounted(viewer);
+    await expect(viewer.locator('.wg-live__player-title')).toContainText(`【${prefix}】春季音樂會`);
+    await expect(viewer.getByRole('radio')).toHaveCount(0);
+    await viewer.locator('.wg-live__play').click();
+    await expect.poll(() => viewer.locator('audio, video').evaluate((a: HTMLMediaElement) => a.currentTime), { timeout: 30_000 }).toBeGreaterThan(0.3);
+    expect(await viewer.locator('audio, video').evaluate((a: HTMLMediaElement) => a.currentSrc)).toContain(DEMO_VIDEO.atmos);
+    await expect(viewer.locator('.wg-live__mode-label')).toHaveText(`目前播放：${MODE_NAME.atmos}`);
+    await expect(viewer.locator('audio, video')).toHaveCount(1);
+  });
 
   test('an invalid start time keeps the old value and shows a notice', async () => {
     test.setTimeout(900_000); // five admin round trips on a slow WordPress
@@ -259,7 +260,7 @@ test.describe('F13 admin save validation', () => {
 
     const { json } = await rest(DEV, `events/${slug()}`);
     expect(json.event).toMatchObject({ isDemo: false, sourceKind: 'not_configured' });
-    const playback = await rest(DEV, `playback?event=${eventId}&mode=binaural`);
+    const playback = await rest(DEV, `playback?event=${eventId}&mode=atmos`);
     expect(playback.json.kind).toBe('not_ready');
     expect(playback.text).not.toMatch(/http|\.mp3|\.mp4/);
 
@@ -389,7 +390,7 @@ test.describe('spec F3/F4: publishing needs a title and a valid start time', () 
   test('an empty title is not published: draft, a notice says why, nothing is public', async () => {
     await openNew(page);
     const id = await postId(page);
-    await fill(page, { slug: `${prefix}-no-title`, startsLocal: '2030-06-01T20:00', status: 'live', modes: ['binaural', 'atmos'], demo: true, source: 'demo' });
+    await fill(page, { slug: `${prefix}-no-title`, startsLocal: '2030-06-01T20:00', status: 'live', modes: ['atmos'], demo: true, source: 'demo' });
     await publishWithoutScript(page);
 
     expect(await noticeText(page)).toContain('活動標題是必填欄位');
@@ -407,7 +408,7 @@ test.describe('spec F3/F4: publishing needs a title and a valid start time', () 
   test('a missing start time is not published: draft and a notice; clearing the time of a published event pulls it back to draft', async () => {
     await openNew(page);
     const id = await postId(page);
-    await fill(page, { title: `${TITLE()} 無時間`, slug: `${prefix}-no-start`, status: 'live', modes: ['binaural', 'atmos'], demo: true, source: 'demo' });
+    await fill(page, { title: `${TITLE()} 無時間`, slug: `${prefix}-no-start`, status: 'live', modes: ['atmos'], demo: true, source: 'demo' });
     await publishWithoutScript(page);
 
     expect(await noticeText(page)).toContain('開始時間是必填欄位');
@@ -524,7 +525,7 @@ test.describe('capabilities', () => {
       const id = await postId(p);
       // The featured checkbox is offered (it changes shared settings: settings.state.spec.ts ticks it).
       await expect(p.locator('input[name="wg_live[featured]"]')).not.toBeChecked();
-      await fill(p, { title: `【${prefix}】編輯發布`, slug: `${prefix}-by-editor`, startsLocal: '2030-06-01T20:00', status: 'scheduled', modes: ['binaural', 'atmos'], demo: false, source: 'not_configured' });
+      await fill(p, { title: `【${prefix}】編輯發布`, slug: `${prefix}-by-editor`, startsLocal: '2030-06-01T20:00', status: 'scheduled', modes: ['atmos'], demo: false, source: 'not_configured' });
       await publish(p);
       expect(row(id)).toMatchObject({ status: 'publish', name: `${prefix}-by-editor` });
       expect((await rest(DEV, `events/${prefix}-by-editor`)).status).toBe(200);

@@ -11,17 +11,15 @@ test.describe.configure({ mode: 'serial' });
 
 const prefix = 'it-hls-state';
 const GOOD = 'https://stream.example.test/live/atmos/playlist.m3u8';
-const GOOD_BIN = 'https://stream.example.test/live/binaural/playlist.m3u8';
 let snapshot: Record<string, unknown> = {};
 let eventId = 0;
 
 const meta = (key: string): string => wpPhp<string>(DEV, `return (string) get_post_meta( ${eventId}, '_wg_live_${key}', true );`);
 
-async function saveSource(page: Page, fields: { type?: string; binaural?: string; atmos?: string; kind?: 'hls' | 'iframe' }): Promise<string> {
+async function saveSource(page: Page, fields: { type?: string; atmos?: string; kind?: 'hls' | 'iframe' }): Promise<string> {
   const kind = fields.kind ?? 'hls';
   await page.goto(`/wp-admin/post.php?post=${eventId}&action=edit`);
   if (fields.type) await page.locator('#wg-live-source-type').selectOption(fields.type);
-  if (fields.binaural !== undefined) await page.locator(`#wg-live-source-${kind}-binaural`).fill(fields.binaural);
   if (fields.atmos !== undefined) await page.locator(`#wg-live-source-${kind}-atmos`).fill(fields.atmos);
   await Promise.all([page.waitForURL(/post\.php\?post=\d+&action=edit&message=\d+/, { timeout: 120_000 }), clickPublish(page)]);
   return (await page.locator('#wpbody-content .notice').allTextContents()).join(' | ');
@@ -49,10 +47,12 @@ test('B1: an allowlisted https playlist is stored; another host or plain http on
   const ctx = await adminContext(browser, DEV);
   try {
     const page = await ctx.newPage();
-    await saveSource(page, { type: 'hls', binaural: GOOD_BIN, atmos: GOOD });
+    // One Atmos stream per concert: the admin form has no Binaural source fields.
+    await expect(page.locator('#wg-live-source-hls-binaural, #wg-live-source-iframe-binaural')).toHaveCount(0);
+    await saveSource(page, { type: 'hls', atmos: GOOD });
     expect(meta('source_type')).toBe('hls');
     expect(meta('source_hls_atmos')).toBe(GOOD);
-    expect(meta('source_hls_binaural')).toBe(GOOD_BIN);
+    expect(meta('source_hls_binaural')).toBe('');
 
     const refused = await saveSource(page, { atmos: 'https://elsewhere.example.test/a.m3u8' });
     expect(refused).toContain('串流主機');
@@ -94,7 +94,7 @@ test('B1: plain http only for a local fixture (loopback or the site host) on a l
 test('B1: the playlist URLs never reach REST, the bootstrap or any page', async () => {
   // The event is also the homepage featured card for this check.
   setSettingsKeys(DEV, { deployment_mode: 'live', featured_event: eventId });
-  const needles = ['stream.example.test', GOOD, GOOD_BIN];
+  const needles = ['stream.example.test', GOOD];
   const home = (await fetchText(DEV, '/')).text;
   expect(home).toContain('wg-live-featured--event');
   const bodies = [
@@ -178,11 +178,10 @@ function setMeta(env: WpEnv, id: number, m: Record<string, unknown>): void {
 
 const HLS_EVENT = (product: number): Record<string, unknown> => ({
   source_type: 'hls',
-  source_hls_binaural: GOOD_BIN,
   source_hls_atmos: GOOD,
   product_id: product,
   status: 'live',
-  available_modes: ['binaural', 'atmos'],
+  available_modes: ['atmos'],
 });
 
 let devShop: Shop | undefined;
@@ -244,41 +243,44 @@ test.describe('B3', () => {
   });
 
   test('B3: a guest gets not_entitled and the answer holds no URL', async () => {
-    const { json, text, headers } = await rest(DEV, `playback?event=${eventId}&mode=binaural`);
+    const { json, text, headers } = await rest(DEV, `playback?event=${eventId}&mode=atmos`);
     expect(json).toEqual({ kind: 'not_ready', reason: 'not_entitled' });
     expect(text).not.toMatch(/http/);
     expect(headers.get('cache-control')).toMatch(/no-store/);
   });
 
-  test('B3: a buyer gets the playlist of the requested mode, never cached', async ({ browser }) => {
-    const bin = await buyerPlayback(browser, 'binaural');
-    expect(bin.status).toBe(200);
-    expect(bin.json).toEqual({ kind: 'hls', url: GOOD_BIN, mode: 'binaural' });
-    expect(bin.cache).toMatch(/no-store/);
-    expect(bin.cache).toMatch(/private/);
+  test('B3: a buyer gets the Atmos playlist, never cached; binaural is not offered and yields no URL', async ({ browser }) => {
     const atmos = await buyerPlayback(browser, 'atmos');
+    expect(atmos.status).toBe(200);
     expect(atmos.json).toEqual({ kind: 'hls', url: GOOD, mode: 'atmos' });
+    expect(atmos.cache).toMatch(/no-store/);
+    expect(atmos.cache).toMatch(/private/);
+    const bin = await buyerPlayback(browser, 'binaural');
+    expect(bin.json).toEqual({ kind: 'not_ready', reason: 'mode_unavailable' });
+    expect(bin.text).not.toMatch(/http/);
   });
 
   test('B3: only live and intermission play; doors_open is event_not_playable', async ({ browser }) => {
     setMeta(DEV, eventId, { status: 'doors_open' });
-    expect((await buyerPlayback(browser, 'binaural')).json).toEqual({ kind: 'not_ready', reason: 'event_not_playable' });
+    expect((await buyerPlayback(browser, 'atmos')).json).toEqual({ kind: 'not_ready', reason: 'event_not_playable' });
     setMeta(DEV, eventId, { status: 'intermission' });
-    expect((await buyerPlayback(browser, 'binaural')).json).toMatchObject({ kind: 'hls', mode: 'binaural' });
+    expect((await buyerPlayback(browser, 'atmos')).json).toMatchObject({ kind: 'hls', mode: 'atmos' });
     setMeta(DEV, eventId, { status: 'live' });
   });
 
-  test('B3: Atmos on a binaural-only event is mode_unavailable; a missing playlist is source_not_configured', async ({ browser }) => {
+  test('B3: an event with 開放聆聽 off (or only a legacy binaural value) is mode_unavailable; a missing playlist is source_not_configured', async ({ browser }) => {
     setMeta(DEV, eventId, { available_modes: ['binaural'] });
     expect((await buyerPlayback(browser, 'atmos')).json).toEqual({ kind: 'not_ready', reason: 'mode_unavailable' });
-    setMeta(DEV, eventId, { available_modes: ['binaural', 'atmos'], source_hls_atmos: '' });
+    setMeta(DEV, eventId, { available_modes: [] });
+    expect((await buyerPlayback(browser, 'atmos')).json).toEqual({ kind: 'not_ready', reason: 'mode_unavailable' });
+    setMeta(DEV, eventId, { available_modes: ['atmos'], source_hls_atmos: '' });
     expect((await buyerPlayback(browser, 'atmos')).json).toEqual({ kind: 'not_ready', reason: 'source_not_configured' });
     setMeta(DEV, eventId, { source_hls_atmos: GOOD });
   });
 
   test('B3: a host taken off the allowlist after saving stops resolving', async ({ browser }) => {
     setSettingsKeys(DEV, { stream_hosts: ['ok.example.org'] });
-    const r = await buyerPlayback(browser, 'binaural');
+    const r = await buyerPlayback(browser, 'atmos');
     expect(r.json).toEqual({ kind: 'not_ready', reason: 'source_not_configured' });
     expect(r.text).not.toMatch(/http/);
     setSettingsKeys(DEV, { stream_hosts: ['stream.example.test'] });
@@ -290,17 +292,16 @@ test.describe('B3', () => {
     deleteEventsByPrefix(TESTS, prefix);
     testsEvent = createEvents(TESTS, [{ slug: `${prefix}-prod`, title: `${prefix} prod`, meta: { is_demo: '0', ...HLS_EVENT(testsShop.product) } }])[`${prefix}-prod`] ?? 0;
     setSettingsKeys(TESTS, { deployment_mode: 'live', stream_hosts: ['stream.example.test'] });
-    const resolve = `return WG_Live\\Playback_Provider::resolve( ${testsEvent}, 'binaural', ${testsShop.user.id} );`;
+    const resolve = `return WG_Live\\Playback_Provider::resolve( ${testsEvent}, 'atmos', ${testsShop.user.id} );`;
     expect(wpPhp(TESTS, `return WG_Live\\Entitlement::check( ${testsEvent}, ${testsShop.user.id} );`)).toEqual({ status: 'entitled', reason: 'ticket' });
     expect(wpPhp(TESTS, resolve)).toEqual({ kind: 'not_ready', reason: 'source_not_configured' });
-    expect(wpPhp(TESTS, `define( 'WG_LIVE_ALLOW_UNSIGNED_STREAMS', true ); ${resolve}`)).toEqual({ kind: 'hls', url: GOOD_BIN, mode: 'binaural' });
+    expect(wpPhp(TESTS, `define( 'WG_LIVE_ALLOW_UNSIGNED_STREAMS', true ); ${resolve}`)).toEqual({ kind: 'hls', url: GOOD, mode: 'atmos' });
   });
 });
 
 /* D1: provider player (iframe) sources ------------------------------------------------------------ */
 
 const PLAYER = 'https://player.example.test';
-const P_BIN = `${PLAYER}/embed/live?track=binaural`;
 const P_ATM = `${PLAYER}/embed/live?track=atmos`;
 
 /** Events::frame_block_warning() with the HEAD response replaced (no outside network in the test). */
@@ -308,7 +309,7 @@ function frameWarning(headers: Record<string, string> | 'error'): string {
   const php = headers === 'error'
     ? "new WP_Error( 'http_request_failed', 'x' )"
     : `array( 'headers' => json_decode( '${JSON.stringify(headers).replace(/'/g, "\\'")}', true ), 'response' => array( 'code' => 200, 'message' => 'OK' ), 'body' => '', 'cookies' => array(), 'filename' => null )`;
-  return wpPhp<string>(DEV, `add_filter( 'pre_http_request', function () { return ${php}; } ); return WG_Live\\Events::frame_block_warning( '${P_BIN}' );`);
+  return wpPhp<string>(DEV, `add_filter( 'pre_http_request', function () { return ${php}; } ); return WG_Live\\Events::frame_block_warning( '${P_ATM}' );`);
 }
 
 test.describe('D1', () => {
@@ -336,9 +337,9 @@ test.describe('D1', () => {
     const ctx = await adminContext(browser, DEV);
     try {
       const page = await ctx.newPage();
-      await saveSource(page, { type: 'iframe', kind: 'iframe', binaural: P_BIN, atmos: P_ATM });
+      await saveSource(page, { type: 'iframe', kind: 'iframe', atmos: P_ATM });
       expect(meta('source_type')).toBe('iframe');
-      expect(meta('source_iframe_binaural')).toBe(P_BIN);
+      expect(meta('source_iframe_binaural')).toBe('');
       expect(meta('source_iframe_atmos')).toBe(P_ATM);
       await expect(page.locator('#wg-live-source-type')).toHaveValue('iframe');
 
@@ -349,27 +350,29 @@ test.describe('D1', () => {
       const plain = await saveSource(page, { kind: 'iframe', atmos: 'http://player.example.test/embed' });
       expect(plain).toContain('https');
       expect(meta('source_iframe_atmos')).toBe(P_ATM);
-      // The hls playlists stay stored, but an iframe event never resolves them.
-      expect(meta('source_hls_binaural')).toBe(GOOD_BIN);
+      // The hls playlist stays stored, but an iframe event never resolves it.
+      expect(meta('source_hls_atmos')).toBe(GOOD);
     } finally {
       await ctx.close();
     }
   });
 
-  test('D1: a buyer gets the player page with its origin; the hls URLs are ignored', async ({ browser }) => {
+  test('D1: a buyer gets the player page with its origin; the hls URLs are ignored; binaural is not offered', async ({ browser }) => {
+    const atmos = await buyerPlayback(browser, 'atmos');
+    expect(atmos.json).toEqual({ kind: 'iframe', url: P_ATM, allowedOrigin: PLAYER });
+    expect(atmos.cache).toMatch(/no-store/);
+    expect(atmos.text).not.toContain('stream.example.test');
     const bin = await buyerPlayback(browser, 'binaural');
-    expect(bin.json).toEqual({ kind: 'iframe', url: P_BIN, allowedOrigin: PLAYER });
-    expect(bin.cache).toMatch(/no-store/);
-    expect(bin.text).not.toContain('stream.example.test');
-    expect((await buyerPlayback(browser, 'atmos')).json).toEqual({ kind: 'iframe', url: P_ATM, allowedOrigin: PLAYER });
+    expect(bin.json).toEqual({ kind: 'not_ready', reason: 'mode_unavailable' });
+    expect(bin.text).not.toMatch(/http/);
   });
 
   test('D1: a guest gets not_entitled and no URL; an origin taken off the list stops resolving', async ({ browser }) => {
-    const guest = await rest(DEV, `playback?event=${eventId}&mode=binaural`);
+    const guest = await rest(DEV, `playback?event=${eventId}&mode=atmos`);
     expect(guest.json).toEqual({ kind: 'not_ready', reason: 'not_entitled' });
     expect(guest.text).not.toMatch(/http/);
     setSettingsKeys(DEV, { player_origins: ['https://other.example.test'] });
-    expect((await buyerPlayback(browser, 'binaural')).json).toEqual({ kind: 'not_ready', reason: 'source_not_configured' });
+    expect((await buyerPlayback(browser, 'atmos')).json).toEqual({ kind: 'not_ready', reason: 'source_not_configured' });
     setSettingsKeys(DEV, { player_origins: [PLAYER] });
   });
 
@@ -377,7 +380,7 @@ test.describe('D1', () => {
     const one = await rest(DEV, `events/${prefix}-concert`);
     expect(one.json.event.sourceKind).toBe('iframe');
     const bodies = [one.text, (await rest(DEV, 'events')).text, (await fetchText(DEV, `/live/listen/?wg_event=${prefix}-concert`)).text, (await fetchText(DEV, '/live/')).text];
-    for (const body of bodies) for (const n of ['player.example.test', P_BIN, P_ATM]) expect(body).not.toContain(n);
+    for (const body of bodies) for (const n of ['player.example.test', P_ATM]) expect(body).not.toContain(n);
   });
 
   test('D1: a player page that forbids framing gets a warning, which never blocks the save', () => {
