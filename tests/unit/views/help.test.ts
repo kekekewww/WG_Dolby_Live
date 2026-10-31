@@ -98,21 +98,20 @@ describe('help view: fixed sections (plan 6.11)', () => {
       helpCopy.compat.heading,
       '沒有聲音時',
       '重新連線',
-      '切換模式',
+      '用 VLC 收聽',
       '鍵盤操作',
       '聯絡我們',
     ]);
     expect(mount.querySelector('.wg-live__help-section--faq')).toBeNull();
   });
 
-  it('explains the two modes with the spec 5.2 wording and does not overclaim', () => {
+  it('explains the one Dolby Atmos stream (decision 2026-11-01), Safari and VLC, and does not overclaim', () => {
     mountView(makeBoot());
     const modes = mount.querySelector('.wg-live__help-section--modes') as HTMLElement;
-    expect(modes.textContent).toContain('耳機聆聽 · Binaural');
-    expect(modes.textContent).toContain('使用耳機聆聽錄音室製作的雙耳版本。');
-    expect(modes.textContent).toContain('家庭劇院 · Dolby Atmos');
-    expect(modes.textContent).toContain('適用於經確認的播放裝置、連接方式與 Atmos 家庭劇院。');
-    expect(modes.textContent).toContain('選用 Atmos 音軌不等於系統已確認最終設備輸出。');
+    expect(modes.textContent).toContain('每場音樂會提供一個 Dolby Atmos 串流');
+    expect(modes.textContent).toContain('Mac、iPhone、iPad · Safari');
+    expect(modes.textContent).toContain('Windows 與其他瀏覽器 · VLC');
+    expect(modes.textContent).not.toContain('Binaural');
     expect(mount.textContent).not.toMatch(/已認證|7\.1\.4 已連線|全部設備|所有設備都/);
   });
 
@@ -139,10 +138,11 @@ describe('help view: fixed sections (plan 6.11)', () => {
     expect(spaceRows[0]?.querySelector('dd')?.textContent).toContain('按鈕');
   });
 
-  it('documents the real keyboard shortcuts (Space and K inside the player, Esc for the dialog)', () => {
+  it('documents the real keyboard shortcuts (Space and K inside the player; no Esc: there is no switch dialog)', () => {
     mountView(makeBoot());
     const keys = Array.from(mount.querySelectorAll('.wg-live__kbd')).map((e) => e.textContent);
-    expect(keys).toEqual(expect.arrayContaining(['Space', 'K', 'Esc', 'Tab']));
+    expect(keys).toEqual(expect.arrayContaining(['Space', 'K', 'Tab']));
+    expect(keys).not.toContain('Esc');
     const rows = mount.querySelectorAll('.wg-live__keys-row');
     expect(rows.length).toBeGreaterThanOrEqual(3);
     for (const r of Array.from(rows)) {
@@ -160,12 +160,14 @@ describe('help view: fixed sections (plan 6.11)', () => {
     expect(steps.length).toBeGreaterThanOrEqual(4);
   });
 
-  it('describes reconnecting with the 3-retry limit and mode switching without silent track changes', () => {
+  it('describes reconnecting with the 3-retry limit and the personal link for VLC or Safari', () => {
     mountView(makeBoot());
     expect(mount.querySelector('.wg-live__help-section--reconnect')?.textContent).toContain('最多 3 次');
-    const switching = mount.querySelector('.wg-live__help-section--switching')?.textContent ?? '';
-    expect(switching).toContain('改用耳機 Binaural');
-    expect(switching).toContain('短暫中斷');
+    expect(mount.querySelector('.wg-live__help-section--switching')).toBeNull();
+    const external = mount.querySelector('.wg-live__help-section--external')?.textContent ?? '';
+    expect(external).toContain('取得我的播放連結');
+    expect(external).toContain('媒體 → 開啟網路串流');
+    expect(external).toContain('請勿分享');
   });
 });
 

@@ -49,7 +49,7 @@ function safeLink(href: string | null, label: string, className: string): HTMLEl
 /* ---- 1. modes ---- */
 function buildModes(levels: Levels): HTMLElement {
   const copy = helpCopy.modes;
-  const mode = (key: 'binaural' | 'atmos'): HTMLElement =>
+  const mode = (key: 'apple' | 'windows'): HTMLElement =>
     h(
       'li',
       { className: `wg-live__help-mode wg-live__help-mode--${key}` },
@@ -62,7 +62,7 @@ function buildModes(levels: Levels): HTMLElement {
     'modes',
     copy.heading,
     h('p', { className: 'wg-live__help-text wg-live__muted', text: copy.lead }),
-    h('ul', { className: 'wg-live__help-modes', attrs: { role: 'list' } }, mode('binaural'), mode('atmos')),
+    h('ul', { className: 'wg-live__help-modes', attrs: { role: 'list' } }, mode('apple'), mode('windows')),
     h('p', { className: 'wg-live__help-text wg-live__muted wg-live__small', text: copy.labelNote }),
   );
 }
@@ -255,9 +255,9 @@ export function mountHelpView(mount: HTMLElement, boot: BootConfig): ViewInstanc
     ),
     section(
       levels,
-      'switching',
-      helpCopy.switching.heading,
-      ...helpCopy.switching.paragraphs.map((text) => h('p', { className: 'wg-live__help-text', text })),
+      'external',
+      helpCopy.external.heading,
+      ...helpCopy.external.paragraphs.map((text) => h('p', { className: 'wg-live__help-text', text })),
     ),
     buildKeyboard(levels),
     buildContact(levels, boot),

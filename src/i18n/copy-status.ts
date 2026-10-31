@@ -30,7 +30,7 @@ export const statusCopy = {
     ended: { title: '本場演出已結束', detail: '可返回活動列表查看其他活動。' }, // [spec 6]
     sourceNotConfigured: { title: '播放來源尚未開放', detail: '這場活動的播放來源尚未開放，請稍後再查看。' }, // [spec 6]
     scheduled: { title: '演出尚未開始', detail: null }, // [spec 6] detail = startsAt(...)
-    doorsOpen: { title: '即將開放聆聽', detail: '現在可以先選擇聆聽模式，開放後即可開始。' }, // [spec 6]
+    doorsOpen: { title: '即將開放聆聽', detail: '開放後即可按「開始聆聽」。' }, // [spec 6]; decision 2026-11-01: no mode to choose
     intermission: { title: '演出中場休息', detail: '播放連線與目前模式會保留。' }, // [spec 6]
     live: { title: '演出進行中', detail: null },
   },

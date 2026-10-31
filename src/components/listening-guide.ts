@@ -17,7 +17,7 @@ export function createListeningGuide(opts: ListeningGuideOptions): HTMLElement {
   const copy = eventsCopy.guide;
   const subTag = opts.headingTag === 'h2' ? 'h3' : 'h4';
 
-  const modeCard = (key: 'binaural' | 'atmos'): HTMLElement =>
+  const modeCard = (key: 'apple' | 'windows'): HTMLElement =>
     h(
       'li',
       { className: `wg-live__guide-mode wg-live__guide-mode--${key}` },
@@ -31,7 +31,7 @@ export function createListeningGuide(opts: ListeningGuideOptions): HTMLElement {
     { className: 'wg-live__guide', attrs: { 'aria-labelledby': headingId } },
     h(opts.headingTag, { className: 'wg-live__heading wg-live__heading--h3', attrs: { id: headingId }, text: copy.heading }),
     h('p', { className: 'wg-live__guide-lead wg-live__muted', text: copy.lead }),
-    h('ul', { className: 'wg-live__guide-modes', attrs: { role: 'list' } }, modeCard('binaural'), modeCard('atmos')),
+    h('ul', { className: 'wg-live__guide-modes', attrs: { role: 'list' } }, modeCard('apple'), modeCard('windows')),
   );
 
   if (opts.helpUrl) {

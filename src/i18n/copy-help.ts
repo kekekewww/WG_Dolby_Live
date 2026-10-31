@@ -11,33 +11,34 @@ import { DEMO_MEDIA_NOTICE } from './copy-status';
 export const helpCopy = {
   title: 'Listening Guide', // [spec 2.3]
   subtitle: '聆聽說明',
-  intro: '開始聆聽前，可以先了解兩種模式的差異、支援條件與常見問題。',
+  intro: '開始聆聽前，可以先了解播放方式、支援條件與常見問題。',
   backToEvents: '返回活動列表',
 
-  /* ---- 1. the two modes ---- */
+  /* ---- 1. how to listen (one Dolby Atmos stream) ---- */
   modes: {
-    heading: '兩種聆聽模式',
-    lead: '兩種模式是不同的音訊版本，請依自己的設備選擇。選擇模式後，按下「開始聆聽」才會載入並播放。',
-    binaural: {
-      name: '耳機聆聽 · Binaural', // [spec 5.2]
-      description: '使用耳機聆聽錄音室製作的雙耳版本。', // [spec 5.2]
-      note: '一般耳機即可播放此版本；音訊效果依錄音室交付內容為準。', // [spec 5.2]
+    // Decision 2026-11-01: one Dolby Atmos stream per concert (proposed copy, for approval).
+    heading: '播放方式',
+    lead: '每場音樂會提供一個 Dolby Atmos 串流，不需要選擇聆聽模式。按下「開始聆聽」才會載入並播放。',
+    apple: {
+      name: 'Mac、iPhone、iPad · Safari',
+      description: '用 Safari 開啟播放頁，按「開始聆聽」即可播放 Dolby Atmos 串流。',
+      note: '耳機或家庭劇院能否呈現 Atmos 效果，依裝置與連接方式而定，請以聆聽說明的相容表為準。',
     },
-    atmos: {
-      name: '家庭劇院 · Dolby Atmos', // [spec 5.2]
-      description: '適用於經確認的播放裝置、連接方式與 Atmos 家庭劇院。', // [spec 5.2]
-      note: '請先閱讀支援條件；選用 Atmos 音軌不等於系統已確認最終設備輸出。', // [spec 5.2]
+    windows: {
+      name: 'Windows 與其他瀏覽器 · VLC',
+      description: '瀏覽器無法播放 Dolby Atmos 時，已購票的觀眾可在播放頁取得個人播放連結，用 VLC 開啟。',
+      note: 'VLC 能否輸出 Atmos 效果，依 VLC 的設定與設備而定。',
     },
-    labelNote: '畫面上的「已選擇」與「目前播放」只代表所選的音訊版本，不代表已確認裝置的輸出方式。',
+    labelNote: '畫面上的「已選擇」與「目前播放」只代表播放的音訊版本，不代表已確認裝置的輸出方式。',
   },
 
   /* ---- 2. Safari-first ---- */
   safari: {
     heading: '瀏覽器與驗收說明',
     paragraphs: [
-      '本專案以 Safari（iPhone、iPad 與 Mac）作為優先驗收的瀏覽器；其他瀏覽器不會被擋在 Binaural 模式之外，但尚未全面驗收。',
-      '本站依瀏覽器實際提供的功能判斷可用的播放方式，不依瀏覽器名稱限制使用。',
-      '家庭劇院模式能否呈現 Atmos，取決於播放裝置、連接方式與瀏覽器的組合，請以下方相容表的實測紀錄為準。',
+      '本專案以 Safari（iPhone、iPad 與 Mac）作為優先驗收的瀏覽器；其他瀏覽器尚未全面驗收。',
+      '本站依瀏覽器實際提供的功能判斷能否播放，不依瀏覽器名稱限制使用。瀏覽器無法播放 Dolby Atmos 時（例如 Windows 上的 Chrome、Edge），播放頁會說明，並讓已購票的觀眾取得個人播放連結，改用 VLC 開啟。',
+      '能否呈現 Atmos 效果，取決於播放裝置、連接方式與瀏覽器的組合，請以下方相容表的實測紀錄為準。',
     ],
   },
 
@@ -76,7 +77,7 @@ export const helpCopy = {
       '確認已按下「開始聆聽」，且畫面顯示「播放中」。',
       '確認裝置音量沒有調到最小，也沒有開啟靜音；瀏覽器分頁也沒有被靜音。',
       '使用藍牙耳機或喇叭時，確認已連線，並已選為裝置的輸出。',
-      '先改用 Binaural 模式，確認一般耳機是否能聽到聲音。',
+      '使用 Windows 或播放失敗時，在播放頁按「取得我的播放連結」，改用 VLC 開啟。',
       '按「重試」，或重新整理本頁後再試一次。',
     ],
   },
@@ -90,13 +91,13 @@ export const helpCopy = {
     ],
   },
 
-  /* ---- 6. switching modes ---- */
-  switching: {
-    heading: '切換模式',
+  /* ---- 6. external player (decision 2026-11-01; proposed copy, for approval) ---- */
+  external: {
+    heading: '用 VLC 收聽',
     paragraphs: [
-      '播放中可按「切換模式」。確認後會先停止目前的音訊，再載入另一個版本，過程中播放可能短暫中斷。',
-      '新模式成功播放後，「目前播放」才會更新。切換失敗時，仍會保留原模式資訊，並可重新載入原模式。',
-      '家庭劇院模式失敗時，會明確提示並提供「改用耳機 Binaural」；系統不會在未告知的情況下替您更換音軌。',
+      '已購票並登入的觀眾，在演出中若瀏覽器無法播放 Dolby Atmos，或播放失敗，播放頁會出現「用其他播放器收聽」。',
+      '按「取得我的播放連結」後複製連結。Windows 請在 VLC 選「媒體 → 開啟網路串流」，貼上連結後按「播放」；Mac、iPhone、iPad 可直接用 Safari 開啟連結。',
+      '每次按下都會取得新的連結。連結只供本人使用，請勿分享。',
     ],
   },
 
@@ -108,7 +109,6 @@ export const helpCopy = {
       { keys: ['Tab', 'Shift + Tab'], action: '在按鈕、連結與選項之間移動焦點。' },
       { keys: ['Enter', 'Space'], action: '啟動目前聚焦的按鈕。' },
       { keys: ['K'], action: '焦點在播放器內（輸入欄位除外）時，切換播放與暫停。在「暫停」或「繼續播放」按鈕上，也可按 Enter 或 Space。' },
-      { keys: ['Esc'], action: '關閉切換模式的對話框，焦點會回到「切換模式」按鈕。' },
     ],
   },
 

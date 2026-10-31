@@ -56,19 +56,20 @@ export const eventsCopy = {
   /* ---- 聆聽方式 section (plan 6.1 section 3, spec 5.2) ---- */
   guide: {
     heading: '聆聽方式', // [plan 6.1]
-    lead: '本站提供兩種聆聽方式，請依自己的設備選擇；是否能呈現 Atmos，依裝置與連接方式而定。',
+    // Decision 2026-11-01: one Dolby Atmos stream per concert (proposed copy, for approval).
+    lead: '每場音樂會提供一個 Dolby Atmos 串流，不需要選擇聆聽模式；能否呈現 Atmos 效果，依裝置與連接方式而定。',
     helpLink: '閱讀完整聆聽說明',
     modes: {
-      binaural: {
-        name: '耳機聆聽 · Binaural', // [spec 5.2]
-        description: '使用耳機聆聽錄音室製作的雙耳版本。', // [spec 5.2]
-        note: '一般耳機即可播放此版本；音訊效果依錄音室交付內容為準。', // [spec 5.2]
-      },
-      atmos: {
-        name: '家庭劇院 · Dolby Atmos', // [spec 5.2]
-        description: '適用於經確認的播放裝置、連接方式與 Atmos 家庭劇院。', // [spec 5.2]
-        note: '請先閱讀支援條件；選用 Atmos 音軌不等於系統已確認最終設備輸出。', // [spec 5.2]
-      },
+    apple: {
+      name: 'Mac、iPhone、iPad · Safari',
+      description: '用 Safari 開啟播放頁，按「開始聆聽」即可播放 Dolby Atmos 串流。',
+      note: '耳機或家庭劇院能否呈現 Atmos 效果，依裝置與連接方式而定，請以聆聽說明的相容表為準。',
+    },
+    windows: {
+      name: 'Windows 與其他瀏覽器 · VLC',
+      description: '瀏覽器無法播放 Dolby Atmos 時，已購票的觀眾可在播放頁取得個人播放連結，用 VLC 開啟。',
+      note: 'VLC 能否輸出 Atmos 效果，依 VLC 的設定與設備而定。',
+    },
     },
   },
 
@@ -77,11 +78,11 @@ export const eventsCopy = {
   defaultFaq: [
     {
       question: '需要什麼設備才能聆聽？',
-      answer: '使用一般耳機即可聆聽 Binaural 版本。家庭劇院模式需要經確認的播放裝置與連接方式，詳見聆聽說明。',
+      answer: 'Mac、iPhone、iPad 請用 Safari。Windows 或無法播放的瀏覽器，請在播放頁取得個人播放連結，用 VLC 開啟。詳見聆聽說明。',
     },
     {
-      question: '選了 Dolby Atmos 音軌，就代表我的設備已輸出 Atmos 嗎？',
-      answer: '不代表。選用 Atmos 音軌只是選擇音訊版本，系統無法確認最終設備的輸出方式。',
+      question: '播放 Dolby Atmos 串流，就代表我的設備已輸出 Atmos 嗎？',
+      answer: '不代表。系統只知道播放的是 Dolby Atmos 串流，無法確認最終設備的輸出方式。',
     },
     {
       question: '沒有聲音時該怎麼辦？',

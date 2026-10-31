@@ -711,13 +711,13 @@ describe('events view: FAQ summary', () => {
 });
 
 describe('events view: listening guide', () => {
-  it('explains both modes with the spec strings and links to the help page', () => {
+  it('explains the one Dolby Atmos stream, Safari and VLC (decision 2026-11-01), and links to the help page', () => {
     mountView(makeBoot({ events: [makeEvent()] }));
     const guide = mount.querySelector('.wg-live__guide') as HTMLElement;
-    expect(guide.textContent).toContain('耳機聆聽 · Binaural');
-    expect(guide.textContent).toContain('使用耳機聆聽錄音室製作的雙耳版本。');
-    expect(guide.textContent).toContain('家庭劇院 · Dolby Atmos');
-    expect(guide.textContent).toContain('選用 Atmos 音軌不等於系統已確認最終設備輸出。');
+    expect(guide.textContent).toContain('每場音樂會提供一個 Dolby Atmos 串流');
+    expect(guide.textContent).toContain('Mac、iPhone、iPad · Safari');
+    expect(guide.textContent).toContain('Windows 與其他瀏覽器 · VLC');
+    expect(guide.textContent).not.toContain('Binaural');
     expect(guide.querySelector('a')?.getAttribute('href')).toBe('https://sounds.example.com/live/help/');
   });
 
