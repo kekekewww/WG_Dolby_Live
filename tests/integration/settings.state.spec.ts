@@ -14,6 +14,8 @@ import { adminContext, bootConfigs, createEvents, DEMO_VIDEO, deleteEventsByPref
 test.describe.configure({ mode: 'serial' });
 
 const FOREIGN = 'https://staging.example.test/my-account/';
+// The plugin's own warnings. WordPress core's "x.y.z is available" nag is also a .notice-warning (.update-nag).
+const PLUGIN_WARNING = '.notice-warning:not(.update-nag)';
 
 let settingsSnapshot: Record<string, unknown> = {};
 
@@ -63,7 +65,7 @@ test.describe('link overrides and the host-mismatch warning (deployment screen)'
       await page.goto(DEPLOY_URL);
       await expect(page.getByRole('heading', { name: '連結主機檢查' })).toBeVisible();
       await expect(page.locator('#wpbody-content')).toContainText('所有已儲存的連結都指向 localhost');
-      await expect(page.locator('.notice-warning')).toHaveCount(0);
+      await expect(page.locator(PLUGIN_WARNING)).toHaveCount(0);
       // The deployment screen reports the real environment.
       await expect(page.locator('#wpbody-content')).toContainText('local');
       await expect(page.locator('#wpbody-content')).toContainText('0.2.0');
@@ -80,7 +82,7 @@ test.describe('link overrides and the host-mismatch warning (deployment screen)'
       expect(getSettings(DEV).account_url).toBe(FOREIGN);
 
       await page.goto(DEPLOY_URL);
-      const warning = page.locator('.notice-warning');
+      const warning = page.locator(PLUGIN_WARNING);
       await expect(warning).toContainText('下列連結的主機與這個網站（localhost）不同');
       await expect(page.locator('#wpbody-content table.wg-live-admin__table').last()).toContainText(FOREIGN);
       await expect(page.locator('#wpbody-content table.wg-live-admin__table').last()).toContainText('帳號頁連結');
@@ -116,7 +118,7 @@ test.describe('link overrides and the host-mismatch warning (deployment screen)'
     try {
       await page.goto(DEPLOY_URL);
       const table = page.locator('#wpbody-content table.wg-live-admin__table').last();
-      await expect(page.locator('.notice-warning')).toContainText('下列連結的主機與這個網站（localhost）不同');
+      await expect(page.locator(PLUGIN_WARNING)).toContainText('下列連結的主機與這個網站（localhost）不同');
       await expect(table).toContainText('https://tickets.example.test/buy');
       await expect(table).toContainText('購票連結');
       await expect(table).toContainText('https://shop.example.test/tickets');
