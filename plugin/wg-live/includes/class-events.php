@@ -483,11 +483,24 @@ final class Events {
 		printf( '<select id="wg-live-source-type" name="%s[source_type]">', esc_attr( $key ) );
 		printf( '<option value="not_configured"%s>尚未設定</option>', selected( $data['source_type'], 'not_configured', false ) );
 		printf( '<option value="demo"%s>示範</option>', selected( $data['source_type'], 'demo', false ) );
-		echo '<option value="hls" disabled="disabled">HLS（M2，尚未提供）</option>';
-		echo '<option value="iframe" disabled="disabled">iframe 播放器（M2，尚未提供）</option>';
+		printf( '<option value="hls"%s>HLS 串流（本站播放器）</option>', selected( $data['source_type'], 'hls', false ) );
+		echo '<option value="iframe" disabled="disabled">串流服務播放器（iframe，尚未開放）</option>';
 		echo '</select>';
-		echo '<p class="description">「示範」需同時勾選「示範活動」。M1 只啟用核可的示範素材。真實來源與觀看資格檢查在 M2 提供。</p>';
+		echo '<p class="description">「示範」需同時勾選「示範活動」。正式活動選「HLS 串流」並填入下方播放清單；只有部署模式為「正式」、購票的觀眾在直播中才拿得到串流。</p>';
 		self::row_close();
+
+		// HLS playlists per mode (M2-PLAN B1). Never sent to viewers except through /playback after the ticket check.
+		foreach ( array( 'binaural' => 'HLS 播放清單（耳機 Binaural）', 'atmos' => 'HLS 播放清單（家庭劇院 Dolby Atmos）' ) as $mode => $label ) {
+			self::row_open( 'wg-live-source-hls-' . $mode, $label );
+			printf(
+				'<input type="url" id="wg-live-source-hls-%1$s" name="%2$s[source_hls_%1$s]" value="%3$s" class="large-text code" spellcheck="false" placeholder="https://" />',
+				esc_attr( $mode ),
+				esc_attr( $key ),
+				esc_attr( self::source_url( (int) $post->ID, 'hls', $mode ) )
+			);
+			self::row_close();
+		}
+		echo '<tr><th scope="row"></th><td><p class="description">網址必須使用 https，且主機在「Live 活動 → 設定 → 串流主機」清單內（由管理員設定）。</p></td></tr>';
 
 		// Homepage featured card (0.2.0).
 		$featured = (int) Settings::get()['featured_event'];
@@ -507,6 +520,43 @@ final class Events {
 		self::row_close();
 
 		echo '</tbody></table></div>';
+	}
+
+	/**
+	 * A stored source URL for one mode (M2-PLAN B1). Server-side only: never part of PublicEvent.
+	 *
+	 * @param int    $post_id Event ID.
+	 * @param string $type    hls (iframe in D1).
+	 * @param string $mode    binaural|atmos.
+	 * @return string
+	 */
+	public static function source_url( int $post_id, string $type, string $mode ): string {
+		if ( ! in_array( $type, array( 'hls', 'iframe' ), true ) || ! in_array( $mode, array( 'binaural', 'atmos' ), true ) ) {
+			return '';
+		}
+		$value = get_post_meta( $post_id, self::META_PREFIX . 'source_' . $type . '_' . $mode, true );
+		return is_string( $value ) ? $value : '';
+	}
+
+	/**
+	 * Why a stream URL is refused ('' = acceptable): https only (http only for localhost in local/development
+	 * environments, for test fixtures), and the host must be on Settings::stream_hosts().
+	 *
+	 * @param string $url Candidate.
+	 * @return string Taiwan Chinese message, or ''.
+	 */
+	public static function stream_url_error( string $url ): string {
+		$parts  = wp_parse_url( $url );
+		$scheme = is_array( $parts ) && isset( $parts['scheme'] ) ? strtolower( $parts['scheme'] ) : '';
+		$host   = is_array( $parts ) && isset( $parts['host'] ) ? strtolower( $parts['host'] ) : '';
+		$local  = in_array( wp_get_environment_type(), array( 'local', 'development' ), true ) && in_array( $host, array( 'localhost', '127.0.0.1' ), true );
+		if ( '' === $host || ! ( 'https' === $scheme || ( 'http' === $scheme && $local ) ) ) {
+			return sprintf( '串流網址「%s」必須使用 https，已保留原本的網址。', self::shorten( $url, 80 ) );
+		}
+		if ( ! in_array( $host, Settings::stream_hosts(), true ) ) {
+			return sprintf( '「%s」不在「設定 → 串流主機」清單內，已保留原本的網址。請管理員先加入這個主機。', $host );
+		}
+		return '';
 	}
 
 	/**
@@ -889,13 +939,35 @@ final class Events {
 		if ( 'demo' === $source && ! $is_demo ) {
 			self::flash( 'warning', '來源類型「示範」需要同時勾選「示範活動」，已改存為「尚未設定」。' );
 			$source = 'not_configured';
-		} elseif ( in_array( $source, array( 'hls', 'iframe' ), true ) ) {
-			self::flash( 'warning', 'HLS 與 iframe 來源屬於 M2，目前不可使用，已改存為「尚未設定」。' );
+		} elseif ( 'hls' === $source && $is_demo ) {
+			self::flash( 'warning', '示範活動只能使用「示範」來源，已改存為「尚未設定」。' );
 			$source = 'not_configured';
-		} elseif ( 'demo' !== $source ) {
+		} elseif ( 'iframe' === $source ) {
+			self::flash( 'warning', '串流服務播放器（iframe）尚未開放，已改存為「尚未設定」。' );
+			$source = 'not_configured';
+		} elseif ( 'demo' !== $source && 'hls' !== $source ) {
 			$source = 'not_configured';
 		}
 		update_post_meta( $post_id, $p . 'source_type', $source );
+
+		// HLS playlists (M2-PLAN B1): https on an admin-approved host; a refused value keeps the old one.
+		foreach ( array( 'binaural', 'atmos' ) as $mode ) {
+			$field = 'source_hls_' . $mode;
+			if ( ! isset( $in[ $field ] ) || ! is_string( $in[ $field ] ) ) {
+				continue;
+			}
+			$url = trim( $in[ $field ] );
+			if ( '' === $url ) {
+				update_post_meta( $post_id, $p . $field, '' );
+				continue;
+			}
+			$error = self::stream_url_error( $url );
+			if ( '' !== $error ) {
+				self::flash( 'error', $error );
+				continue;
+			}
+			update_post_meta( $post_id, $p . $field, $url );
+		}
 
 		// Product.
 		$product_id = isset( $in['product_id'] ) ? absint( $in['product_id'] ) : 0;

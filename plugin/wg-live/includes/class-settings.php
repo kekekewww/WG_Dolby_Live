@@ -103,6 +103,7 @@ final class Settings {
 			'demo_audio_binaural'      => 0,
 			'demo_audio_atmos'         => 0,
 			'style_overrides'          => self::empty_style(),
+			'stream_hosts'             => array(),
 			'delete_data_on_uninstall' => false,
 		);
 	}
@@ -139,6 +140,32 @@ final class Settings {
 	 */
 	public static function option_page_capability(): string {
 		return Plugin::cap();
+	}
+
+	/**
+	 * Admin-approved stream hosts (M2-PLAN B1). Event playlist URLs must be on one of these.
+	 *
+	 * @return string[] Lowercase hostnames.
+	 */
+	public static function stream_hosts(): array {
+		return self::get()['stream_hosts'];
+	}
+
+	/**
+	 * Valid, unique, lowercase hostnames (no scheme, path or port); at most 20.
+	 *
+	 * @param mixed $raw Array of candidates.
+	 * @return string[]
+	 */
+	public static function clean_hosts( $raw ): array {
+		$out = array();
+		foreach ( is_array( $raw ) ? $raw : array() as $host ) {
+			$host = is_string( $host ) ? strtolower( trim( $host ) ) : '';
+			if ( 1 === preg_match( '/^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/', $host ) && ! in_array( $host, $out, true ) ) {
+				$out[] = $host;
+			}
+		}
+		return array_slice( $out, 0, 20 );
 	}
 
 	/**
@@ -265,6 +292,7 @@ final class Settings {
 			}
 		}
 		$out['style_overrides'] = $style;
+		$out['stream_hosts']    = self::clean_hosts( isset( $stored['stream_hosts'] ) ? $stored['stream_hosts'] : array() );
 
 		$out['delete_data_on_uninstall'] = ! empty( $stored['delete_data_on_uninstall'] );
 
@@ -571,6 +599,7 @@ final class Settings {
 
 		add_settings_section( 'wg_live_mode', '運作模式', array( __CLASS__, 'section_mode' ), $page );
 		add_settings_field( 'wg_live_f_mode', '部署模式', array( __CLASS__, 'field_mode' ), $page, 'wg_live_mode' );
+		add_settings_field( 'wg_live_f_stream_hosts', '串流主機', array( __CLASS__, 'field_stream_hosts' ), $page, 'wg_live_mode', array( 'label_for' => 'wg-live-stream_hosts' ) );
 
 		add_settings_section( 'wg_live_pages', '頁面綁定', array( __CLASS__, 'section_pages' ), $page );
 		add_settings_field( 'wg_live_f_page_events', '活動列表頁（/live/）', array( __CLASS__, 'field_page' ), $page, 'wg_live_pages', array( 'key' => 'page_events', 'label_for' => 'wg-live-page_events' ) );
@@ -798,6 +827,18 @@ final class Settings {
 		}
 		$out['style_overrides'] = $style;
 
+		// Stream hosts (M2-PLAN B1): hostnames only, one per line in the form.
+		if ( array_key_exists( 'stream_hosts', $in ) ) {
+			$lines = is_string( $in['stream_hosts'] ) ? preg_split( '/\r\n|\r|\n/', $in['stream_hosts'] ) : ( is_array( $in['stream_hosts'] ) ? $in['stream_hosts'] : array() );
+			$given = array_filter( array_map( 'trim', array_filter( (array) $lines, 'is_string' ) ), 'strlen' );
+			$out['stream_hosts'] = self::clean_hosts( $given );
+			if ( count( $out['stream_hosts'] ) < count( array_unique( array_map( 'strtolower', $given ) ) ) ) {
+				self::notice( 'wg_live_stream_hosts', '有些串流主機格式不正確，已略過。請只填主機名稱，例如 stream.example.com。', 'warning' );
+			}
+		} else {
+			$out['stream_hosts'] = $form ? array() : $current['stream_hosts'];
+		}
+
 		// Delete-on-uninstall: from the form it needs both checkboxes (the second is the confirmation).
 		if ( $form ) {
 			$wants = ! empty( $in['delete_data_on_uninstall'] );
@@ -943,6 +984,16 @@ final class Settings {
 	/** @return void */
 	public static function section_mode(): void {
 		echo '<p>「停用」是緊急關閉開關：所有公開內容都會隱藏。外掛啟用後預設為停用。M1 只有「停用」與「示範」兩種模式。</p>';
+	}
+
+	/** @return void */
+	public static function field_stream_hosts(): void {
+		printf(
+			'<textarea id="wg-live-stream_hosts" name="%1$s" rows="3" class="large-text code" spellcheck="false">%2$s</textarea>',
+			esc_attr( self::name( 'stream_hosts' ) ),
+			esc_textarea( implode( "\n", self::get()['stream_hosts'] ) )
+		);
+		echo '<p class="description">每行一個主機名稱，例如 <code>stream.example.com</code>。活動的 HLS 播放清單網址必須使用 https，且主機在這個清單內。觀眾看不到這些網址。</p>';
 	}
 
 	/** @return void */

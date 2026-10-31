@@ -263,16 +263,15 @@ test.describe('F13 admin save validation', () => {
     expect(playback.json.kind).toBe('not_ready');
     expect(playback.text).not.toMatch(/http|\.mp3|\.mp4/);
 
-    // The M2 source types are shown disabled and refused as well.
+    // An unknown source type (a hand-made request) is stored as 尚未設定. hls and iframe are real types since M2.
     await openEdit(page, eventId);
     await page.locator('#wg-live-source-type').evaluate((el: HTMLSelectElement) => {
-      // The option exists but is disabled (and a disabled option is not submitted): enable it like a hand-made request would.
-      const option = el.querySelector('option[value="hls"]') as HTMLOptionElement;
-      option.disabled = false;
-      el.value = 'hls';
+      const option = document.createElement('option');
+      option.value = 'rtmp';
+      el.append(option);
+      el.value = 'rtmp';
     });
     await publish(page);
-    expect(await noticeText(page)).toContain('HLS 與 iframe 來源屬於 M2');
     expect(row(eventId).meta.source_type).toBe('not_configured');
   });
 
