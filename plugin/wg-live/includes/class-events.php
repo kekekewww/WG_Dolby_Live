@@ -543,8 +543,9 @@ final class Events {
 	}
 
 	/**
-	 * Why a stream URL is refused ('' = acceptable): https only (http only for localhost in local/development
-	 * environments, for test fixtures), and the host must be on Settings::stream_hosts().
+	 * Why a stream URL is refused ('' = acceptable): https only, and the host must be on Settings::stream_hosts().
+	 * In local/development environments plain http is also accepted for a loopback address or this site's own
+	 * host, for test fixtures.
 	 *
 	 * @param string $url Candidate.
 	 * @return string Taiwan Chinese message, or ''.
@@ -553,7 +554,10 @@ final class Events {
 		$parts  = wp_parse_url( $url );
 		$scheme = is_array( $parts ) && isset( $parts['scheme'] ) ? strtolower( $parts['scheme'] ) : '';
 		$host   = is_array( $parts ) && isset( $parts['host'] ) ? strtolower( $parts['host'] ) : '';
-		$local  = in_array( wp_get_environment_type(), array( 'local', 'development' ), true ) && in_array( $host, array( 'localhost', '127.0.0.1' ), true );
+		$own    = strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
+		$ip     = ip2long( $host );
+		$local  = in_array( wp_get_environment_type(), array( 'local', 'development' ), true )
+			&& ( ( false !== $ip && 127 === ( $ip >> 24 ) ) || ( '' !== $own && $own === $host ) );
 		if ( '' === $host || ! ( 'https' === $scheme || ( 'http' === $scheme && $local ) ) ) {
 			return sprintf( '串流網址「%s」必須使用 https，已保留原本的網址。', self::shorten( $url, 80 ) );
 		}
