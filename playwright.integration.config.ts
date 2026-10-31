@@ -31,7 +31,7 @@ const workers = process.env.CI ? 2 : 4;
 // file, chained with dependencies (chromium files first, then webkit).
 // STATE_ORDER is the run order. A tests/integration/*.state.spec.ts that is not listed would match no project and
 // silently never run, so the config refuses to load instead (TR-07).
-const STATE_ORDER = ['disabled', 'settings', 'deactivate'];
+const STATE_ORDER = ['disabled', 'settings', 'entitlement', 'deactivate'];
 const STATE_ON_DISK = readdirSync(join(import.meta.dirname, 'tests', 'integration'))
   .filter((f) => f.endsWith('.state.spec.ts'))
   .map((f) => f.replace(/\.state\.spec\.ts$/, ''));

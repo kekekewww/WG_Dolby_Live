@@ -225,10 +225,14 @@ export function readBootConfig(root: HTMLElement): BootConfig | null {
     schema: 1,
     pluginVersion: str(data.pluginVersion),
     view,
-    // Fail closed: anything but an explicit 'demo' is treated as disabled.
-    deploymentMode: (data.deploymentMode === 'demo' ? 'demo' : 'disabled') satisfies DeploymentMode,
+    // Fail closed: anything but an explicit 'demo' or 'live' is treated as disabled.
+    deploymentMode: (data.deploymentMode === 'demo' || data.deploymentMode === 'live' ? data.deploymentMode : 'disabled') satisfies DeploymentMode,
     timezone: zone(data.timezone),
-    rest: { root: restRoot },
+    rest: {
+      root: restRoot,
+      nonce: typeof rest.nonce === 'string' && /^[0-9a-f]{10}$/.test(rest.nonce) ? rest.nonce : null,
+      nonceUrl: url(rest.nonceUrl) ?? '',
+    },
     links: parseLinks(data.links),
     fixedEventSlug: isValidSlug(data.fixedEventSlug) ? data.fixedEventSlug : null,
     featuredEventSlug: isValidSlug(data.featuredEventSlug) ? data.featuredEventSlug : null,

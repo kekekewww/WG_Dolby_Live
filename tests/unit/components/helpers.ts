@@ -51,7 +51,7 @@ export function makeBoot(overrides: Partial<BootConfig> = {}): BootConfig {
     view: 'player',
     deploymentMode: 'demo',
     timezone: 'Asia/Taipei',
-    rest: { root: 'https://example.test/wp-json/wg-live/v1/' },
+    rest: { root: 'https://example.test/wp-json/wg-live/v1/', nonce: null, nonceUrl: '' },
     links: { ...LINKS },
     fixedEventSlug: null,
     featuredEventSlug: null,

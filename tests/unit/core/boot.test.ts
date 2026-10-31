@@ -64,6 +64,23 @@ describe('readBootConfig', () => {
     expect(boot?.devTools).toBe(false);
   });
 
+  it('accepts deployment mode live (M2-PLAN A2) and still fails closed on anything else', () => {
+    expect(readBootConfig(makeRoot(validConfig({ deploymentMode: 'live' })))?.deploymentMode).toBe('live');
+    expect(readBootConfig(makeRoot(validConfig({ deploymentMode: 'LIVE' })))?.deploymentMode).toBe('disabled');
+  });
+
+  it('reads the REST nonce only in its exact shape, and the nonce refresh URL', () => {
+    const rest = (r: Record<string, unknown>) => readBootConfig(makeRoot(validConfig({ rest: { root: 'https://sounds.example.com/wp-json/wg-live/v1/', ...r } })))?.rest;
+    expect(rest({ nonce: '0a1b2c3d4e', nonceUrl: 'https://sounds.example.com/wp-admin/admin-ajax.php?action=rest-nonce' })).toEqual({
+      root: 'https://sounds.example.com/wp-json/wg-live/v1/',
+      nonce: '0a1b2c3d4e',
+      nonceUrl: 'https://sounds.example.com/wp-admin/admin-ajax.php?action=rest-nonce',
+    });
+    expect(rest({ nonce: '<script>' })?.nonce).toBeNull();
+    expect(rest({ nonce: null })?.nonce).toBeNull();
+    expect(rest({ nonceUrl: 'javascript:alert(1)' })?.nonceUrl).toBe('');
+  });
+
   it('returns null without a config script, with bad JSON, or with a wrong schema', () => {
     expect(readBootConfig(makeRoot(null))).toBeNull();
     expect(readBootConfig(makeRoot('{not json'))).toBeNull();
@@ -111,7 +128,7 @@ describe('readBootConfig', () => {
   });
 
   it('fails closed on the deployment mode and on devTools', () => {
-    expect(readBootConfig(makeRoot(validConfig({ deploymentMode: 'live' })))?.deploymentMode).toBe('disabled');
+    expect(readBootConfig(makeRoot(validConfig({ deploymentMode: 'production' })))?.deploymentMode).toBe('disabled');
     expect(readBootConfig(makeRoot(validConfig({ deploymentMode: undefined })))?.deploymentMode).toBe('disabled');
     expect(readBootConfig(makeRoot(validConfig({ devTools: 'true' })))?.devTools).toBe(false);
     expect(readBootConfig(makeRoot(validConfig({ devTools: 1 })))?.devTools).toBe(false);

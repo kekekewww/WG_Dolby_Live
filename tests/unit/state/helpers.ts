@@ -58,7 +58,7 @@ export function makeBoot(patch: Partial<BootConfig> = {}): BootConfig {
     view: 'player',
     deploymentMode: 'demo',
     timezone: 'Asia/Taipei',
-    rest: { root: '/wp-json/wg-live/v1/' },
+    rest: { root: '/wp-json/wg-live/v1/', nonce: null, nonceUrl: '' },
     links: {
       home: '/',
       events: '/live/',

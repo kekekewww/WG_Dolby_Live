@@ -49,6 +49,7 @@ function refund(orderId: number, productId: number, qty: number): void {
   );
 }
 
+// eslint-disable-next-line no-empty-pattern -- Playwright passes testInfo only as the second argument.
 test.beforeAll(async ({}, testInfo) => {
   prefix = `it-tix-${testInfo.project.name}`;
   deleteUsersByLoginPrefix(DEV, `${prefix}-`);

@@ -87,7 +87,7 @@ final class Public_Data {
 	 */
 	public static function is_enabled() {
 		$settings = Settings::get();
-		return isset( $settings['deployment_mode'] ) && 'demo' === $settings['deployment_mode'];
+		return isset( $settings['deployment_mode'] ) && in_array( $settings['deployment_mode'], array( 'demo', 'live' ), true );
 	}
 
 	/**
@@ -302,9 +302,14 @@ final class Public_Data {
 			'schema'            => 1,
 			'pluginVersion'     => WG_LIVE_VERSION,
 			'view'              => $view,
-			'deploymentMode'    => $enabled ? 'demo' : 'disabled',
+			'deploymentMode'    => $enabled ? Settings::get()['deployment_mode'] : 'disabled',
 			'timezone'          => $zone,
-			'rest'              => array( 'root' => rest_url( self::REST_NAMESPACE . '/' ) ),
+			'rest'              => array(
+				'root'     => rest_url( self::REST_NAMESPACE . '/' ),
+				// M2-PLAN A2: the wp_rest nonce for logged-in viewers; null for guests. nonceUrl refreshes it.
+				'nonce'    => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : null,
+				'nonceUrl' => admin_url( 'admin-ajax.php?action=rest-nonce' ),
+			),
 			'links'             => Site_Links::all(),
 			'fixedEventSlug'    => ( $enabled && self::is_valid_slug( $slug ) ) ? $slug : null,
 			'featuredEventSlug' => $enabled ? self::featured_event_slug() : null,
@@ -431,6 +436,23 @@ final class Public_Data {
 
 		register_rest_route(
 			self::REST_NAMESPACE,
+			'/entitlement',
+			array(
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => array( __CLASS__, 'rest_entitlement' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'event' => array(
+						'type'     => 'integer',
+						'required' => true,
+						'minimum'  => 1,
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::REST_NAMESPACE,
 			'/playback',
 			array(
 				'methods'             => \WP_REST_Server::READABLE,
@@ -491,6 +513,31 @@ final class Public_Data {
 		}
 		$response = new \WP_REST_Response( array( 'event' => $event ), 200 );
 		$response->header( 'Cache-Control', self::CACHE_PUBLIC );
+		return $response;
+	}
+
+	/**
+	 * GET entitlement?event=<id> (M2-PLAN A2). The viewer is the cookie user, which WordPress only sees when the
+	 * request carries the wp_rest nonce. Never cached.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return \WP_REST_Response
+	 */
+	public static function rest_entitlement( $request ) {
+		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+			define( 'DONOTCACHEPAGE', true );
+		}
+		$result = Entitlement::check( (int) $request->get_param( 'event' ), get_current_user_id() );
+		$body   = array( 'status' => $result['status'] );
+		if ( 'unavailable' === $result['status'] ) {
+			$body['reason'] = $result['reason'];
+		}
+		$response = new \WP_REST_Response( $body, 200 );
+		foreach ( wp_get_nocache_headers() as $name => $value ) {
+			if ( '' !== $value ) {
+				$response->header( $name, $value );
+			}
+		}
 		return $response;
 	}
 

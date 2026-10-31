@@ -240,7 +240,7 @@ final class Settings {
 		$contact            = isset( $stored['contact_url'] ) ? self::clean_url( $stored['contact_url'], true ) : '';
 		$out['contact_url'] = null === $contact ? '' : $contact;
 
-		$out['deployment_mode'] = isset( $stored['deployment_mode'] ) && 'demo' === $stored['deployment_mode'] ? 'demo' : 'disabled';
+		$out['deployment_mode'] = isset( $stored['deployment_mode'] ) && in_array( $stored['deployment_mode'], array( 'demo', 'live' ), true ) ? $stored['deployment_mode'] : 'disabled';
 
 		$problems          = array();
 		$out['faq']        = isset( $stored['faq'] ) ? self::clean_faq( $stored['faq'], $problems ) : array();
@@ -721,7 +721,7 @@ final class Settings {
 		// Deployment mode.
 		if ( array_key_exists( 'deployment_mode', $in ) ) {
 			$mode = is_string( $in['deployment_mode'] ) ? $in['deployment_mode'] : '';
-			if ( in_array( $mode, array( 'disabled', 'demo' ), true ) ) {
+			if ( in_array( $mode, array( 'disabled', 'demo', 'live' ), true ) ) {
 				$out['deployment_mode'] = $mode;
 			} else {
 				$out['deployment_mode'] = $current['deployment_mode'];
@@ -958,6 +958,11 @@ final class Settings {
 			'<label class="wg-live-admin__choice"><input type="radio" name="%1$s" value="demo"%2$s /> <strong>示範（demo）</strong><span class="description">顯示已發布的活動，並以操作示範影片或音訊（依活動類型）體驗播放介面。這不是正式串流，不會檢查觀看資格。</span></label>',
 			esc_attr( self::name( 'deployment_mode' ) ),
 			checked( $value, 'demo', false )
+		);
+		printf(
+			'<label class="wg-live-admin__choice"><input type="radio" name="%1$s" value="live"%2$s /> <strong>正式（live）</strong><span class="description">正式活動依購票紀錄確認觀看資格，並在直播中提供已設定的串流。示範活動照常使用示範媒體。</span></label>',
+			esc_attr( self::name( 'deployment_mode' ) ),
+			checked( $value, 'live', false )
 		);
 		echo '</fieldset>';
 	}
@@ -1393,7 +1398,7 @@ final class Settings {
 		// Environment.
 		echo '<h2>環境</h2><table class="widefat striped wg-live-admin__table"><tbody>';
 		self::kv( 'WordPress 環境類型', function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : '未知' );
-		self::kv( '部署模式', 'demo' === $settings['deployment_mode'] ? '示範（demo）' : '停用（disabled）' );
+		self::kv( '部署模式', 'live' === $settings['deployment_mode'] ? '正式（live）' : ( 'demo' === $settings['deployment_mode'] ? '示範（demo）' : '停用（disabled）' ) );
 		$dev = method_exists( __NAMESPACE__ . '\\Plugin', 'dev_tools_enabled' ) ? ( Plugin::dev_tools_enabled() ? '啟用' : '關閉' ) : '未知';
 		self::kv( '開發工具面板', $dev );
 		self::kv( 'PHP 版本', PHP_VERSION );

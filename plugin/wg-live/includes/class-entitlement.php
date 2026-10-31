@@ -28,8 +28,6 @@ final class Entitlement {
 	 * @return array{status:string,reason:string} status: guest|not_entitled|entitled|unavailable.
 	 */
 	public static function check( $event_id, $user_id ) {
-		unset( $user_id );
-
 		if ( ! Public_Data::is_enabled() ) {
 			return self::result( 'unavailable', 'disabled' );
 		}
@@ -44,7 +42,21 @@ final class Entitlement {
 			return self::result( 'entitled', 'demo' );
 		}
 
-		return self::result( 'unavailable', 'not_implemented' );
+		// M2-PLAN A2: real events are checked only in deployment mode "live"; demo mode keeps M1 behaviour.
+		if ( 'live' !== Settings::get()['deployment_mode'] ) {
+			return self::result( 'unavailable', 'not_live_mode' );
+		}
+		$user_id = (int) $user_id;
+		if ( $user_id < 1 ) {
+			return self::result( 'guest', 'guest' );
+		}
+		$product_id = isset( $data['product_id'] ) ? (int) $data['product_id'] : 0;
+		if ( $product_id < 1 || 'product' !== get_post_type( $product_id ) || 'publish' !== get_post_status( $product_id ) ) {
+			return self::result( 'unavailable', 'no_ticket_product' );
+		}
+		return Tickets::owns_product( $user_id, $product_id )
+			? self::result( 'entitled', 'ticket' )
+			: self::result( 'not_entitled', 'no_ticket' );
 	}
 
 	/**

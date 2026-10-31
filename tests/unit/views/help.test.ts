@@ -12,7 +12,7 @@ function makeBoot(overrides: Partial<BootConfig> = {}): BootConfig {
     view: 'help',
     deploymentMode: 'demo',
     timezone: 'Asia/Taipei',
-    rest: { root: 'https://sounds.example.com/wp-json/wg-live/v1/' },
+    rest: { root: 'https://sounds.example.com/wp-json/wg-live/v1/', nonce: null, nonceUrl: '' },
     links: {
       home: 'https://sounds.example.com/',
       events: 'https://sounds.example.com/live/',

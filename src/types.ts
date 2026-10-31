@@ -238,7 +238,7 @@ export type AdapterFactory = (
 /* ------------------------------------------------------------------ */
 
 export type LiveView = 'events' | 'player' | 'help';
-export type DeploymentMode = 'disabled' | 'demo';
+export type DeploymentMode = 'disabled' | 'demo' | 'live';
 
 export interface SiteLinks {
   home: string;
@@ -295,6 +295,10 @@ export interface BootConfig {
      * Never concatenate — build request URLs with util/url.ts restUrl().
      */
     root: string;
+    /** wp_rest nonce for logged-in viewers (M2-PLAN A2); null for guests. Sent as X-WP-Nonce. */
+    nonce: string | null;
+    /** admin-ajax.php?action=rest-nonce: returns a fresh nonce for the cookie user (A3 retry). */
+    nonceUrl: string;
   };
   links: SiteLinks;
   /** Slug fixed via shortcode `event` attribute; overrides ?wg_event=. */
