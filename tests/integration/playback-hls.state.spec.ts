@@ -81,6 +81,11 @@ test('B1: plain http only for a local fixture (loopback or the site host) on a l
     expect(err(DEV, 'http://stream.example.test/a.m3u8')).toContain('https');
     expect(err(TESTS, 'http://localhost:8889/hls/index.m3u8')).toContain('https');
     expect(err(TESTS, 'https://stream.example.test/a.m3u8')).toBe('');
+    // Review I1: URLs that PHP and browsers parse differently (backslash, userinfo) or with blanks never pass.
+    expect(err(DEV, 'https://evil\\\\@stream.example.test/a.m3u8')).not.toBe('');
+    expect(err(DEV, 'https://u:p@stream.example.test/a.m3u8')).not.toBe('');
+    expect(err(DEV, 'https://stream.example.test/a b.m3u8')).not.toBe('');
+    expect(wpPhp<string>(DEV, "return WG_Live\\Events::player_url_error( 'https://evil\\\\@player.example.test/embed' );")).not.toBe('');
   } finally {
     setSettingsKeys(TESTS, { stream_hosts: before });
   }

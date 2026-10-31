@@ -567,6 +567,9 @@ final class Events {
 	 * @return string Taiwan Chinese message, or ''.
 	 */
 	public static function stream_url_error( string $url ): string {
+		if ( self::ambiguous_url( $url ) ) {
+			return sprintf( '串流網址「%s」含有不允許的字元或帳號資訊，已保留原本的網址。', self::shorten( $url, 80 ) );
+		}
 		$parts  = wp_parse_url( $url );
 		$scheme = is_array( $parts ) && isset( $parts['scheme'] ) ? strtolower( $parts['scheme'] ) : '';
 		$host   = is_array( $parts ) && isset( $parts['host'] ) ? strtolower( $parts['host'] ) : '';
@@ -584,6 +587,24 @@ final class Events {
 	}
 
 	/**
+	 * A URL that PHP's parse_url and a browser could read differently, so an allowlist check on one would not hold for
+	 * the other (final review I1): a backslash (browsers treat it as "/" in http(s) URLs), whitespace or a control
+	 * character, or userinfo ("user@host"). Such URLs are never stored or handed out. With no backslash allowed, the
+	 * extra unslash in update_post_meta() cannot change the stored value either.
+	 *
+	 * @param string $url Candidate.
+	 * @return bool
+	 */
+	private static function ambiguous_url( string $url ): bool {
+		if ( 1 === preg_match( '/[\\\\\s\x00-\x1f\x7f]/', $url ) ) {
+			return true;
+		}
+		$parts = wp_parse_url( $url );
+		// "@" in the authority (between "//" and the next "/", "?" or "#") is userinfo; elsewhere it is data.
+		return ! is_array( $parts ) || isset( $parts['user'] ) || isset( $parts['pass'] ) || 1 === preg_match( '#^[a-z][a-z0-9+.-]*://[^/?\#]*@#i', $url );
+	}
+
+	/**
 	 * Why a provider player URL is refused ('' = acceptable, M2-PLAN D1): https only, and its origin must be on
 	 * Settings::player_origins().
 	 *
@@ -591,6 +612,9 @@ final class Events {
 	 * @return string Taiwan Chinese message, or ''.
 	 */
 	public static function player_url_error( string $url ): string {
+		if ( self::ambiguous_url( $url ) ) {
+			return sprintf( '播放器網址「%s」含有不允許的字元或帳號資訊，已保留原本的網址。', self::shorten( $url, 80 ) );
+		}
 		$origin = Settings::origin_of( $url, false );
 		if ( 0 !== strpos( $origin, 'https://' ) ) {
 			return sprintf( '播放器網址「%s」必須使用 https，已保留原本的網址。', self::shorten( $url, 80 ) );
