@@ -221,9 +221,9 @@ function mountRoot(root: HTMLElement): void {
 
   if (view === 'player') {
     // Players wait for the (fast) volume probe so capabilities are right on first render.
-    void probeVolumeControl().then((volumeSettable) => finishMount(entry, boot, { volumeSettable }));
+    void probeVolumeControl().then((volumeSettable) => finishMount(entry, boot, { volumeSettable, hlsScriptUrl: boot.assets.hls }));
   } else {
-    finishMount(entry, boot, { volumeSettable: volumeProbeResult() ?? false });
+    finishMount(entry, boot, { volumeSettable: volumeProbeResult() ?? false, hlsScriptUrl: boot.assets.hls });
   }
 }
 

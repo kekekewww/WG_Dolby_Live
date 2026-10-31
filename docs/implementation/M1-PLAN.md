@@ -422,6 +422,7 @@ In M1, the server never emits `hls` or `iframe`, and the coordinator treats them
 
 M2 contract, recorded now:
 - **HLS**: use native HLS only when `canPlayType` is non-empty and `'ManagedMediaSource' in window`. Otherwise use the plugin's own pinned, lazily loaded hls.js gated by `Hls.isSupported()`, never `window.Hls`.
+  - *Refined by M2-PLAN C2 (2026-10-31, `src/adapters/hls-path.ts`):* native when `canPlayType('application/vnd.apple.mpegurl')` is non-empty AND (`'ManagedMediaSource' in window` OR there is no `MediaSource` at all: iOS before 17.1 has native HLS but no MSE); hls.js when a (Managed)MediaSource exists; else none. Chrome and Edge answer "maybe" for HLS but have no ManagedMediaSource, so they take hls.js. Atmos is refused before any request where E-AC-3 is not supported (`canPlayType` on the native path, `isTypeSupported` on the hls.js path). The library is the plugin's own `window.WGLiveHls` (C1), never `window.Hls`.
 - **iframe**: the client asserts https and `new URL(url).origin === allowedOrigin`. Messages require `origin === allowedOrigin`, `source === frame.contentWindow` and a valid schema. Send with `postMessage(msg, allowedOrigin)`. Record `allow`/`sandbox` values per vendor once tested.
 
 ### 6.10 Labels, capabilities, keyboard, announcements

@@ -224,9 +224,11 @@ export interface MediaHost {
 export interface AdapterEnv {
   /** Result of probeVolumeControl(); false on iOS/iPadOS. */
   volumeSettable: boolean;
+  /** BootConfig.assets.hls: the plugin's own hls.js file (M2-PLAN C2). Absent or null: no hls.js path. */
+  hlsScriptUrl?: string | null;
 }
 
-/** M1: 'hls' and 'iframe' return inert stubs; the coordinator never loads them (plan §6.9). */
+/** 'hls' plays through the HLS adapter (M2-PLAN C2); 'iframe' is still an inert stub until D2. */
 export type AdapterFactory = (
   kind: PlaybackAdapter['kind'],
   host: MediaHost,

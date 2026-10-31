@@ -5,7 +5,7 @@ import { createIframeAdapter } from './iframe';
 import { createInertAdapter } from './inert';
 
 /**
- * Maps a source kind to its adapter. 'hls' and 'iframe' return inert M1 stubs (plan 6.9).
+ * Maps a source kind to its adapter. 'iframe' is still an inert stub (until M2-PLAN D2).
  * A kind this build does not know also gets an inert adapter instead of a throw, so a bad
  * value can never break a click handler.
  */
@@ -15,7 +15,7 @@ export function createAdapterFactory(): AdapterFactory {
       case 'demo':
         return createDemoAdapter(host, env);
       case 'hls':
-        return createHlsAdapter();
+        return createHlsAdapter(host, env);
       case 'iframe':
         return createIframeAdapter();
       default:

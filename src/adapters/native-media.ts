@@ -1,4 +1,5 @@
 import { safeUrl } from '../dom';
+import { HLS_MIME } from './hls-path';
 import type {
   AdapterEnv,
   AdapterErrorDetail,
@@ -31,6 +32,11 @@ export interface NativeMediaOptions {
   kind?: PlaybackAdapter['kind'];
   /** Set `media.loop` while this adapter owns the element. Demo sources loop (plan 6.4). */
   loop?: boolean;
+  /**
+   * Checked at the start of every load(), before the element is touched: a non-null answer is reported as the
+   * load's failure (M2: the HLS adapter refuses an Atmos track the element cannot decode, before any request).
+   */
+  refuse?: (source: LoadableSource) => AdapterErrorDetail | null;
 }
 
 /** Thrown (as a rejection of load()) when a source cannot be loaded. `detail` is the classified failure. */
@@ -77,6 +83,21 @@ export function mediaIsSilent(media: HTMLMediaElement): boolean {
 /** Which adapter currently owns each shared element. */
 const owners = new WeakMap<HTMLMediaElement, object>();
 
+/** Shared-element ownership for the other adapters on the same element (M2: the hls.js adapter). */
+export function claimMedia(media: HTMLMediaElement, token: object): void {
+  owners.set(media, token);
+}
+export function ownsMedia(media: HTMLMediaElement, token: object): boolean {
+  return owners.get(media) === token;
+}
+/** Give the element up. False when a newer adapter owns it: then only the caller's own state may be reset. */
+export function releaseMedia(media: HTMLMediaElement, token: object): boolean {
+  const owner = owners.get(media);
+  if (owner !== undefined && owner !== token) return false;
+  owners.delete(media);
+  return true;
+}
+
 /**
  * Plan 6.5 classification, first match wins:
  *   canPlayType(mimeType) === '' before load  -> unsupported
@@ -116,7 +137,7 @@ interface WebkitVideo {
   webkitEnterFullscreen?: () => void;
 }
 
-function canFullscreen(media: HTMLMediaElement): boolean {
+export function canFullscreen(media: HTMLMediaElement): boolean {
   if (media.tagName !== 'VIDEO') return false;
   if (typeof document !== 'undefined' && document.fullscreenEnabled === false) return false;
   return (
@@ -305,13 +326,24 @@ export function createNativeMediaAdapter(
       // through the 'error' event, so it must not surface as an unhandled rejection.
       promise.catch(() => undefined);
 
-      if (source.kind !== 'demo') {
-        // Only file sources are handled here. hls/iframe have their own adapters (inert in M1).
+      // File sources, and an hls source on the native-HLS path (M2-PLAN C2) when this adapter was made for it.
+      const file =
+        source.kind === 'demo'
+          ? { url: source.url, mimeType: source.mimeType }
+          : source.kind === 'hls' && kind === 'hls'
+            ? { url: source.url, mimeType: HLS_MIME }
+            : null;
+      if (file === null) {
         fail({ code: 'unknown', fatal: true });
         return promise;
       }
+      const refused = options.refuse ? options.refuse(source) : null;
+      if (refused !== null) {
+        fail(refused);
+        return promise;
+      }
 
-      const href = safeUrl(source.url);
+      const href = safeUrl(file.url);
       let protocolOk = false;
       if (href !== null) {
         try {
@@ -326,7 +358,7 @@ export function createNativeMediaAdapter(
         return promise;
       }
 
-      mimeSupported = source.mimeType === '' || media.canPlayType(source.mimeType) !== '';
+      mimeSupported = file.mimeType === '' || media.canPlayType(file.mimeType) !== '';
       if (!mimeSupported) {
         fail(classifyMediaFailure(media, null, false));
         return promise;

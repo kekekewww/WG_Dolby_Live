@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEntitlementPlaceholder } from '../../../src/adapters/entitlement-placeholder';
 import { createAdapterFactory } from '../../../src/adapters/factory';
-import { createHlsAdapter } from '../../../src/adapters/hls';
 import { createIframeAdapter } from '../../../src/adapters/iframe';
 import { demoEvents } from '../../../src/fixtures/demo-events';
 import type { MediaHost, PlaybackAdapter, PublicEvent } from '../../../src/types';
@@ -27,7 +26,14 @@ describe('createAdapterFactory', () => {
     adapter.destroy();
   });
 
-  it.each(['hls', 'iframe'] as const)('returns an inert %s stub that never touches the shared element', async (kind) => {
+  it('returns the HLS adapter for kind hls (M2-PLAN C2)', () => {
+    const adapter = createAdapterFactory()('hls', host, { volumeSettable: true, hlsScriptUrl: null });
+    expect(adapter.kind).toBe('hls');
+    expect(adapter.capabilities.playPause).toBe(true);
+    adapter.destroy();
+  });
+
+  it.each(['iframe'] as const)('returns an inert %s stub that never touches the shared element', async (kind) => {
     const media = host.media;
     const spies = [vi.spyOn(media, 'play'), vi.spyOn(media, 'pause'), vi.spyOn(media, 'load'), vi.spyOn(media, 'removeAttribute')];
     const addListener = vi.spyOn(media, 'addEventListener');
@@ -58,7 +64,7 @@ describe('createAdapterFactory', () => {
   });
 
   it('stubs expose no capabilities, so no control renders', () => {
-    for (const adapter of [createHlsAdapter(), createIframeAdapter()]) {
+    for (const adapter of [createIframeAdapter()]) {
       expect(Object.values(adapter.capabilities).every((v) => v === false)).toBe(true);
     }
   });
