@@ -38,6 +38,7 @@ require_once WG_LIVE_DIR . 'includes/class-settings.php';
 require_once WG_LIVE_DIR . 'includes/class-plugin.php';
 require_once WG_LIVE_DIR . 'includes/class-tickets.php';
 require_once WG_LIVE_DIR . 'includes/class-entitlement.php';
+require_once WG_LIVE_DIR . 'includes/class-stream-signer.php';
 require_once WG_LIVE_DIR . 'includes/class-site-links.php';
 require_once WG_LIVE_DIR . 'includes/class-public-data.php';
 require_once WG_LIVE_DIR . 'includes/class-playback-provider.php';

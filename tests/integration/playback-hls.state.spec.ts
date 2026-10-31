@@ -4,7 +4,7 @@
  * projects and restores them afterwards.
  */
 import { test, type Page } from '@playwright/test';
-import { adminContext, bootConfigs, createEvents, deleteEventsByPrefix, deletePosts, DEV, expect, fetchText, getSettings, rest, setSettingsKeys, wpPhp } from './wp';
+import { adminContext, bootConfigs, createEvents, deleteEventsByPrefix, deletePosts, DEV, expect, fetchText, getSettings, rest, setSettingsKeys, TESTS, wp, wpPhp } from './wp';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -79,4 +79,39 @@ test('B1: the playlist URLs never reach REST, the bootstrap or any page', async 
   ];
   for (const body of bodies) for (const n of needles) expect(body).not.toContain(n);
   expect(bootConfigs((await fetchText(DEV, `/live/listen/?wg_event=${prefix}-concert`)).text).length).toBeGreaterThan(0);
+});
+
+const SIGNER = 'return ( $s = WG_Live\\Stream_Signers::current() ) ? get_class( $s ) : null;';
+
+test('B2: a local environment signs nothing (unsigned signer); production without a signer gets none', () => {
+  expect(wpPhp<string | null>(DEV, SIGNER)).toBe('WG_Live\\Unsigned_Signer');
+  expect(wpPhp<string | null>(TESTS, SIGNER)).toBeNull();
+  // The documented escape hatch (decision D4), set for this one request only.
+  expect(wpPhp<string | null>(TESTS, `define( 'WG_LIVE_ALLOW_UNSIGNED_STREAMS', true ); ${SIGNER}`)).toBe('WG_Live\\Unsigned_Signer');
+  // Anything but the boolean true keeps the guard closed.
+  expect(wpPhp<string | null>(TESTS, `define( 'WG_LIVE_ALLOW_UNSIGNED_STREAMS', '1' ); ${SIGNER}`)).toBeNull();
+  // The unsigned signer hands the URL back unchanged.
+  expect(wpPhp<string>(DEV, `return ( new WG_Live\\Unsigned_Signer() )->sign( '${GOOD}', time() + 60 );`)).toBe(GOOD);
+});
+
+test('B2: the token lifetime covers the show plus 30 minutes (Review Focus 5)', () => {
+  expect(wpPhp<number>(DEV, `return WG_Live\\Stream_Signers::ttl( ${eventId} );`)).toBeGreaterThanOrEqual(4 * 3600 + 30 * 60);
+  expect(wpPhp<number>(DEV, `define( 'WG_LIVE_TOKEN_TTL', 6 * HOUR_IN_SECONDS ); return WG_Live\\Stream_Signers::ttl( ${eventId} );`)).toBe(6 * 3600 + 30 * 60);
+});
+
+test('B2: deploy info says whether a signer is configured and never prints a secret', async ({ browser }) => {
+  const secret = 'it-secret-do-not-print-7f3a';
+  wp(DEV, ['config', 'set', 'WG_LIVE_WOWZA_SECRET', secret, '--type=constant']);
+  const ctx = await adminContext(browser, DEV);
+  try {
+    const page = await ctx.newPage();
+    await page.goto('/wp-admin/edit.php?post_type=wg_live_event&page=wg-live-deploy');
+    const html = await page.content();
+    expect(html).toContain('串流簽章');
+    expect(html).not.toContain(secret);
+    await expect(page.locator('tr', { hasText: '串流簽章' })).toContainText('未設定');
+  } finally {
+    await ctx.close();
+    wp(DEV, ['config', 'delete', 'WG_LIVE_WOWZA_SECRET', '--type=constant']);
+  }
 });

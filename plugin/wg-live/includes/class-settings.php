@@ -1450,6 +1450,8 @@ final class Settings {
 		echo '<h2>環境</h2><table class="widefat striped wg-live-admin__table"><tbody>';
 		self::kv( 'WordPress 環境類型', function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : '未知' );
 		self::kv( '部署模式', 'live' === $settings['deployment_mode'] ? '正式（live）' : ( 'demo' === $settings['deployment_mode'] ? '示範（demo）' : '停用（disabled）' ) );
+		self::kv( '串流簽章', Stream_Signers::describe() );
+		self::kv( '串流主機', array() === $settings['stream_hosts'] ? '未設定' : implode( '、', $settings['stream_hosts'] ) );
 		$dev = method_exists( __NAMESPACE__ . '\\Plugin', 'dev_tools_enabled' ) ? ( Plugin::dev_tools_enabled() ? '啟用' : '關閉' ) : '未知';
 		self::kv( '開發工具面板', $dev );
 		self::kv( 'PHP 版本', PHP_VERSION );
