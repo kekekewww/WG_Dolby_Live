@@ -17,6 +17,8 @@ import { createModeSelector } from '../components/mode-selector';
 import { createPlayerControls, handlePlayerKeydown } from '../components/player-controls';
 import { createModeLabel, createStatusPanel, createUnavailablePanel } from '../components/status-panel';
 import { createEntitlementPanel } from '../components/entitlement-panel';
+import { createExternalLinkPanel } from '../components/external-link';
+import { canPlayMode, chooseHlsPath } from '../adapters/hls-path';
 import { createSwitchDialog } from '../components/dialog';
 import { createDevPanel } from '../components/dev-panel';
 import { h, isFocusable, safeUrl, uid } from '../dom';
@@ -97,8 +99,11 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
   const shell = createPlayerShell(event.mediaKind);
   const fromParam = readModeParam(window.location.search, event.availableModes);
   const remembered = readModePreference();
+  // Decision 2026-11-01: one Dolby Atmos stream per concert. An event with a single mode has no choice to make, so
+  // that mode is selected up front and the 聆聽方式 selector is not shown (selecting prepares; it never plays).
+  const onlyMode: ListeningMode | null = event.availableModes.length === 1 ? (event.availableModes[0] ?? null) : null;
   const preselect: ListeningMode | null =
-    fromParam ?? (remembered !== null && event.availableModes.includes(remembered) ? remembered : null);
+    onlyMode ?? fromParam ?? (remembered !== null && event.availableModes.includes(remembered) ? remembered : null);
 
   const eventProvider = createRestEventProvider(boot.rest.root, boot.events);
   // M2-PLAN A3: one REST session (wp_rest nonce) for playback and entitlement; real events ask the server in live mode.
@@ -216,6 +221,12 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     },
   });
   const entitlementPanel = createEntitlementPanel({ controller, links: boot.links, event });
+  // Ticket holders' stream link for VLC or Safari when this browser cannot play the Atmos stream (feature detection).
+  const externalPanel = createExternalLinkPanel({
+    event,
+    resolve: (id, mode) => deps.playbackProvider.resolve(id, mode),
+    atmosPlayable: canPlayMode('atmos', chooseHlsPath(shell.host.media, window), shell.host.media, window),
+  });
 
   const selector = createModeSelector({
     onSelect: (mode) => controller.selectMode(mode),
@@ -254,6 +265,7 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     meta,
     statusPanel.el,
     entitlementPanel.el,
+    externalPanel.el,
   );
   // Title + status first (spec 5.3), inside the player group; CSS decides the wide-screen order.
   shell.el.prepend(head);
@@ -379,6 +391,7 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
 
     statusPanel.update(state);
     entitlementPanel.update(state);
+    externalPanel.update(state);
     modeLabel.update(state);
     controls.update(state);
     devPanel?.update(state);
@@ -392,7 +405,7 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
       (playerStatus === 'failed' && state.player.lastGoodMode === null);
     shell.controlsSlot.hidden = !controlsVisible;
 
-    selector.el.hidden = !(controlsVisible && preStart);
+    selector.el.hidden = !(controlsVisible && preStart) || onlyMode !== null;
     selector.update({ selected: state.player.selectedMode, available: data.availableModes });
 
     const engaged = playerStatus !== 'idle' && playerStatus !== 'selecting';
@@ -479,6 +492,7 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     controls.destroy();
     statusPanel.destroy();
     entitlementPanel.destroy();
+    externalPanel.destroy();
     devPanel?.destroy();
     unregister();
     controller.destroy();

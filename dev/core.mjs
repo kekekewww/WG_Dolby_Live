@@ -229,6 +229,25 @@ export function hlsHarnessEvent(now = Date.now()) {
 }
 
 /** M2-PLAN D4: the real event of ?harness=hls whose source is a provider player page (iframe). */
+/** Decision 2026-11-01: a real event of ?harness=hls that offers only the Dolby Atmos stream (no 聆聽方式 choice). */
+export const ATMOS_ONLY_EVENT_SLUG = 'atmos-only-live';
+
+/**
+ * @param {number} [now]
+ * @returns {PublicEvent}
+ */
+export function atmosOnlyHarnessEvent(now = Date.now()) {
+  return {
+    ...hlsHarnessEvent(now),
+    id: 9007,
+    slug: ATMOS_ONLY_EVENT_SLUG,
+    title: '【測試資料】Dolby Atmos 單一串流測試',
+    description: '開發測試資料：只提供 Dolby Atmos 串流，沒有聆聽方式可選。',
+    availableModes: ['atmos'],
+    mediaKind: 'audio',
+  };
+}
+
 export const IFRAME_EVENT_SLUG = 'iframe-fixture-live';
 /** The fake provider origin: the e2e tests serve dev/fake-player/ there through Playwright routing. */
 export const FAKE_PLAYER_ORIGIN = 'https://player.fake.test';
@@ -254,7 +273,7 @@ export function iframeHarnessEvent(now = Date.now()) {
  * @returns {PublicEvent[]}
  */
 function knownEvents(now = Date.now()) {
-  return [...harnessEvents(now), hlsHarnessEvent(now), iframeHarnessEvent(now)];
+  return [...harnessEvents(now), hlsHarnessEvent(now), iframeHarnessEvent(now), atmosOnlyHarnessEvent(now)];
 }
 
 /** @type {CompatibilityRow[]} */
@@ -478,7 +497,7 @@ export function injectSiteMock(html, pageBase = '/dev/') {
 export function entitlementFor(event) {
   if (event.isDemo && event.sourceKind === 'demo') return 'entitled';
   // M2-PLAN C4: the harness viewer owns a ticket for the hls fixture event.
-  return event.slug === HLS_EVENT_SLUG || event.slug === IFRAME_EVENT_SLUG ? 'entitled' : 'unavailable';
+  return event.slug === HLS_EVENT_SLUG || event.slug === IFRAME_EVENT_SLUG || event.slug === ATMOS_ONLY_EVENT_SLUG ? 'entitled' : 'unavailable';
 }
 
 /**

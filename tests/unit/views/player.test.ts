@@ -189,18 +189,18 @@ describe('event resolution and controller dependencies', () => {
   it('ignores an unknown ?wg_mode= and a mode the event does not offer', () => {
     mountView({ search: '/live/listen/?wg_event=demo-live-binaural-atmos&wg_mode=surround' });
     expect(deps().preselect).toBeNull();
-    createMock.mockClear();
-    mountView({ search: '/live/listen/?wg_event=demo-ended&wg_mode=atmos' });
-    expect(deps().preselect).toBeNull();
+  });
+
+  it('an event with a single mode preselects it, whatever ?wg_mode= or the remembered mode say (decision 2026-11-01)', () => {
+    window.localStorage.setItem('wg-live:mode', 'atmos');
+    mountView({ search: '/live/listen/?wg_event=demo-ended&wg_mode=atmos' }); // binaural only
+    expect(deps().preselect).toBe('binaural');
   });
 
   it('falls back to the remembered mode, but only when the event offers it', () => {
     window.localStorage.setItem('wg-live:mode', 'atmos');
     mountView();
     expect(deps().preselect).toBe('atmos');
-    createMock.mockClear();
-    mountView({ search: '/live/listen/?wg_event=demo-ended' }); // binaural only
-    expect(deps().preselect).toBeNull();
   });
 
   it('a valid ?wg_mode= beats the remembered mode', () => {
@@ -296,6 +296,7 @@ describe('layout and content', () => {
       'wg-live__player-meta',
       'wg-live__status',
       'wg-live__entitlement',
+      'wg-live__external',
     ]);
     // The mode-label note moved into the status block (the bar stays one row).
     expect(q(m, '.wg-live__status .wg-live__mode-note')).toBeTruthy();
