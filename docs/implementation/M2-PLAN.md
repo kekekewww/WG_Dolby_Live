@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task by task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** rev 0, draft of 2026-10-31. Phase A can start now. Phases B to E wait for the decisions in §1 and the provider deliverables in §2. Once approved, this plan becomes binding the way [M1-PLAN.md](M1-PLAN.md) is: change it together with `src/types.ts`.
+**Status:** rev 1, 2026-10-31. All §1 decisions are made (D1: both; D2–D5: the recommendations). Phase A is in progress. Phases B to E wait on the provider deliverables in §2. Once approved, this plan becomes binding the way [M1-PLAN.md](M1-PLAN.md) is: change it together with `src/types.ts`.
 
 **Goal:** A viewer who bought the ticket for an event can watch the studio's real live stream on `/live/listen/`, in Binaural or Dolby Atmos, and nobody else can.
 
@@ -23,7 +23,7 @@ Also read [M1-PLAN.md](M1-PLAN.md) §6.9, the recorded M2 contract, and the stre
 
 ---
 
-## 1. Decisions needed (owner: the deployer and the boss)
+## 1. Decisions (decided by the deployer, 2026-10-31: D1 both; D2–D5 as recommended)
 
 Each row has a recommendation. The plan below assumes the recommendation; a different answer changes only the tasks named.
 
