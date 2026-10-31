@@ -9,7 +9,7 @@
 import { randomUUID } from 'node:crypto';
 import { test, type Page } from '@playwright/test';
 import { DEPLOY_URL, openSettings, PAGES_URL, saveLink, submitSettings } from './settings-ui';
-import { adminContext, bootConfigs, createEvents, DEMO_VIDEO, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, getSettings, rest, setSettingsKeys, TONE, wpPhp } from './wp';
+import { adminContext, bootConfigs, clickPublish, createEvents, DEMO_VIDEO, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, getSettings, rest, setSettingsKeys, TONE, wpPhp } from './wp';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -205,7 +205,7 @@ test.describe('the 首頁精選 checkbox on the event screen (0.2.0)', () => {
       await p.waitForURL(/wp-admin/);
 
       const save = async (): Promise<void> => {
-        await Promise.all([p.waitForURL(/post\.php\?post=\d+&action=edit&message=\d+/, { timeout: 120_000 }), p.locator('#publish').click()]);
+        await Promise.all([p.waitForURL(/post\.php\?post=\d+&action=edit&message=\d+/, { timeout: 120_000 }), clickPublish(p)]);
       };
       const box = p.locator('input[name="wg_live[featured]"]');
       const before = getSettings(DEV);

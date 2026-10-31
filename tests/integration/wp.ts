@@ -281,7 +281,30 @@ export async function adminContext(browser: Browser, env: WpEnv): Promise<Browse
   return browser.newContext({ baseURL: env.baseURL, storageState: await adminState(browser, env) });
 }
 
+/**
+ * Click the editor's Publish/Update button the way a person would, until the form really submits. Core's post.js
+ * marks the submit buttons `.disabled` while an autosave runs (a new post autosaves around the first edits) and
+ * silently swallows a click in that window; a person clicks again. So: wait until the button is enabled, click, and
+ * if no POST to post.php follows within 15 s, click again (at most 3 clicks).
+ */
+export async function clickPublish(page: Page): Promise<void> {
+  const button = page.locator('#publish');
+  for (let attempt = 1; ; attempt += 1) {
+    await expect(button).not.toHaveClass(/(?:^|\s)disabled(?:\s|$)/, { timeout: 60_000 });
+    const posted = page
+      .waitForRequest((r) => r.method() === 'POST' && /\/wp-admin\/post\.php(?:\?|$)/.test(r.url()), { timeout: 15_000 })
+      .then(
+        () => true,
+        () => false,
+      );
+    await button.click();
+    if (await posted) return;
+    if (attempt >= 3) throw new Error('clickPublish: three clicks on #publish never submitted the editor form');
+  }
+}
+
 /** Wait until the first view on the page has mounted (skeleton replaced, aria-busy=false). */
+
 export async function waitMounted(page: Page): Promise<void> {
   await expect(page.locator('.wg-live[data-wg-live-mounted="1"]').first()).toBeAttached();
   await expect(page.locator('.wg-live__mount').first()).toHaveAttribute('aria-busy', 'false');

@@ -13,7 +13,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { test, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { bootConfigs, createEvents, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, LISTEN_URL, MODE_NAME, rest, DEMO_VIDEO, waitMounted, wpPhp, type Mode } from './wp';
+import { bootConfigs, clickPublish, createEvents, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, LISTEN_URL, MODE_NAME, rest, DEMO_VIDEO, waitMounted, wpPhp, type Mode } from './wp';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -62,7 +62,7 @@ const SAVED_URL = /post\.php\?post=\d+&action=edit&message=\d+/;
 
 /** Click Publish / Update the way a person does. The slug script may stop the click. */
 async function publish(p: Page): Promise<void> {
-  await Promise.all([p.waitForURL(SAVED_URL, { timeout: 120_000 }), p.locator('#publish').click()]);
+  await Promise.all([p.waitForURL(SAVED_URL, { timeout: 120_000 }), clickPublish(p)]);
 }
 
 /**
