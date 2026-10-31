@@ -6,7 +6,7 @@
 
 **Goal:** A viewer who bought the ticket for an event can watch the studio's real live stream on `/live/listen/`, in Binaural or Dolby Atmos, and nobody else can.
 
-**Architecture:** The server decides everything. `Entitlement::check` answers from the viewer's paid WooCommerce orders for the event's ticket product. `Playback_Provider::resolve` then hands out a short-lived, provider-signed HLS URL for the chosen mode, and only during `live`/`intermission`. The client gets that URL only from `/playback`, never from `PublicEvent`. It plays the URL through Safari's native HLS or through the plugin's own pinned hls.js. hls.js ships as a separate file, outside the 100 KB core budget.
+**Architecture:** The server decides everything. `Entitlement::check` answers from the viewer's paid WooCommerce orders for the event's ticket product. `Playback_Provider::resolve` then hands out a short-lived, provider-signed HLS URL for the chosen mode, and only during `live`/`intermission`. The client gets that URL only from `/playback`, never from `PublicEvent`. For an `hls` source it plays the URL through Safari's native HLS or through the plugin's own pinned hls.js. hls.js ships as a separate file, outside the 100 KB core budget. For an `iframe` source it embeds the provider's admin-approved HTTPS player page and hides our own controls.
 
 **Tech Stack:** PHP 7.4+ on WordPress 7.1 with WooCommerce (`wc_get_orders`, HPOS-safe); TypeScript and Vite; hls.js 1.7.3 (light build); Playwright (integration on WSL wp-env, plus e2e); ffmpeg for test fixtures.
 
@@ -29,7 +29,7 @@ Each row has a recommendation. The plan below assumes the recommendation; a diff
 
 | # | Decision | Recommendation | Changes if different |
 |---|---|---|---|
-| D1 | Playback path | **Our player plays HLS** (B, C). The Binaural/Atmos switch, status and controls are built around our player. An iframe drops all of that (spec §9.3: no overlaid controls). | iframe instead: drop C2–C4 and do Phase D. |
+| D1 | Playback path | **Decided 2026-10-31: both.** Each event chooses its source type:<br>• `hls`: our player (B, C), with the full Binaural/Atmos switch, status and controls;<br>• `iframe`: the provider's own player page (Phase D). It uses the provider's controls only; spec §9.3 forbids overlaid controls without a vendor API.<br>Both go through the same entitlement and signing. | — |
 | D2 | What counts as a ticket | **A paid order (`wc_get_is_paid_statuses()`, i.e. processing/completed) by the logged-in account, containing the event's `product_id` (or a variation of it), not fully refunded.** One ticket product per event. | Bundles, passes or multi-event tickets need a product→event map (A1). |
 | D2b | Guest checkout for ticket products | **Off.** An order without an account cannot be matched without guessing from e-mail, which the spec forbids. Shop setting, done by the admin. | If guest orders must count: the viewer links the order to an account first (WooCommerce does this by e-mail on account creation; that is WooCommerce's doing, not ours). |
 | D3 | Staff and comp access | **Zero-price WooCommerce orders** created by a shop manager for staff and press. No role-based bypass (CLAUDE.md: never infer ownership from roles). | A per-event user allowlist (new task after A2). |
@@ -115,6 +115,8 @@ Most likely to bite a real viewer first; each line has its test in the named tas
 | `src/adapters/providers.ts` | Nonce header, `createRestEntitlementProvider`. |
 | `src/adapters/hls-path.ts` (new) | `chooseHlsPath`, `canPlayMode`: pure feature detection. |
 | `src/adapters/hls.ts` | The HLS adapter, replacing the inert stub. |
+| `src/adapters/iframe.ts` | The provider-player adapter, replacing the inert stub (D2). |
+| `dev/fake-player/` (new) | A fake provider player on a second local origin, for the D3 and D4 tests. |
 | `src/vendor/hls-entry.ts` (new) | Exposes hls.js light as the global `WGLiveHls` in its own IIFE file. |
 | `src/state/model.ts`, `src/state/coordinator.ts` | Accept `hls`, refresh on token expiry, live labels. |
 | `scripts/make-hls-fixture.mjs` (new) | Local fMP4 HLS fixture: AAC stereo plus E-AC-3 5.1, not Atmos. |
@@ -237,7 +239,7 @@ it('retry after session_expired re-reads the nonce from GET wg-live/v1/nonce', .
 **Interfaces:**
 - Produces:
   - Event meta:
-    - `source_type` gains `hls`; the option is enabled in the admin, and iframe stays disabled unless D1 says otherwise;
+    - `source_type` gains `hls`, enabled in the admin. Task D1 enables `iframe`;
     - `source_hls_binaural` and `source_hls_atmos` are strings, saved only when `https:` and the host is on `stream_hosts`;
     - in `local`/`development` environments, `http://localhost` and `http://127.0.0.1` are also accepted, for fixtures.
   - `Settings::stream_hosts(): string[]`.
@@ -448,14 +450,96 @@ Capabilities:
 
 ---
 
-## Phase D: iframe adapter (only if D1 = provider player)
+## Phase D: provider player in an iframe (required, decision D1)
 
-Write this phase's tasks only if chosen. The contract is already fixed in spec §9.3 and M1-PLAN §6.9:
-- admin-approved https player URL on the allowlist;
+The contract comes from spec §9.3 and M1-PLAN §6.9:
+- only admin-approved HTTPS player pages;
 - a `title` on the iframe;
-- tested `allow` and `sandbox` values recorded per vendor;
-- no overlaid controls unless the vendor has a postMessage API;
-- `origin`, `source` and schema checks, with an explicit target origin.
+- `allow` and `sandbox` values tested and recorded per vendor, never generic strings;
+- no overlaid play, volume or 「播放中」 unless the vendor has a control API;
+- postMessage checks `origin`, `source` and schema, and sends with an explicit target origin;
+- an iframe `load` event never proves playback.
+
+### Task D1: iframe sources on the server
+
+**Files:**
+- Modify: `class-settings.php` (admin-only field `player_origins`: https origins, one per line), `class-events.php`, `class-playback-provider.php`.
+- Test: `tests/integration/playback-hls.state.spec.ts` (same project as B1).
+
+**Interfaces:**
+- Consumes: B2 signer, A2 entitlement.
+- Produces:
+  - Event meta:
+    - `source_type` gains `iframe`;
+    - `source_iframe_binaural` and `source_iframe_atmos` are https URLs whose origin is on `player_origins`;
+    - one event uses either `hls` or `iframe`, never both.
+  - `/playback` returns `{ kind: 'iframe', url: <signed>, allowedOrigin: new URL(url).origin }`, under exactly the same conditions as B3.
+  - Save-time check: `wp_remote_head( $url, array( 'timeout' => 5 ) )`. If `X-Frame-Options` is DENY or SAMEORIGIN, or CSP `frame-ancestors` excludes `home_url()`'s origin, show the warning 「此播放器頁面不允許被嵌入本站，請聯絡串流服務商」. It is a warning only: the URL is still saved, because the header can differ per request.
+
+- [ ] **Step 1: Write the failing tests:**
+  - A buyer gets `iframe` with `allowedOrigin` equal to the URL's origin.
+  - A guest gets `not_entitled`, and the body has no `http`.
+  - Origins not on `player_origins` and `http:` URLs are refused at save.
+  - Choosing `iframe` clears the active HLS fields from resolution (`hls` URLs are ignored).
+  - A fixture page that sends `X-Frame-Options: DENY` triggers the warning.
+  - The no-leak test from B1 also covers the iframe URLs.
+- [ ] **Step 2: Run, implement and pass.** Run `npm run test:integration:wsl -- --no-deps --project=chromium-state-playback-hls`. Then commit `feat(m2): provider player (iframe) sources`.
+
+### Task D2: iframe adapter and the "provider controls" player state
+
+**Files:**
+- Modify:
+  - `src/adapters/iframe.ts`, replacing the inert stub;
+  - `src/adapters/factory.ts`;
+  - `src/state/model.ts` and `src/components/`: when `capabilities.reliablePlaybackEvents` is false, hide our controls and 「目前播放」;
+  - `src/i18n/copy-player.ts`, with proposed copy for approval: 「播放控制在下方的串流服務播放器中」 and 「已選擇：Dolby Atmos 音軌（由串流服務播放器播放）」.
+- Test: `tests/unit/adapters/iframe.test.ts`, `tests/unit/components/*.test.ts`.
+
+**Interfaces:**
+
+```ts
+export function createIframeAdapter(host: MediaHost, env: AdapterEnv): PlaybackAdapter;
+// kind 'iframe'; capabilities all false (playPause, mute, volume, seekToLive, fullscreen, remotePlayback, reliablePlaybackEvents).
+// load(source): throw NotSupportedError unless new URL(source.url).protocol === 'https:' && origin === source.allowedOrigin;
+//   create ONE <iframe title="<event title>・串流服務播放器" src=url allow=<vendor value>> in host.frameSlot; hide host.media;
+//   resolve on the frame's load event (frame loaded, NOT playing); reject after 20 s without load.
+// play()/pause()/setMuted()/setVolume()/seekToLive(): no-ops (the controls that would call them are hidden).
+// destroy(): set src 'about:blank', remove the iframe, show host.media again; idempotent. No audio may continue.
+```
+
+Mode switch:
+1. `destroy()` the old frame;
+2. load the other mode's URL;
+3. show 「已選擇：…」 (never 「目前播放」, since the frame cannot confirm playback).
+
+- [ ] **Step 1: Write the failing tests:**
+  - An http URL or an origin mismatch rejects, and no iframe is created.
+  - Exactly one iframe exists after Binaural → Atmos → Binaural.
+  - `destroy()` removes it and is safe twice.
+  - With `reliablePlaybackEvents` false:
+    - the player renders no play, pause, mute or volume button and no 「目前播放」;
+    - it renders the event info, the mode switch and the provider-controls copy.
+  - The iframe has a non-empty `title`.
+  - Leaving the page removes the frame.
+- [ ] **Step 2: Run, implement and pass.** Run `npx vitest run tests/unit/adapters/iframe.test.ts tests/unit/components`, then `npm run check`. Then commit `feat(m2): iframe adapter without fake controls`.
+
+### Task D3: vendor control API (blocked on the vendor's postMessage documentation)
+
+Only if the provider documents a player API. Then:
+- add a message bridge that accepts messages only when `event.origin === allowedOrigin`, `event.source === frame.contentWindow` and the message matches a schema;
+- send with `postMessage(msg, allowedOrigin)`, never `*`;
+- turn on only the capabilities the API really confirms (for example `reliablePlaybackEvents` after it reports `playing`);
+- test with a fake vendor page on a second local origin, including a spoofed message from a third origin that must be ignored.
+
+### Task D4: end to end with a fake provider player
+
+**Files:** create `dev/fake-player/` (a page served by the dev harness on a second port, e.g. 5185, playing the C4 fixture with its own `<video controls>`), and `tests/e2e/iframe.spec.ts`.
+
+- [ ] **Step 1: Write the failing tests:**
+  - A buyer's listen page shows the fake player frame from the second origin, and our controls are hidden.
+  - A switch replaces the frame.
+  - A `/playback` answer whose `allowedOrigin` differs from the URL origin shows the failed state, and no frame is created.
+- [ ] **Step 2: Run, implement and pass.** Run `npm run test:e2e:dev -- tests/e2e/iframe.spec.ts`. Then commit `test(m2): end-to-end iframe with a fake provider player`.
 
 ---
 
@@ -513,12 +597,20 @@ Write this phase's tasks only if chosen. The contract is already fixed in spec �
 
 | Integration point | Covered by |
 |---|---|
-| Studio playback provider | B1, B3, C1–C4 |
+| Studio playback provider | B1, B3, C1–C4, D1–D4 |
 | Ticket entitlement provider | A1–A3 |
 | Playback session / authorization | B2, B3, B3b, C3 |
 | Real-device verification records | E2 |
 
 Spec §19.5 blockers are in §2. Spec §13.5 is in E2. Spec §9.3 is in Phase D.
+
+**Provider asks for the iframe path**, in addition to §2:
+- the player page's URL pattern and how it takes a token;
+- its `frame-ancestors` / `X-Frame-Options` allowing `https://sounds.wgstudiomusic.com`;
+- the `allow` permissions it needs (for example `autoplay; fullscreen; encrypted-media`), tested, not guessed;
+- its control API documentation, if any (D3).
+
+E2's rehearsal covers one event of each source type.
 
 **Contract changes, made together with `src/types.ts`:**
 - `DeploymentMode` gains `live`;
