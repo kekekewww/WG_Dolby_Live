@@ -22,9 +22,23 @@ function fakeRoot(files: Record<string, string>): { root: string; dist: string }
   return { root, dist };
 }
 
-const GOOD = { 'wg-live.js': 'var WGLive={};', 'wg-live.css': '.wg-live{a:b}', 'wg-live-featured.css': '.wg-live-featured{a:b}' };
+const GOOD = {
+  'wg-live.js': 'var WGLive={};',
+  'wg-live.css': '.wg-live{a:b}',
+  'wg-live-featured.css': '.wg-live-featured{a:b}',
+  'wg-live-hls.js': 'var WGLiveHls=function(){};',
+  'THIRD-PARTY-NOTICES.txt': 'hls.js\nApache License 2.0\n',
+};
 
 describe('build-info', () => {
+  it('lists the separate hls.js file and the third-party notices with their SHA-256 (M2-PLAN C1)', () => {
+    expect(FIXED_FILES).toEqual(expect.arrayContaining(['wg-live-hls.js', 'THIRD-PARTY-NOTICES.txt']));
+    const { root } = fakeRoot(GOOD);
+    const info = writeBuildInfo({ root, commit: 'abc1234' });
+    expect(info.files['wg-live-hls.js']?.sha256).toBe(createHash('sha256').update('var WGLiveHls=function(){};').digest('hex'));
+    expect(info.files['THIRD-PARTY-NOTICES.txt']?.bytes).toBe(GOOD['THIRD-PARTY-NOTICES.txt'].length);
+  });
+
   it('records version, commit and SHA-256 of exactly the fixed files', () => {
     const { root, dist } = fakeRoot(GOOD);
     const info = writeBuildInfo({ root, commit: 'abc1234', now: new Date('2026-01-02T03:04:05Z') });

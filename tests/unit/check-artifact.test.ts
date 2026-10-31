@@ -23,6 +23,8 @@ function goodFiles(): Record<string, string | Uint8Array> {
   const js = 'var WGLive=(function(){"use strict";return{}})();';
   const css = '.wg-live{color:inherit}.wg-live__a,.wg-live--b .wg-live__c{margin:0}';
   const featured = '.wg-live-featured{display:block}';
+  const hls = 'var WGLiveHls=(function(){return function(){}})();';
+  const notices = 'hls.js\nApache License 2.0\n';
   const info = {
     version: VERSION,
     commit: COMMIT,
@@ -32,6 +34,8 @@ function goodFiles(): Record<string, string | Uint8Array> {
       'wg-live.js': { bytes: js.length, sha256: sha256(strToU8(js)) },
       'wg-live.css': { bytes: css.length, sha256: sha256(strToU8(css)) },
       'wg-live-featured.css': { bytes: featured.length, sha256: sha256(strToU8(featured)) },
+      'wg-live-hls.js': { bytes: hls.length, sha256: sha256(strToU8(hls)) },
+      'THIRD-PARTY-NOTICES.txt': { bytes: notices.length, sha256: sha256(strToU8(notices)) },
     },
   };
   return {
@@ -48,6 +52,8 @@ function goodFiles(): Record<string, string | Uint8Array> {
     'wg-live/assets/dist/wg-live.js': js,
     'wg-live/assets/dist/wg-live.css': css,
     'wg-live/assets/dist/wg-live-featured.css': featured,
+    'wg-live/assets/dist/wg-live-hls.js': hls,
+    'wg-live/assets/dist/THIRD-PARTY-NOTICES.txt': notices,
     'wg-live/assets/dist/build-info.json': JSON.stringify(info),
     'wg-live/assets/admin/admin.js': 'console.log(1);',
     'wg-live/assets/admin/admin.css': '.wg-live-admin{color:inherit}.wg-live-admin__row{margin:0}',
@@ -82,6 +88,25 @@ function run(overrides: Files = {}, opts: { sha256Text?: string | null; packageV
     sha256Text: opts.sha256Text === undefined ? sha256Text : opts.sha256Text,
   });
 }
+
+describe('check-artifact: hls.js ships as its own file (M2-PLAN C1)', () => {
+  it('requires wg-live-hls.js and THIRD-PARTY-NOTICES.txt in dist', () => {
+    expect(run({ 'wg-live/assets/dist/wg-live-hls.js': null }).problems.some((p) => p.includes('wg-live-hls.js is missing'))).toBe(true);
+    expect(run({ 'wg-live/assets/dist/THIRD-PARTY-NOTICES.txt': null }).problems.some((p) => p.includes('THIRD-PARTY-NOTICES.txt is missing'))).toBe(true);
+  });
+
+  it('fails when the core script bundles hls.js', () => {
+    const r = run({ 'wg-live/assets/dist/wg-live.js': 'var WGLive={};/*! hls.js */' });
+    expect(r.problems.some((p) => p.includes('wg-live.js') && p.includes('hls.js'))).toBe(true);
+  });
+
+  it('reports the hls.js file size on its own line, with no budget', () => {
+    const big = 'var WGLiveHls=' + JSON.stringify(randomBytes(400 * 1024).toString('base64')) + ';';
+    const r = run({ 'wg-live/assets/dist/wg-live-hls.js': big });
+    expect(r.problems.filter((p) => p.startsWith('size budgets'))).toEqual([]);
+    expect(r.rows.find((row) => row.check === 'hls.js size')?.detail).toMatch(/wg-live-hls\.js \d+\.\d KiB gzip/);
+  });
+});
 
 describe('check-artifact', () => {
   it('passes a clean artifact', () => {
@@ -581,7 +606,13 @@ describe('package.mjs end to end on a fake plugin', () => {
     writeFileSync(join(plugin, 'readme.txt'), `=== X ===\nStable tag: ${opts.stable ?? VERSION}\n`);
     writeFileSync(join(plugin, 'includes', 'a.php'), '<?php');
     writeFileSync(join(plugin, 'templates', 'b.php'), '<?php');
-    const dist: Record<string, string> = { 'wg-live.js': 'js', 'wg-live.css': '.wg-live{a:b}', 'wg-live-featured.css': '.wg-live-featured{a:b}' };
+    const dist: Record<string, string> = {
+      'wg-live.js': 'js',
+      'wg-live.css': '.wg-live{a:b}',
+      'wg-live-featured.css': '.wg-live-featured{a:b}',
+      'wg-live-hls.js': 'hls',
+      'THIRD-PARTY-NOTICES.txt': 'notices',
+    };
     const files: Record<string, { sha256: string }> = {};
     for (const [name, body] of Object.entries(dist)) {
       files[name] = { sha256: sha256(strToU8(body)) };
@@ -626,8 +657,10 @@ describe('package.mjs end to end on a fake plugin', () => {
       'wg-live/assets/demo/demo-video-1.mp4',
       'wg-live/assets/demo/demo-video-2.mp4',
       'wg-live/assets/demo/poster-demo.svg',
+      'wg-live/assets/dist/THIRD-PARTY-NOTICES.txt',
       'wg-live/assets/dist/build-info.json',
       'wg-live/assets/dist/wg-live-featured.css',
+      'wg-live/assets/dist/wg-live-hls.js',
       'wg-live/assets/dist/wg-live.css',
       'wg-live/assets/dist/wg-live.js',
       'wg-live/includes/a.php',

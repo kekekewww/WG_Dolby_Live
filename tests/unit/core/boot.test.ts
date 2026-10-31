@@ -81,6 +81,15 @@ describe('readBootConfig', () => {
     expect(rest({ nonceUrl: 'javascript:alert(1)' })?.nonceUrl).toBe('');
   });
 
+  it('reads the hls.js script URL (M2-PLAN C1): a safe http(s) URL or null', () => {
+    const assets = (a: unknown) => readBootConfig(makeRoot(validConfig({ assets: a })))?.assets;
+    const hls = 'https://sounds.example.com/wp-content/plugins/wg-live/assets/dist/wg-live-hls.js?ver=0123456789ab';
+    expect(assets({ hls })).toEqual({ hls });
+    expect(assets({ hls: 'javascript:alert(1)' })).toEqual({ hls: null });
+    expect(assets({ hls: 42 })).toEqual({ hls: null });
+    expect(assets(undefined)).toEqual({ hls: null });
+  });
+
   it('returns null without a config script, with bad JSON, or with a wrong schema', () => {
     expect(readBootConfig(makeRoot(null))).toBeNull();
     expect(readBootConfig(makeRoot('{not json'))).toBeNull();
@@ -110,6 +119,7 @@ describe('readBootConfig', () => {
     expect(json).not.toContain('stream.m3u8');
     expect(Object.keys(boot ?? {}).sort()).toEqual(
       [
+        'assets',
         'deploymentMode',
         'devTools',
         'events',

@@ -41,7 +41,7 @@ The interface targets these minimum browsers: Safari and iOS Safari 15.4, Chrome
 
 The two demo video files (`assets/demo/demo-video-1.mp4`, `assets/demo/demo-video-2.mp4`), the two demo audio files (`assets/demo/demo-tone-1.mp3`, `assets/demo/demo-tone-2.mp3`) and the demo poster (`assets/demo/poster-demo.svg`) were created for this project. They contain no recordings, samples or artwork from any other party and no font files (the video captions are rendered with Noto Sans TC, SIL Open Font License 1.1), and ship under the same license as the plugin. See `assets/demo/LICENSE-demo.txt`. The demo video and audio are a way to try the interface only: it is not Binaural or Dolby Atmos validation material.
 
-The plugin bundles no third-party code. The built script and stylesheet in `assets/dist` are compiled from this project's own source.
+The plugin bundles hls.js (Apache-2.0), unmodified, as `assets/dist/wg-live-hls.js`; it is loaded only when a real event plays an HLS stream. Its license and copyright notices are in `assets/dist/THIRD-PARTY-NOTICES.txt`. The other built scripts and stylesheets in `assets/dist` are compiled from this project's own source.
 
 == Changelog ==
 

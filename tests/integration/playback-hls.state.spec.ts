@@ -68,6 +68,23 @@ test('B1: an allowlisted https playlist is stored; another host or plain http on
   }
 });
 
+test('B1: plain http only for a local fixture (loopback or the site host) on a local site, never on production', () => {
+  const hosts = ['localhost', '127.0.0.1', 'stream.example.test'];
+  const before = getSettings(TESTS).stream_hosts ?? [];
+  setSettingsKeys(DEV, { stream_hosts: hosts });
+  setSettingsKeys(TESTS, { stream_hosts: hosts });
+  try {
+    const err = (env: WpEnv, url: string): string => wpPhp<string>(env, `return WG_Live\\Events::stream_url_error( '${url}' );`);
+    expect(err(DEV, 'http://localhost:8888/hls/index.m3u8')).toBe('');
+    expect(err(DEV, 'http://127.0.0.1:5185/hls/index.m3u8')).toBe('');
+    expect(err(DEV, 'http://stream.example.test/a.m3u8')).toContain('https');
+    expect(err(TESTS, 'http://localhost:8889/hls/index.m3u8')).toContain('https');
+    expect(err(TESTS, 'https://stream.example.test/a.m3u8')).toBe('');
+  } finally {
+    setSettingsKeys(TESTS, { stream_hosts: before });
+  }
+});
+
 test('B1: the playlist URLs never reach REST, the bootstrap or any page', async () => {
   // The event is also the homepage featured card for this check.
   setSettingsKeys(DEV, { deployment_mode: 'live', featured_event: eventId });
@@ -83,6 +100,16 @@ test('B1: the playlist URLs never reach REST, the bootstrap or any page', async 
   ];
   for (const body of bodies) for (const n of needles) expect(body).not.toContain(n);
   expect(bootConfigs((await fetchText(DEV, `/live/listen/?wg_event=${prefix}-concert`)).text).length).toBeGreaterThan(0);
+});
+
+test('C1: the bootstrap names the versioned hls.js file, which is served but not enqueued', async () => {
+  const html = (await fetchText(DEV, `/live/listen/?wg_event=${prefix}-concert`)).text;
+  const hls = bootConfigs(html)[0]?.assets?.hls as string;
+  expect(hls).toMatch(/\/wp-content\/plugins\/wg-live\/assets\/dist\/wg-live-hls\.js\?ver=[0-9a-f]{12}$/);
+  expect(html).not.toMatch(/<script[^>]+wg-live-hls\.js/);
+  const file = await fetch(hls);
+  expect(file.status).toBe(200);
+  expect(await file.text()).toContain('window.WGLiveHls=module.exports');
 });
 
 const SIGNER = 'return ( $s = WG_Live\\Stream_Signers::current() ) ? get_class( $s ) : null;';

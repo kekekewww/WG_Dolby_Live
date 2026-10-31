@@ -2,7 +2,7 @@
 // Writes plugin/wg-live/assets/dist/build-info.json (M1-PLAN D3).
 //
 // build-info.json records the version, the git commit (full SHA) with a `dirty` flag, and the SHA-256 of each file in the FIXED set
-// {wg-live.js, wg-live.css, wg-live-featured.css}. The build fails when any of them is missing.
+// {wg-live.js, wg-live.css, wg-live-featured.css, wg-live-hls.js, THIRD-PARTY-NOTICES.txt}. The build fails when any of them is missing.
 // Anything else the Vite builds left in dist (the unused JS chunk of the CSS-only "featured" build,
 // source maps, stray chunks) is removed so the artifact check sees exactly the fixed set.
 
@@ -14,7 +14,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const OUTPUT = 'build-info.json';
 /** The fixed dist set (M1-PLAN D3, 7.3). Order is the order in build-info.json. */
-export const FIXED_FILES = ['wg-live.js', 'wg-live.css', 'wg-live-featured.css'];
+export const FIXED_FILES = ['wg-live.js', 'wg-live.css', 'wg-live-featured.css', 'wg-live-hls.js', 'THIRD-PARTY-NOTICES.txt'];
 
 /** Paths that do not influence the built artifact; changes there do not make a build "dirty". */
 const NON_BUILD_PATHS = ['docs', 'evidence', 'tests', '.claude'];

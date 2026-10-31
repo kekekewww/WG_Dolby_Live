@@ -310,6 +310,7 @@ export function buildBootConfig(view, now = Date.now(), overrides = {}) {
     deploymentMode: options.disabled ? 'disabled' : 'demo',
     timezone: 'Asia/Taipei',
     rest: { root: restRootFor(options), nonce: null, nonceUrl: '' },
+    assets: { hls: null },
     links: harnessLinks(options.pageBase),
     fixedEventSlug: options.disabled ? null : fixed,
     featuredEventSlug: options.disabled ? null : featured,

@@ -316,6 +316,10 @@ final class Public_Data {
 				'nonce'    => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : null,
 				'nonceUrl' => admin_url( 'admin-ajax.php?action=rest-nonce' ),
 			),
+			// M2-PLAN C1: hls.js is its own file, loaded by the player only for an hls source.
+			'assets'            => array(
+				'hls' => Assets::script_url( 'wg-live-hls.js' ),
+			),
 			'links'             => Site_Links::all(),
 			'fixedEventSlug'    => ( $enabled && self::is_valid_slug( $slug ) ) ? $slug : null,
 			'featuredEventSlug' => $enabled ? self::featured_event_slug() : null,

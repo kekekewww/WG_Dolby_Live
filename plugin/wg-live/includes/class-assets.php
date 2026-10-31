@@ -42,7 +42,7 @@ final class Assets {
 	 *
 	 * @var string[]
 	 */
-	const DIST_FILES = array( 'wg-live.js', 'wg-live.css', 'wg-live-featured.css' );
+	const DIST_FILES = array( 'wg-live.js', 'wg-live.css', 'wg-live-featured.css', 'wg-live-hls.js' );
 
 	/**
 	 * Admin override key => CSS custom property (plan 3.3).
@@ -164,6 +164,20 @@ final class Assets {
 			return substr( $info['files'][ $file ]['sha256'], 0, 12 );
 		}
 		return WG_LIVE_VERSION;
+	}
+
+	/**
+	 * Versioned URL of a built file that the app loads itself (M2-PLAN C1: wg-live-hls.js), or null when the
+	 * build lacks it. Not enqueued: the player injects it only when it plays an hls source.
+	 *
+	 * @param string $file File name inside assets/dist.
+	 * @return string|null
+	 */
+	public static function script_url( $file ) {
+		if ( ! in_array( $file, self::DIST_FILES, true ) || ! self::has_file( $file ) ) {
+			return null;
+		}
+		return add_query_arg( 'ver', self::version_for( $file ), WG_LIVE_URL . 'assets/dist/' . $file );
 	}
 
 	/**

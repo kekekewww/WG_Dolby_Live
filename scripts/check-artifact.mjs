@@ -64,7 +64,7 @@ const ALLOWED_PATHS = [
   /^(?:license|licence|copying|notice|third-party|third_party)(?:\.txt|\.md)?$/i,
   /^(?:includes|templates)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.php$/,
   /^licenses\/[A-Za-z0-9._-]+\.(?:txt|md)$/i,
-  /^assets\/dist\/(?:wg-live\.js|wg-live\.css|wg-live-featured\.css|build-info\.json)$/,
+  /^assets\/dist\/(?:wg-live\.js|wg-live\.css|wg-live-featured\.css|wg-live-hls\.js|THIRD-PARTY-NOTICES\.txt|build-info\.json)$/,
   /^assets\/admin\/[A-Za-z0-9._-]+\.(?:js|css)$/i,
   /^assets\/demo\/(?:[A-Za-z0-9_-]+\.mp3|demo-video-\d\.mp4|poster-demo\.svg|LICENSE-demo\.txt)$/,
 ];
@@ -322,6 +322,17 @@ export function checkEntries(entries, options = {}) {
       if (size > max) p.push(`${page} page: ${file} is ${size} bytes gzip (budget ${max})`);
     }
     record('size budgets', p, `${parts.join(', ')} gzip`);
+  }
+
+  // 7a. hls.js (M2-PLAN C1): its own file, loaded only for hls sources, outside the core budget. The core
+  //     script must not bundle it; its size is reported on its own line with no budget.
+  {
+    /** @type {string[]} */
+    const p = [];
+    const core = entries[`${DIST_DIR}/wg-live.js`];
+    if (core && strFromU8(core).includes('hls.js')) p.push(`${DIST_DIR}/wg-live.js contains "hls.js": the library must stay in wg-live-hls.js`);
+    const lib = entries[`${DIST_DIR}/wg-live-hls.js`];
+    record('hls.js size', p, lib ? `wg-live-hls.js ${(gz(lib) / 1024).toFixed(1)} KiB gzip (no budget, loaded only for hls sources)` : 'wg-live-hls.js missing');
   }
 
   // 7b. Total ZIP size against PHP's default 2 MiB upload limit (hard budget, see ZIP_MAX_BYTES).

@@ -45,8 +45,11 @@ const EXCLUDED_SEGMENTS = new Set([
 const EXCLUDED_EXT = /(?:\.(?:ts|tsx|map|woff2?|ttf|otf|eot|zip|sql|log|gz|tgz|tar|7z|bak|orig|swp|sqlite|db|webm|mp4|mov|pem|key|env|phar)|~)$/i;
 const PHP_DOT_SEGMENT = /\.php\./i;
 
-/** The fixed dist set (M1-PLAN 7.3 item 4): the three bundles plus build-info.json. */
-export const DIST_FILES = ['wg-live.js', 'wg-live.css', 'wg-live-featured.css', 'build-info.json'];
+/**
+ * The fixed dist set (M1-PLAN 7.3 item 4): the three bundles plus build-info.json, and since M2-PLAN C1 the
+ * separately loaded hls.js file and its license notice.
+ */
+export const DIST_FILES = ['wg-live.js', 'wg-live.css', 'wg-live-featured.css', 'wg-live-hls.js', 'THIRD-PARTY-NOTICES.txt', 'build-info.json'];
 /**
  * The two bundled demo videos (M1-PLAN D7): the ONLY .mp4 files that ship, and only at exactly this path.
  * Every other mp4/webm/mov stays excluded by EXCLUDED_EXT.

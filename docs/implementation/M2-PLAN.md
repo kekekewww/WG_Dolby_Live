@@ -8,7 +8,7 @@
 
 **Architecture:** The server decides everything. `Entitlement::check` answers from the viewer's paid WooCommerce orders for the event's ticket product. `Playback_Provider::resolve` then hands out a short-lived, provider-signed HLS URL for the chosen mode, and only during `live`/`intermission`. The client gets that URL only from `/playback`, never from `PublicEvent`. For an `hls` source it plays the URL through Safari's native HLS or through the plugin's own pinned hls.js. hls.js ships as a separate file, outside the 100 KB core budget. For an `iframe` source it embeds the provider's admin-approved HTTPS player page and hides our own controls.
 
-**Tech Stack:** PHP 7.4+ on WordPress 7.1 with WooCommerce (`wc_get_orders`, HPOS-safe); TypeScript and Vite; hls.js 1.7.3 (light build); Playwright (integration on WSL wp-env, plus e2e); ffmpeg for test fixtures.
+**Tech Stack:** PHP 7.4+ on WordPress 7.1 with WooCommerce (`wc_get_orders`, HPOS-safe); TypeScript and Vite; hls.js 1.7.3 (full UMD build, shipped unmodified; ruling in C1); Playwright (integration on WSL wp-env, plus e2e); ffmpeg for test fixtures.
 
 **Spec:** [WG_Studio_Live_Design_and_WordPress_Deployment_Spec.md](../../WG_Studio_Live_Design_and_WordPress_Deployment_Spec.md):
 - §0.2, M2 = 接入錄音室正式來源、有效票券判斷、播放授權、實機音訊驗收、直播負載與完整彩排;
@@ -117,7 +117,7 @@ Most likely to bite a real viewer first; each line has its test in the named tas
 | `src/adapters/hls.ts` | The HLS adapter, replacing the inert stub. |
 | `src/adapters/iframe.ts` | The provider-player adapter, replacing the inert stub (D2). |
 | `dev/fake-player/` (new) | A fake provider player on a second local origin, for the D3 and D4 tests. |
-| `src/vendor/hls-entry.ts` (new) | Exposes hls.js light as the global `WGLiveHls` in its own IIFE file. |
+| `scripts/build-hls.mjs` (new) | Wraps the pinned hls.js UMD file unmodified so it defines only the global `WGLiveHls` (C1 ruling: replaces `src/vendor/hls-entry.ts`). |
 | `src/state/model.ts`, `src/state/coordinator.ts` | Accept `hls`, refresh on token expiry, live labels. |
 | `scripts/make-hls-fixture.mjs` (new) | Local fMP4 HLS fixture: AAC stereo plus E-AC-3 5.1, not Atmos. |
 | `scripts/check-artifact.mjs`, `scripts/package.mjs`, `vite.config.ts` | Third build, allowlist, license notice. |
@@ -335,6 +335,8 @@ The deploy-info screen shows 「串流簽章：已設定／未設定（正式站
 ## Phase C: HLS in the player (needs D1)
 
 ### Task C1: hls.js as its own file
+
+> **Ruling (2026-10-31, during execution):** ship the **full** UMD build, not light, and do not run it through Vite. hls.light leaves out alternate audio (`EXT-X-MEDIA` audio groups), the usual CMAF layout, so such a stream would play as silent video; and the UMD file starts its transmux worker from its own function source, so the bytes ship unmodified inside a wrapper (`scripts/build-hls.mjs`) that gives it a private `module`/`exports` and sets only `window.WGLiveHls`. Cost: 184 KiB gzip instead of 117 KiB, outside the core budget; the ZIP is 1.61/1.75 MiB.
 
 **Files:**
 - Create: `src/vendor/hls-entry.ts`, `plugin/wg-live/assets/dist/THIRD-PARTY-NOTICES.txt` (generated from hls.js's Apache-2.0 license by the build).

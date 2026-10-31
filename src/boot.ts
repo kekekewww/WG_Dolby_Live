@@ -233,6 +233,7 @@ export function readBootConfig(root: HTMLElement): BootConfig | null {
       nonce: typeof rest.nonce === 'string' && /^[0-9a-f]{10}$/.test(rest.nonce) ? rest.nonce : null,
       nonceUrl: url(rest.nonceUrl) ?? '',
     },
+    assets: { hls: url(isRec(data.assets) ? data.assets.hls : null) },
     links: parseLinks(data.links),
     fixedEventSlug: isValidSlug(data.fixedEventSlug) ? data.fixedEventSlug : null,
     featuredEventSlug: isValidSlug(data.featuredEventSlug) ? data.featuredEventSlug : null,

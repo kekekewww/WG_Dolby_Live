@@ -300,6 +300,11 @@ export interface BootConfig {
     /** admin-ajax.php?action=rest-nonce: returns a fresh nonce for the cookie user (A3 retry). */
     nonceUrl: string;
   };
+  /** Separately loaded scripts (M2-PLAN C1). */
+  assets: {
+    /** Versioned URL of wg-live-hls.js (pinned hls.js, defines window.WGLiveHls); null when the build lacks it. */
+    hls: string | null;
+  };
   links: SiteLinks;
   /** Slug fixed via shortcode `event` attribute; overrides ?wg_event=. */
   fixedEventSlug: string | null;

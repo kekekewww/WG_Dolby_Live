@@ -111,7 +111,7 @@ describe('BootConfig', () => {
   it('fills every field of src/types.ts BootConfig, including featuredEventSlug and heading', () => {
     const c = buildBootConfig('player', NOW);
     expect(Object.keys(c).sort()).toEqual(
-      ['schema', 'pluginVersion', 'view', 'deploymentMode', 'timezone', 'rest', 'links', 'fixedEventSlug', 'featuredEventSlug', 'heading', 'events', 'help', 'devTools'].sort(),
+      ['schema', 'pluginVersion', 'view', 'deploymentMode', 'timezone', 'rest', 'assets', 'links', 'fixedEventSlug', 'featuredEventSlug', 'heading', 'events', 'help', 'devTools'].sort(),
     );
     expect(c).toMatchObject({ deploymentMode: 'demo', featuredEventSlug: null, heading: 'h2', devTools: true });
   });

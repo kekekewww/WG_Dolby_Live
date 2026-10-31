@@ -17,7 +17,7 @@
     "lint": "eslint . && node scripts/check-css-scope.mjs",
     "lint:php": "node scripts/lint-php.mjs",
     "test:unit": "vitest run",
-    "build": "vite build && vite build --mode featured && node scripts/build-info.mjs",
+    "build": "vite build && vite build --mode featured && node scripts/build-hls.mjs && node scripts/build-info.mjs",
     "test:e2e": "playwright test",
     "test:integration": "playwright test -c playwright.integration.config.ts",
     "test:integration:wsl": "node scripts/wsl.mjs sync && playwright test -c playwright.integration.config.ts",
@@ -59,5 +59,8 @@
     "chrome >= 100",
     "edge >= 100",
     "firefox >= 100"
-  ]
+  ],
+  "dependencies": {
+    "hls.js": "1.7.3"
+  }
 }
