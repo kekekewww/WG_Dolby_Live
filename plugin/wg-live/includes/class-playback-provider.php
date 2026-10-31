@@ -4,7 +4,7 @@
  *
  * Order: deployment mode, event visibility, available mode, entitlement, source configuration,
  * event status. A source URL is only ever produced after every earlier step passed. Demo events get
- * the approved demo media; real events (M2) get their signed hls URL, only while live or in intermission.
+ * the approved demo media; real events (M2) get their signed hls URL or provider player page, only while live or in intermission.
  *
  * @package WG_Live
  */
@@ -77,10 +77,11 @@ final class Playback_Provider {
 			return self::not_ready( 'entitlement_unavailable' );
 		}
 
-		// 5. A source must be configured: demo events use demo media, real events an hls source (M2-PLAN B3).
+		// 5. A source must be configured: demo events use demo media, real events an hls source (M2-PLAN B3) or a
+		// provider player page (D1).
 		$is_demo = ! empty( $data['is_demo'] );
 		$type    = isset( $data['source_type'] ) ? $data['source_type'] : 'not_configured';
-		if ( $is_demo ? 'demo' !== $type : 'hls' !== $type ) {
+		if ( $is_demo ? 'demo' !== $type : ! in_array( $type, array( 'hls', 'iframe' ), true ) ) {
 			return self::not_ready( 'source_not_configured' );
 		}
 
@@ -114,7 +115,7 @@ final class Playback_Provider {
 	 * Every failure is source_not_configured and carries no URL.
 	 *
 	 * @param int    $event_id Event post ID.
-	 * @param string $type     hls.
+	 * @param string $type     hls|iframe. Only the stored URLs of this type are read.
 	 * @param string $mode     binaural|atmos.
 	 * @return array
 	 */
@@ -124,8 +125,9 @@ final class Playback_Provider {
 			return self::not_ready( 'source_not_configured' );
 		}
 		$url = Events::source_url( (int) $event_id, $type, $mode );
-		// Re-checked here: the host may have been taken off the allowlist after the event was saved.
-		if ( '' === $url || '' !== Events::stream_url_error( $url ) ) {
+		// Re-checked here: the host or origin may have been taken off its allowlist after the event was saved.
+		$error = 'iframe' === $type ? Events::player_url_error( $url ) : Events::stream_url_error( $url );
+		if ( '' === $url || '' !== $error ) {
 			return self::not_ready( 'source_not_configured' );
 		}
 		$signer = Stream_Signers::current();
@@ -135,6 +137,18 @@ final class Playback_Provider {
 		$signed = $signer->sign( $url, time() + Stream_Signers::ttl( (int) $event_id ) );
 		if ( '' === $signed ) {
 			return self::not_ready( 'source_not_configured' );
+		}
+		if ( 'iframe' === $type ) {
+			// The client embeds exactly this origin and talks to no other (spec 9.3).
+			$origin = Settings::origin_of( $signed, false );
+			if ( 0 !== strpos( $origin, 'https://' ) ) {
+				return self::not_ready( 'source_not_configured' );
+			}
+			return array(
+				'kind'          => 'iframe',
+				'url'           => $signed,
+				'allowedOrigin' => $origin,
+			);
 		}
 		return array(
 			'kind' => 'hls',

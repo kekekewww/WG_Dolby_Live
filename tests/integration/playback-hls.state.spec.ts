@@ -5,7 +5,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { test, type Browser, type Page } from '@playwright/test';
-import { adminContext, bootConfigs, createEvents, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, getSettings, rest, setSettingsKeys, TESTS, wp, wpPhp, type WpEnv } from './wp';
+import { adminContext, bootConfigs, clickPublish, createEvents, deleteEventsByPrefix, deletePosts, deleteUsersByLoginPrefix, DEV, expect, fetchText, fillLoginForm, getSettings, rest, setSettingsKeys, TESTS, wp, wpPhp, type WpEnv } from './wp';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -17,12 +17,13 @@ let eventId = 0;
 
 const meta = (key: string): string => wpPhp<string>(DEV, `return (string) get_post_meta( ${eventId}, '_wg_live_${key}', true );`);
 
-async function saveSource(page: Page, fields: { type?: string; binaural?: string; atmos?: string }): Promise<string> {
+async function saveSource(page: Page, fields: { type?: string; binaural?: string; atmos?: string; kind?: 'hls' | 'iframe' }): Promise<string> {
+  const kind = fields.kind ?? 'hls';
   await page.goto(`/wp-admin/post.php?post=${eventId}&action=edit`);
   if (fields.type) await page.locator('#wg-live-source-type').selectOption(fields.type);
-  if (fields.binaural !== undefined) await page.locator('#wg-live-source-hls-binaural').fill(fields.binaural);
-  if (fields.atmos !== undefined) await page.locator('#wg-live-source-hls-atmos').fill(fields.atmos);
-  await Promise.all([page.waitForURL(/post\.php\?post=\d+&action=edit&message=\d+/, { timeout: 120_000 }), page.locator('#publish').click()]);
+  if (fields.binaural !== undefined) await page.locator(`#wg-live-source-${kind}-binaural`).fill(fields.binaural);
+  if (fields.atmos !== undefined) await page.locator(`#wg-live-source-${kind}-atmos`).fill(fields.atmos);
+  await Promise.all([page.waitForURL(/post\.php\?post=\d+&action=edit&message=\d+/, { timeout: 120_000 }), clickPublish(page)]);
   return (await page.locator('#wpbody-content .notice').allTextContents()).join(' | ');
 }
 
@@ -288,5 +289,101 @@ test.describe('B3', () => {
     expect(wpPhp(TESTS, `return WG_Live\\Entitlement::check( ${testsEvent}, ${testsShop.user.id} );`)).toEqual({ status: 'entitled', reason: 'ticket' });
     expect(wpPhp(TESTS, resolve)).toEqual({ kind: 'not_ready', reason: 'source_not_configured' });
     expect(wpPhp(TESTS, `define( 'WG_LIVE_ALLOW_UNSIGNED_STREAMS', true ); ${resolve}`)).toEqual({ kind: 'hls', url: GOOD_BIN, mode: 'binaural' });
+  });
+});
+
+/* D1: provider player (iframe) sources ------------------------------------------------------------ */
+
+const PLAYER = 'https://player.example.test';
+const P_BIN = `${PLAYER}/embed/live?track=binaural`;
+const P_ATM = `${PLAYER}/embed/live?track=atmos`;
+
+/** Events::frame_block_warning() with the HEAD response replaced (no outside network in the test). */
+function frameWarning(headers: Record<string, string> | 'error'): string {
+  const php = headers === 'error'
+    ? "new WP_Error( 'http_request_failed', 'x' )"
+    : `array( 'headers' => json_decode( '${JSON.stringify(headers).replace(/'/g, "\\'")}', true ), 'response' => array( 'code' => 200, 'message' => 'OK' ), 'body' => '', 'cookies' => array(), 'filename' => null )`;
+  return wpPhp<string>(DEV, `add_filter( 'pre_http_request', function () { return ${php}; } ); return WG_Live\\Events::frame_block_warning( '${P_BIN}' );`);
+}
+
+test.describe('D1', () => {
+  test.beforeAll(() => {
+    buyer = undefined;
+    devShop = shop(DEV);
+    setSettingsKeys(DEV, { deployment_mode: 'live', stream_hosts: ['stream.example.test'], player_origins: [PLAYER] });
+    setMeta(DEV, eventId, HLS_EVENT(devShop.product));
+  });
+
+  test.afterAll(async () => {
+    await buyer?.close();
+    buyer = undefined;
+    unshop(DEV, devShop);
+    deleteUsersByLoginPrefix(DEV, `${prefix}-`);
+  });
+
+  test('D1: player origins keep only https origins (scheme, host, port)', () => {
+    setSettingsKeys(DEV, { player_origins: ['HTTPS://Player.Example.TEST/', 'http://plain.example.test', 'https://x.example.test/embed', 'nope', 'https://ok.example.org:8443', 'https://ok.example.org:443'] });
+    expect(wpPhp<string[]>(DEV, 'return WG_Live\\Settings::player_origins();')).toEqual(['https://player.example.test', 'https://ok.example.org:8443', 'https://ok.example.org']);
+    setSettingsKeys(DEV, { player_origins: [PLAYER] });
+  });
+
+  test('D1: an iframe player page on an approved origin is stored; another origin or plain http is refused', async ({ browser }) => {
+    const ctx = await adminContext(browser, DEV);
+    try {
+      const page = await ctx.newPage();
+      await saveSource(page, { type: 'iframe', kind: 'iframe', binaural: P_BIN, atmos: P_ATM });
+      expect(meta('source_type')).toBe('iframe');
+      expect(meta('source_iframe_binaural')).toBe(P_BIN);
+      expect(meta('source_iframe_atmos')).toBe(P_ATM);
+      await expect(page.locator('#wg-live-source-type')).toHaveValue('iframe');
+
+      const other = await saveSource(page, { kind: 'iframe', atmos: 'https://evil.example.test/embed' });
+      expect(other).toContain('播放器網域');
+      expect(meta('source_iframe_atmos')).toBe(P_ATM);
+
+      const plain = await saveSource(page, { kind: 'iframe', atmos: 'http://player.example.test/embed' });
+      expect(plain).toContain('https');
+      expect(meta('source_iframe_atmos')).toBe(P_ATM);
+      // The hls playlists stay stored, but an iframe event never resolves them.
+      expect(meta('source_hls_binaural')).toBe(GOOD_BIN);
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test('D1: a buyer gets the player page with its origin; the hls URLs are ignored', async ({ browser }) => {
+    const bin = await buyerPlayback(browser, 'binaural');
+    expect(bin.json).toEqual({ kind: 'iframe', url: P_BIN, allowedOrigin: PLAYER });
+    expect(bin.cache).toMatch(/no-store/);
+    expect(bin.text).not.toContain('stream.example.test');
+    expect((await buyerPlayback(browser, 'atmos')).json).toEqual({ kind: 'iframe', url: P_ATM, allowedOrigin: PLAYER });
+  });
+
+  test('D1: a guest gets not_entitled and no URL; an origin taken off the list stops resolving', async ({ browser }) => {
+    const guest = await rest(DEV, `playback?event=${eventId}&mode=binaural`);
+    expect(guest.json).toEqual({ kind: 'not_ready', reason: 'not_entitled' });
+    expect(guest.text).not.toMatch(/http/);
+    setSettingsKeys(DEV, { player_origins: ['https://other.example.test'] });
+    expect((await buyerPlayback(browser, 'binaural')).json).toEqual({ kind: 'not_ready', reason: 'source_not_configured' });
+    setSettingsKeys(DEV, { player_origins: [PLAYER] });
+  });
+
+  test('D1: the public event says iframe in live mode and no player URL reaches any page', async () => {
+    const one = await rest(DEV, `events/${prefix}-concert`);
+    expect(one.json.event.sourceKind).toBe('iframe');
+    const bodies = [one.text, (await rest(DEV, 'events')).text, (await fetchText(DEV, `/live/listen/?wg_event=${prefix}-concert`)).text, (await fetchText(DEV, '/live/')).text];
+    for (const body of bodies) for (const n of ['player.example.test', P_BIN, P_ATM]) expect(body).not.toContain(n);
+  });
+
+  test('D1: a player page that forbids framing gets a warning, which never blocks the save', () => {
+    const blocked = '此播放器頁面不允許被嵌入本站，請聯絡串流服務商';
+    expect(frameWarning({ 'x-frame-options': 'DENY' })).toContain(blocked);
+    expect(frameWarning({ 'x-frame-options': 'SAMEORIGIN' })).toContain(blocked);
+    expect(frameWarning({ 'content-security-policy': "frame-ancestors 'none'" })).toContain(blocked);
+    expect(frameWarning({ 'content-security-policy': "frame-ancestors 'self'" })).toContain(blocked);
+    expect(frameWarning({ 'content-security-policy': 'frame-ancestors http://localhost:8888 https://sounds.example.test' })).toBe('');
+    expect(frameWarning({ 'content-security-policy': 'frame-ancestors *' })).toBe('');
+    expect(frameWarning({})).toBe('');
+    expect(frameWarning('error')).toBe('');
   });
 });

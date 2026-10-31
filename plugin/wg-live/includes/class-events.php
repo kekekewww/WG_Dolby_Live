@@ -41,7 +41,10 @@ final class Events {
 	const META_PREFIX = '_wg_live_';
 
 	/** Stored source types read back as themselves; anything else reads as not_configured (M2-PLAN B3). */
-	const SOURCE_TYPES = array( 'not_configured', 'demo', 'hls' );
+	const SOURCE_TYPES = array( 'not_configured', 'demo', 'hls', 'iframe' );
+
+	/** Shown at save when a provider player page forbids framing by this site (M2-PLAN D1). A warning only. */
+	const FRAME_BLOCKED = '此播放器頁面不允許被嵌入本站，請聯絡串流服務商。網址仍已儲存（這個檢查可能因要求而異）。';
 
 	const DEFAULT_TIMEZONE = 'Asia/Taipei';
 
@@ -488,9 +491,9 @@ final class Events {
 		printf( '<option value="not_configured"%s>尚未設定</option>', selected( $data['source_type'], 'not_configured', false ) );
 		printf( '<option value="demo"%s>示範</option>', selected( $data['source_type'], 'demo', false ) );
 		printf( '<option value="hls"%s>HLS 串流（本站播放器）</option>', selected( $data['source_type'], 'hls', false ) );
-		echo '<option value="iframe" disabled="disabled">串流服務播放器（iframe，尚未開放）</option>';
+		printf( '<option value="iframe"%s>串流服務播放器（iframe）</option>', selected( $data['source_type'], 'iframe', false ) );
 		echo '</select>';
-		echo '<p class="description">「示範」需同時勾選「示範活動」。正式活動選「HLS 串流」並填入下方播放清單；只有部署模式為「正式」、購票的觀眾在直播中才拿得到串流。</p>';
+		echo '<p class="description">「示範」需同時勾選「示範活動」。正式活動選「HLS 串流」並填入下方播放清單，或選「串流服務播放器」並填入服務商的播放器頁面；一場活動只會使用所選類型的網址。只有部署模式為「正式」、購票的觀眾在直播中才拿得到。</p>';
 		self::row_close();
 
 		// HLS playlists per mode (M2-PLAN B1). Never sent to viewers except through /playback after the ticket check.
@@ -505,6 +508,19 @@ final class Events {
 			self::row_close();
 		}
 		echo '<tr><th scope="row"></th><td><p class="description">網址必須使用 https，且主機在「Live 活動 → 設定 → 串流主機」清單內（由管理員設定）。</p></td></tr>';
+
+		// Provider player pages per mode (M2-PLAN D1). Same rule: only through /playback after the ticket check.
+		foreach ( array( 'binaural' => '串流服務播放器頁面（耳機 Binaural）', 'atmos' => '串流服務播放器頁面（家庭劇院 Dolby Atmos）' ) as $mode => $label ) {
+			self::row_open( 'wg-live-source-iframe-' . $mode, $label );
+			printf(
+				'<input type="url" id="wg-live-source-iframe-%1$s" name="%2$s[source_iframe_%1$s]" value="%3$s" class="large-text code" spellcheck="false" placeholder="https://" />',
+				esc_attr( $mode ),
+				esc_attr( $key ),
+				esc_attr( self::source_url( (int) $post->ID, 'iframe', $mode ) )
+			);
+			self::row_close();
+		}
+		echo '<tr><th scope="row"></th><td><p class="description">網址必須使用 https，且網域在「Live 活動 → 設定 → 播放器網域」清單內（由管理員設定）。觀眾使用服務商播放器自己的控制鈕。</p></td></tr>';
 
 		// Homepage featured card (0.2.0).
 		$featured = (int) Settings::get()['featured_event'];
@@ -565,6 +581,83 @@ final class Events {
 			return sprintf( '「%s」不在「設定 → 串流主機」清單內，已保留原本的網址。請管理員先加入這個主機。', $host );
 		}
 		return '';
+	}
+
+	/**
+	 * Why a provider player URL is refused ('' = acceptable, M2-PLAN D1): https only, and its origin must be on
+	 * Settings::player_origins().
+	 *
+	 * @param string $url Candidate.
+	 * @return string Taiwan Chinese message, or ''.
+	 */
+	public static function player_url_error( string $url ): string {
+		$origin = Settings::origin_of( $url, false );
+		if ( 0 !== strpos( $origin, 'https://' ) ) {
+			return sprintf( '播放器網址「%s」必須使用 https，已保留原本的網址。', self::shorten( $url, 80 ) );
+		}
+		if ( ! in_array( $origin, Settings::player_origins(), true ) ) {
+			return sprintf( '「%s」不在「設定 → 播放器網域」清單內，已保留原本的網址。請管理員先加入這個網域。', $origin );
+		}
+		return '';
+	}
+
+	/**
+	 * Does the player page forbid framing by this site? One HEAD request (5 s); a failed request says nothing.
+	 * X-Frame-Options DENY/SAMEORIGIN, or a CSP frame-ancestors list that does not admit this site's origin, return
+	 * the warning. It is a warning only: the header can differ per request (M2-PLAN D1).
+	 *
+	 * @param string $url Player page.
+	 * @return string The warning, or ''.
+	 */
+	public static function frame_block_warning( string $url ): string {
+		$response = wp_remote_head( $url, array( 'timeout' => 5, 'redirection' => 3 ) );
+		if ( is_wp_error( $response ) ) {
+			return '';
+		}
+		$header = static function ( string $name ) use ( $response ): string {
+			$value = wp_remote_retrieve_header( $response, $name );
+			return is_array( $value ) ? implode( ', ', $value ) : (string) $value;
+		};
+		foreach ( array_map( 'trim', explode( ',', strtolower( $header( 'x-frame-options' ) ) ) ) as $xfo ) {
+			if ( 'deny' === $xfo || 'sameorigin' === $xfo ) {
+				return self::FRAME_BLOCKED;
+			}
+		}
+		if ( 1 === preg_match( '/(?:^|;)\s*frame-ancestors\s+([^;]*)/i', $header( 'content-security-policy' ), $m ) && ! self::ancestors_admit_home( $m[1] ) ) {
+			return self::FRAME_BLOCKED;
+		}
+		return '';
+	}
+
+	/**
+	 * Does a CSP frame-ancestors source list admit this site's origin? Supports *, scheme sources, host sources with
+	 * an optional scheme, port and leading wildcard. 'self' means the player's own origin, so it does not admit us.
+	 *
+	 * @param string $list Source list.
+	 * @return bool
+	 */
+	private static function ancestors_admit_home( string $list ): bool {
+		$home   = wp_parse_url( home_url() );
+		$scheme = is_array( $home ) && isset( $home['scheme'] ) ? strtolower( $home['scheme'] ) : '';
+		$host   = is_array( $home ) && isset( $home['host'] ) ? strtolower( $home['host'] ) : '';
+		$port   = is_array( $home ) && isset( $home['port'] ) ? (int) $home['port'] : ( 'https' === $scheme ? 443 : 80 );
+		foreach ( preg_split( '/\s+/', strtolower( trim( $list ) ) ) as $source ) {
+			if ( '*' === $source || $scheme . ':' === $source ) {
+				return true;
+			}
+			if ( 1 !== preg_match( '#^(?:([a-z][a-z0-9+.-]*)://)?(\*\.)?([a-z0-9.-]+)(?::(\d+|\*))?(?:/.*)?$#', $source, $m ) ) {
+				continue; // 'none', 'self', nonces, hashes.
+			}
+			if ( '' !== $m[1] && $m[1] !== $scheme ) {
+				continue;
+			}
+			$host_ok = '' !== $m[2] ? ( substr( $host, -strlen( '.' . $m[3] ) ) === '.' . $m[3] ) : $host === $m[3];
+			$want    = isset( $m[4] ) && '' !== $m[4] ? $m[4] : ( '' !== $m[1] ? ( 'https' === $m[1] ? '443' : '80' ) : (string) $port );
+			if ( $host_ok && ( '*' === $want || (int) $want === $port ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -947,34 +1040,41 @@ final class Events {
 		if ( 'demo' === $source && ! $is_demo ) {
 			self::flash( 'warning', '來源類型「示範」需要同時勾選「示範活動」，已改存為「尚未設定」。' );
 			$source = 'not_configured';
-		} elseif ( 'hls' === $source && $is_demo ) {
+		} elseif ( in_array( $source, array( 'hls', 'iframe' ), true ) && $is_demo ) {
 			self::flash( 'warning', '示範活動只能使用「示範」來源，已改存為「尚未設定」。' );
 			$source = 'not_configured';
-		} elseif ( 'iframe' === $source ) {
-			self::flash( 'warning', '串流服務播放器（iframe）尚未開放，已改存為「尚未設定」。' );
-			$source = 'not_configured';
-		} elseif ( 'demo' !== $source && 'hls' !== $source ) {
+		} elseif ( ! in_array( $source, self::SOURCE_TYPES, true ) ) {
 			$source = 'not_configured';
 		}
 		update_post_meta( $post_id, $p . 'source_type', $source );
 
-		// HLS playlists (M2-PLAN B1): https on an admin-approved host; a refused value keeps the old one.
-		foreach ( array( 'binaural', 'atmos' ) as $mode ) {
-			$field = 'source_hls_' . $mode;
-			if ( ! isset( $in[ $field ] ) || ! is_string( $in[ $field ] ) ) {
-				continue;
+		// HLS playlists (M2-PLAN B1): https on an admin-approved host. Provider player pages (D1): https on an
+		// admin-approved origin, plus a framing check that only warns. A refused value keeps the old one.
+		foreach ( array( 'hls', 'iframe' ) as $type ) {
+			foreach ( array( 'binaural', 'atmos' ) as $mode ) {
+				$field = 'source_' . $type . '_' . $mode;
+				if ( ! isset( $in[ $field ] ) || ! is_string( $in[ $field ] ) ) {
+					continue;
+				}
+				$url = trim( $in[ $field ] );
+				if ( '' === $url ) {
+					update_post_meta( $post_id, $p . $field, '' );
+					continue;
+				}
+				$error = 'hls' === $type ? self::stream_url_error( $url ) : self::player_url_error( $url );
+				if ( '' !== $error ) {
+					self::flash( 'error', $error );
+					continue;
+				}
+				$changed = $url !== self::source_url( $post_id, $type, $mode );
+				update_post_meta( $post_id, $p . $field, $url );
+				if ( 'iframe' === $type && $changed ) {
+					$warning = self::frame_block_warning( $url );
+					if ( '' !== $warning ) {
+						self::flash( 'warning', $warning );
+					}
+				}
 			}
-			$url = trim( $in[ $field ] );
-			if ( '' === $url ) {
-				update_post_meta( $post_id, $p . $field, '' );
-				continue;
-			}
-			$error = self::stream_url_error( $url );
-			if ( '' !== $error ) {
-				self::flash( 'error', $error );
-				continue;
-			}
-			update_post_meta( $post_id, $p . $field, $url );
 		}
 
 		// Product.
@@ -1093,6 +1193,8 @@ final class Events {
 			case 'wg_live_src':
 				if ( 'hls' === $data['source_type'] ) {
 					echo 'HLS 串流';
+				} elseif ( 'iframe' === $data['source_type'] ) {
+					echo '串流服務播放器';
 				} elseif ( 'demo' !== $data['source_type'] ) {
 					echo '尚未設定';
 				} else {

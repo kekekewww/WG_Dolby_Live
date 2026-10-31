@@ -104,6 +104,7 @@ final class Settings {
 			'demo_audio_atmos'         => 0,
 			'style_overrides'          => self::empty_style(),
 			'stream_hosts'             => array(),
+			'player_origins'           => array(),
 			'delete_data_on_uninstall' => false,
 		);
 	}
@@ -149,6 +150,59 @@ final class Settings {
 	 */
 	public static function stream_hosts(): array {
 		return self::get()['stream_hosts'];
+	}
+
+	/**
+	 * Admin-approved provider player origins (M2-PLAN D1). Event iframe player URLs must be on one of these.
+	 *
+	 * @return string[] Normalised https origins, e.g. https://player.example.com or https://player.example.com:8443.
+	 */
+	public static function player_origins(): array {
+		return self::get()['player_origins'];
+	}
+
+	/**
+	 * Valid, unique https origins (scheme, host and a non-default port; no path, query or credentials); at most 20.
+	 *
+	 * @param mixed $raw Array of candidates.
+	 * @return string[]
+	 */
+	public static function clean_origins( $raw ): array {
+		$out = array();
+		foreach ( is_array( $raw ) ? $raw : array() as $candidate ) {
+			$origin = is_string( $candidate ) ? self::origin_of( trim( $candidate ) ) : '';
+			if ( '' !== $origin && 0 === strpos( $origin, 'https://' ) && ! in_array( $origin, $out, true ) ) {
+				$out[] = $origin;
+			}
+		}
+		return array_slice( $out, 0, 20 );
+	}
+
+	/**
+	 * The origin of a URL ('' when it is not a plain http(s) origin or URL): lowercase scheme and host, the port only
+	 * when it is not the scheme's default. With $origin_only, anything after the host (a path other than "/", a
+	 * query, a fragment) makes it invalid.
+	 *
+	 * @param string $url         Candidate.
+	 * @param bool   $origin_only Refuse anything but an origin.
+	 * @return string
+	 */
+	public static function origin_of( string $url, bool $origin_only = true ): string {
+		$parts = wp_parse_url( $url );
+		if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) || isset( $parts['user'] ) || isset( $parts['pass'] ) ) {
+			return '';
+		}
+		$scheme = strtolower( $parts['scheme'] );
+		$host   = strtolower( $parts['host'] );
+		if ( ! in_array( $scheme, array( 'https', 'http' ), true ) || array() === self::clean_hosts( array( $host ) ) ) {
+			return '';
+		}
+		if ( $origin_only && ( ( isset( $parts['path'] ) && '' !== $parts['path'] && '/' !== $parts['path'] ) || isset( $parts['query'] ) || isset( $parts['fragment'] ) ) ) {
+			return '';
+		}
+		$port    = isset( $parts['port'] ) ? (int) $parts['port'] : 0;
+		$default = 'https' === $scheme ? 443 : 80;
+		return $scheme . '://' . $host . ( $port > 0 && $port !== $default ? ':' . $port : '' );
 	}
 
 	/**
@@ -293,6 +347,7 @@ final class Settings {
 		}
 		$out['style_overrides'] = $style;
 		$out['stream_hosts']    = self::clean_hosts( isset( $stored['stream_hosts'] ) ? $stored['stream_hosts'] : array() );
+		$out['player_origins']  = self::clean_origins( isset( $stored['player_origins'] ) ? $stored['player_origins'] : array() );
 
 		$out['delete_data_on_uninstall'] = ! empty( $stored['delete_data_on_uninstall'] );
 
@@ -600,6 +655,7 @@ final class Settings {
 		add_settings_section( 'wg_live_mode', '運作模式', array( __CLASS__, 'section_mode' ), $page );
 		add_settings_field( 'wg_live_f_mode', '部署模式', array( __CLASS__, 'field_mode' ), $page, 'wg_live_mode' );
 		add_settings_field( 'wg_live_f_stream_hosts', '串流主機', array( __CLASS__, 'field_stream_hosts' ), $page, 'wg_live_mode', array( 'label_for' => 'wg-live-stream_hosts' ) );
+		add_settings_field( 'wg_live_f_player_origins', '播放器網域', array( __CLASS__, 'field_player_origins' ), $page, 'wg_live_mode', array( 'label_for' => 'wg-live-player_origins' ) );
 
 		add_settings_section( 'wg_live_pages', '頁面綁定', array( __CLASS__, 'section_pages' ), $page );
 		add_settings_field( 'wg_live_f_page_events', '活動列表頁（/live/）', array( __CLASS__, 'field_page' ), $page, 'wg_live_pages', array( 'key' => 'page_events', 'label_for' => 'wg-live-page_events' ) );
@@ -839,6 +895,18 @@ final class Settings {
 			$out['stream_hosts'] = $form ? array() : $current['stream_hosts'];
 		}
 
+		// Player origins (M2-PLAN D1): https origins only, one per line in the form.
+		if ( array_key_exists( 'player_origins', $in ) ) {
+			$lines = is_string( $in['player_origins'] ) ? preg_split( '/\r\n|\r|\n/', $in['player_origins'] ) : ( is_array( $in['player_origins'] ) ? $in['player_origins'] : array() );
+			$given = array_filter( array_map( 'trim', array_filter( (array) $lines, 'is_string' ) ), 'strlen' );
+			$out['player_origins'] = self::clean_origins( $given );
+			if ( count( $out['player_origins'] ) < count( array_unique( $given ) ) ) {
+				self::notice( 'wg_live_player_origins', '有些播放器網域格式不正確，已略過。請只填 https 網域，例如 https://player.example.com。', 'warning' );
+			}
+		} else {
+			$out['player_origins'] = $form ? array() : $current['player_origins'];
+		}
+
 		// Delete-on-uninstall: from the form it needs both checkboxes (the second is the confirmation).
 		if ( $form ) {
 			$wants = ! empty( $in['delete_data_on_uninstall'] );
@@ -994,6 +1062,16 @@ final class Settings {
 			esc_textarea( implode( "\n", self::get()['stream_hosts'] ) )
 		);
 		echo '<p class="description">每行一個主機名稱，例如 <code>stream.example.com</code>。活動的 HLS 播放清單網址必須使用 https，且主機在這個清單內。觀眾看不到這些網址。</p>';
+	}
+
+	/** @return void */
+	public static function field_player_origins(): void {
+		printf(
+			'<textarea id="wg-live-player_origins" name="%1$s" rows="3" class="large-text code" spellcheck="false">%2$s</textarea>',
+			esc_attr( self::name( 'player_origins' ) ),
+			esc_textarea( implode( "\n", self::get()['player_origins'] ) )
+		);
+		echo '<p class="description">串流服務商播放器頁面的網域，每行一個，例如 <code>https://player.example.com</code>。活動的「串流服務播放器」網址必須使用 https，且網域在這個清單內。觀眾看不到這些網址。</p>';
 	}
 
 	/** @return void */
@@ -1452,6 +1530,7 @@ final class Settings {
 		self::kv( '部署模式', 'live' === $settings['deployment_mode'] ? '正式（live）' : ( 'demo' === $settings['deployment_mode'] ? '示範（demo）' : '停用（disabled）' ) );
 		self::kv( '串流簽章', Stream_Signers::describe() );
 		self::kv( '串流主機', array() === $settings['stream_hosts'] ? '未設定' : implode( '、', $settings['stream_hosts'] ) );
+		self::kv( '播放器網域', array() === $settings['player_origins'] ? '未設定' : implode( '、', $settings['player_origins'] ) );
 		$dev = method_exists( __NAMESPACE__ . '\\Plugin', 'dev_tools_enabled' ) ? ( Plugin::dev_tools_enabled() ? '啟用' : '關閉' ) : '未知';
 		self::kv( '開發工具面板', $dev );
 		self::kv( 'PHP 版本', PHP_VERSION );

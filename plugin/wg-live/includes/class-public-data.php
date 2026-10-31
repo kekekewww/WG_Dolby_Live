@@ -187,7 +187,7 @@ final class Public_Data {
 		$source_kind = 'not_configured';
 		if ( $is_demo && 'demo' === $source_type && self::is_enabled() ) {
 			$source_kind = 'demo';
-		} elseif ( ! $is_demo && 'hls' === $source_type && 'live' === Settings::get()['deployment_mode'] ) {
+		} elseif ( ! $is_demo && in_array( $source_type, array( 'hls', 'iframe' ), true ) && 'live' === Settings::get()['deployment_mode'] ) {
 			$source_kind = $source_type;
 		}
 
