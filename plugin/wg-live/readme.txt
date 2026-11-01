@@ -1,7 +1,7 @@
 === WG Studio Live ===
 Requires at least: 6.3
 Requires PHP: 7.4
-Stable tag: 0.4.0
+Stable tag: 0.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Tags: live, concert, audio, binaural, dolby atmos
@@ -44,6 +44,11 @@ The two demo video files (`assets/demo/demo-video-1.mp4`, `assets/demo/demo-vide
 The plugin bundles hls.js (Apache-2.0), unmodified, as `assets/dist/wg-live-hls.js`; it is loaded only when a real event plays an HLS stream. Its license and copyright notices are in `assets/dist/THIRD-PARTY-NOTICES.txt`. The other built scripts and stylesheets in `assets/dist` are compiled from this project's own source.
 
 == Changelog ==
+
+= 0.5.0 =
+* Production-ready visitor pages: no testing or acceptance text on the site. The help page no longer shows the Safari-first acceptance note or the device compatibility table (the table stays in the admin as an internal record and is no longer public data); the label, entitlement and programme disclaimers and the device-output FAQ default are gone. That text lives in the maintainer document.
+* On a production environment, demo events are shown only to logged-in users who can manage Live events (preview); visitors never see them in lists, the homepage card, the player or REST. Such answers are sent with no-store.
+* The event card labels the stream 「Dolby Atmos」.
 
 = 0.4.0 =
 * Dolby Atmos only (product decision 2026-11-01): each concert offers one Dolby Atmos stream. The Binaural mode, the listening-mode choice and the Binaural source fields are gone; stored Binaural settings are ignored.
