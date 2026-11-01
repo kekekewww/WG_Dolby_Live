@@ -1,7 +1,7 @@
 === WG Studio Live ===
 Requires at least: 6.3
 Requires PHP: 7.4
-Stable tag: 0.5.0
+Stable tag: 0.5.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Tags: live, concert, audio, binaural, dolby atmos
@@ -44,6 +44,11 @@ The two demo video files (`assets/demo/demo-video-1.mp4`, `assets/demo/demo-vide
 The plugin bundles hls.js (Apache-2.0), unmodified, as `assets/dist/wg-live-hls.js`; it is loaded only when a real event plays an HLS stream. Its license and copyright notices are in `assets/dist/THIRD-PARTY-NOTICES.txt`. The other built scripts and stylesheets in `assets/dist` are compiled from this project's own source.
 
 == Changelog ==
+
+= 0.5.1 =
+* Stream links may be plain http (user decision 2026-11-02: the live stream is an http link); the host must still be on the stream host list, an IP address included. On the https site an http stream cannot play inside the page (mixed content): the player refuses it before any request and ticket holders use their personal link in VLC or Safari.
+* Video events get a switch: the picture comes with the Dolby Atmos link, or from a separate HLS picture link that plays muted on the stage while the Atmos link plays the sound (one click starts both, pause stops both). The personal link is always the Atmos link.
+* New setting 「未簽章串流連結」 hands out unsigned stream links on production (same effect as WG_LIVE_ALLOW_UNSIGNED_STREAMS in wp-config.php).
 
 = 0.5.0 =
 * Production-ready visitor pages: no testing or acceptance text on the site. The help page no longer shows the Safari-first acceptance note or the device compatibility table (the table stays in the admin as an internal record and is no longer public data); the label, entitlement and programme disclaimers and the device-output FAQ default are gone. That text lives in the maintainer document.
