@@ -319,3 +319,131 @@ describe('HLS adapter: native path', () => {
     expect(media.getAttribute('src')).toBeNull();
   });
 });
+
+describe('0.5.1: an http stream on an https page (mixed content)', () => {
+  const HTTP_ATMOS = { kind: 'hls', url: 'http://198.51.100.7:1935/live/atmos/playlist.m3u8', mode: 'atmos' } as const;
+  const EC3 = { isTypeSupported: () => true };
+
+  it('hls.js path: refused as unsupported before hls.js loads or any request is made', async () => {
+    const loadHls = vi.fn(() => Promise.resolve(Ctor));
+    const win = { MediaSource: EC3, location: { protocol: 'https:' } } as unknown as Window;
+    const adapter = createHlsAdapter(host, env, { win, loadedHls: () => Ctor, loadHls });
+    const seen = errors(adapter);
+    await expect(adapter.load(HTTP_ATMOS, controller.signal)).rejects.toBeInstanceOf(AdapterLoadError);
+    expect(seen).toEqual([{ code: 'unsupported', fatal: true }]);
+    expect(FakeHls.instances).toHaveLength(0);
+    expect(loadHls).not.toHaveBeenCalled();
+  });
+
+  it('native path (Safari): refused before the element gets the URL', async () => {
+    vi.mocked(media.canPlayType).mockImplementation((t) => (t === 'application/vnd.apple.mpegurl' ? 'maybe' : 'probably'));
+    const win = { ManagedMediaSource: EC3, MediaSource: EC3, location: { protocol: 'https:' } } as unknown as Window;
+    const adapter = createHlsAdapter(host, env, { win, loadedHls: () => Ctor });
+    const seen = errors(adapter);
+    await expect(adapter.load(HTTP_ATMOS, controller.signal)).rejects.toBeInstanceOf(AdapterLoadError);
+    expect(seen).toEqual([{ code: 'unsupported', fatal: true }]);
+    expect(media.getAttribute('src')).toBeNull();
+  });
+
+  it('the same http stream on an http page is loaded as usual', () => {
+    const win = { MediaSource: EC3, location: { protocol: 'http:' } } as unknown as Window;
+    const adapter = createHlsAdapter(host, env, { win, loadedHls: () => Ctor, loadHls: () => Promise.resolve(Ctor) });
+    void adapter.load(HTTP_ATMOS, controller.signal);
+    expect(FakeHls.instances).toHaveLength(1);
+    adapter.destroy();
+  });
+});
+
+describe('0.5.1: picture and sound from two links (video muted + Dolby Atmos sound)', () => {
+  const DUAL = { kind: 'hls', url: 'https://s.example.test/atmos.m3u8', mode: 'atmos', videoUrl: 'https://s.example.test/video.m3u8' } as const;
+  const onMedia = (el: Element | null): FakeHls | undefined => [...FakeHls.instances].reverse().find((h) => h.media === el && !h.destroyed);
+  const soundEl = (): HTMLAudioElement | null => document.querySelector<HTMLAudioElement>('audio.wg-live__sound');
+
+  beforeEach(() => {
+    // jsdom has no media pipeline: the hidden <audio> the adapter creates needs these too.
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+  });
+
+  it('loads the picture link into the stage <video> (muted) and the Atmos link into its own hidden <audio>', () => {
+    const adapter = loaded(EDGE_LIKE);
+    void adapter.load(DUAL, controller.signal);
+    expect(FakeHls.instances).toHaveLength(2);
+    expect(onMedia(media)?.source).toBe(DUAL.videoUrl);
+    const sound = soundEl();
+    expect(sound).not.toBeNull();
+    expect(sound?.hidden).toBe(true);
+    expect(onMedia(sound)?.source).toBe(DUAL.url);
+    expect(media.muted).toBe(true);
+    expect(media.play).not.toHaveBeenCalled();
+    adapter.destroy();
+    expect(soundEl()).toBeNull();
+    expect(FakeHls.instances.every((h) => h.destroyed)).toBe(true);
+  });
+
+  it('one click plays both, pause pauses both; mute and volume act on the sound, the picture stays muted', () => {
+    const adapter = loaded(EDGE_LIKE);
+    void adapter.load(DUAL, controller.signal);
+    const sound = soundEl() as HTMLAudioElement;
+    // The stage <video> has its own spies (outer beforeEach); the adapter's <audio> uses the prototype ones.
+    const playSpy = vi.mocked(HTMLMediaElement.prototype.play);
+    playSpy.mockClear();
+    void adapter.play();
+    expect(media.play).toHaveBeenCalledTimes(1);
+    expect(playSpy.mock.contexts as unknown as HTMLMediaElement[]).toContain(sound);
+    const pauseSpy = vi.mocked(HTMLMediaElement.prototype.pause);
+    pauseSpy.mockClear();
+    adapter.pause();
+    expect(media.pause).toHaveBeenCalled();
+    expect(pauseSpy.mock.contexts as unknown as HTMLMediaElement[]).toContain(sound);
+    adapter.setMuted(true);
+    expect(sound.muted).toBe(true);
+    adapter.setMuted(false);
+    expect(sound.muted).toBe(false);
+    expect(media.muted).toBe(true);
+    adapter.setVolume(0.4);
+    expect(sound.volume).toBeCloseTo(0.4);
+    adapter.destroy();
+  });
+
+  it('a failing picture never reaches the player; a failing sound does', () => {
+    const adapter = loaded(EDGE_LIKE);
+    const seen = errors(adapter);
+    void adapter.load(DUAL, controller.signal);
+    onMedia(media)?.emit('hlsError', { type: 'mediaError', details: 'manifestIncompatibleCodecsError', fatal: true });
+    expect(seen).toEqual([]);
+    onMedia(soundEl())?.emit('hlsError', { type: 'mediaError', details: 'manifestIncompatibleCodecsError', fatal: true });
+    expect(seen).toEqual([{ code: 'unsupported', fatal: true }]);
+    adapter.destroy();
+  });
+
+  it('without E-AC-3 the sound is refused before any request (the link panel takes over)', async () => {
+    const adapter = loaded(CHROME_LIKE);
+    const seen = errors(adapter);
+    const load = adapter.load(DUAL, controller.signal);
+    await expect(load).rejects.toBeInstanceOf(AdapterLoadError);
+    expect(seen).toEqual([{ code: 'unsupported', fatal: true }]);
+    expect(onMedia(soundEl())).toBeUndefined();
+    adapter.destroy();
+  });
+
+  it('a source without videoUrl plays the one link on the stage, as before (no extra element)', () => {
+    const adapter = loaded(EDGE_LIKE);
+    void adapter.load(ATMOS, controller.signal);
+    expect(FakeHls.instances).toHaveLength(1);
+    expect(onMedia(media)?.source).toBe(ATMOS.url);
+    expect(soundEl()).toBeNull();
+    adapter.destroy();
+  });
+
+  it('a later one-link load drops the separate sound and unmutes the stage', () => {
+    const adapter = loaded(EDGE_LIKE);
+    void adapter.load(DUAL, controller.signal);
+    void adapter.load(ATMOS, controller.signal);
+    expect(soundEl()).toBeNull();
+    expect(media.muted).toBe(false);
+    expect(onMedia(media)?.source).toBe(ATMOS.url);
+    adapter.destroy();
+  });
+});

@@ -73,7 +73,8 @@ export interface PublicEvent {
 export type PlaybackSource =
   | { kind: 'not_ready'; reason: NotReadyReason }
   | { kind: 'demo'; url: string; mimeType: string }
-  | { kind: 'hls'; url: string; mode: ListeningMode }
+  /** 0.5.1: videoUrl = a separate picture link (played muted beside the Atmos sound); absent = picture and sound in `url`. */
+  | { kind: 'hls'; url: string; mode: ListeningMode; videoUrl?: string }
   | { kind: 'iframe'; url: string; allowedOrigin: string };
 
 /** Server resolution order and UI mapping: plan §5.1 and §6.7. Never auto-retried. */

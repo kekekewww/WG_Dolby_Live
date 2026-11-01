@@ -309,7 +309,9 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
     if (source.kind === 'hls') {
       // M2-PLAN C3: the signed playlist of exactly the requested mode; anything else fails closed.
       if (typeof source.url !== 'string' || source.url === '' || source.mode !== mode) return { ok: false, reason: 'error' };
-      return { ok: true, source: { kind: 'hls', url: source.url, mode } };
+      // 0.5.1: a separate picture link travels with the sound (already validated by parsePlaybackSource).
+      const videoUrl = typeof source.videoUrl === 'string' && source.videoUrl !== '' ? source.videoUrl : null;
+      return { ok: true, source: videoUrl === null ? { kind: 'hls', url: source.url, mode } : { kind: 'hls', url: source.url, mode, videoUrl } };
     }
     if (source.kind === 'iframe') {
       // M2-PLAN D2: an https provider player page of exactly the allowed origin (the adapter checks again).

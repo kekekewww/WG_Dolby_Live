@@ -84,7 +84,9 @@ final class Stream_Signers {
 	 * @return bool
 	 */
 	public static function unsigned_allowed(): bool {
-		return defined( 'WG_LIVE_ALLOW_UNSIGNED_STREAMS' ) && true === constant( 'WG_LIVE_ALLOW_UNSIGNED_STREAMS' );
+		// 0.5.1: or the admin setting (user decision 2026-11-02: the live stream is an unsigned plain-http link).
+		return ( defined( 'WG_LIVE_ALLOW_UNSIGNED_STREAMS' ) && true === constant( 'WG_LIVE_ALLOW_UNSIGNED_STREAMS' ) )
+			|| ! empty( Settings::get()['allow_unsigned_streams'] );
 	}
 
 	/**
@@ -120,7 +122,7 @@ final class Stream_Signers {
 		}
 		if ( $signer instanceof Unsigned_Signer ) {
 			return 'production' === wp_get_environment_type()
-				? '未設定：WG_LIVE_ALLOW_UNSIGNED_STREAMS 已開啟，正式站提供未簽章網址（有外流風險）'
+				? '未設定：已允許未簽章串流連結（設定或 WG_LIVE_ALLOW_UNSIGNED_STREAMS），正式站提供未簽章網址（有外流風險）'
 				: '未設定（非正式站使用未簽章網址；正式站將不提供播放）';
 		}
 		return '已設定';

@@ -16,11 +16,13 @@ let eventId = 0;
 
 const meta = (key: string): string => wpPhp<string>(DEV, `return (string) get_post_meta( ${eventId}, '_wg_live_${key}', true );`);
 
-async function saveSource(page: Page, fields: { type?: string; atmos?: string; kind?: 'hls' | 'iframe' }): Promise<string> {
+async function saveSource(page: Page, fields: { type?: string; atmos?: string; kind?: 'hls' | 'iframe'; videoSeparate?: boolean; video?: string }): Promise<string> {
   const kind = fields.kind ?? 'hls';
   await page.goto(`/wp-admin/post.php?post=${eventId}&action=edit`);
   if (fields.type) await page.locator('#wg-live-source-type').selectOption(fields.type);
   if (fields.atmos !== undefined) await page.locator(`#wg-live-source-${kind}-atmos`).fill(fields.atmos);
+  if (fields.videoSeparate !== undefined) await page.getByRole('switch', { name: '影像使用另一個連結' }).setChecked(fields.videoSeparate);
+  if (fields.video !== undefined) await page.locator('#wg-live-source-hls-video').fill(fields.video);
   await Promise.all([page.waitForURL(/post\.php\?post=\d+&action=edit&message=\d+/, { timeout: 120_000 }), clickPublish(page)]);
   return (await page.locator('#wpbody-content .notice').allTextContents()).join(' | ');
 }
@@ -42,7 +44,7 @@ test('B1: stream hosts keep only valid lowercase hostnames', () => {
   expect(wpPhp<string[]>(DEV, 'return WG_Live\\Settings::stream_hosts();')).toEqual(['stream.example.test', 'ok.example.org']);
 });
 
-test('B1: an allowlisted https playlist is stored; another host or plain http on a real host is refused', async ({ browser }) => {
+test('B1: an allowlisted playlist is stored (https or, since 0.5.1, plain http); another host or scheme is refused', async ({ browser }) => {
   setSettingsKeys(DEV, { stream_hosts: ['stream.example.test'] });
   const ctx = await adminContext(browser, DEV);
   try {
@@ -61,15 +63,31 @@ test('B1: an allowlisted https playlist is stored; another host or plain http on
     await expect(page.locator('#wg-live-source-type')).toHaveValue('hls');
     expect(meta('source_type')).toBe('hls');
 
+    // 0.5.1 (user decision 2026-11-02): the live stream is plain http, so http on an allowlisted host is stored.
     const plain = await saveSource(page, { atmos: 'http://stream.example.test/a.m3u8' });
-    expect(plain).toContain('https');
-    expect(meta('source_hls_atmos')).toBe(GOOD);
+    expect(plain).not.toContain('已保留原本的網址');
+    expect(meta('source_hls_atmos')).toBe('http://stream.example.test/a.m3u8');
+    const ftp = await saveSource(page, { atmos: 'ftp://stream.example.test/a.m3u8' });
+    expect(ftp).toContain('http 或 https');
+    expect(meta('source_hls_atmos')).toBe('http://stream.example.test/a.m3u8');
+
+    // 0.5.1: the picture switch and its own link (same rules as the Atmos link).
+    expect(meta('video_source')).toBe('same');
+    await saveSource(page, { videoSeparate: true, video: 'http://stream.example.test/video.m3u8' });
+    expect(meta('video_source')).toBe('separate');
+    expect(meta('source_hls_video')).toBe('http://stream.example.test/video.m3u8');
+    const badVideo = await saveSource(page, { video: 'http://elsewhere.example.test/v.m3u8' });
+    expect(badVideo).toContain('串流主機');
+    expect(meta('source_hls_video')).toBe('http://stream.example.test/video.m3u8');
+    await expect(page.getByRole('switch', { name: '影像使用另一個連結' })).toBeChecked();
+    await saveSource(page, { videoSeparate: false });
+    expect(meta('video_source')).toBe('same');
   } finally {
     await ctx.close();
   }
 });
 
-test('B1: plain http only for a local fixture (loopback or the site host) on a local site, never on production', () => {
+test('B1: plain http is accepted on every environment (0.5.1), still only for allowlisted hosts', () => {
   const hosts = ['localhost', '127.0.0.1', 'stream.example.test'];
   const before = getSettings(TESTS).stream_hosts ?? [];
   setSettingsKeys(DEV, { stream_hosts: hosts });
@@ -78,9 +96,11 @@ test('B1: plain http only for a local fixture (loopback or the site host) on a l
     const err = (env: WpEnv, url: string): string => wpPhp<string>(env, `return WG_Live\\Events::stream_url_error( '${url}' );`);
     expect(err(DEV, 'http://localhost:8888/hls/index.m3u8')).toBe('');
     expect(err(DEV, 'http://127.0.0.1:5185/hls/index.m3u8')).toBe('');
-    expect(err(DEV, 'http://stream.example.test/a.m3u8')).toContain('https');
-    expect(err(TESTS, 'http://localhost:8889/hls/index.m3u8')).toContain('https');
+    expect(err(DEV, 'http://stream.example.test/a.m3u8')).toBe('');
+    expect(err(TESTS, 'http://stream.example.test:1935/live/playlist.m3u8')).toBe('');
     expect(err(TESTS, 'https://stream.example.test/a.m3u8')).toBe('');
+    expect(err(TESTS, 'http://other.example.test/a.m3u8')).toContain('串流主機');
+    expect(err(TESTS, 'ftp://stream.example.test/a.m3u8')).toContain('http 或 https');
     // Review I1: URLs that PHP and browsers parse differently (backslash, userinfo) or with blanks never pass.
     expect(err(DEV, 'https://evil\\\\@stream.example.test/a.m3u8')).not.toBe('');
     expect(err(DEV, 'https://u:p@stream.example.test/a.m3u8')).not.toBe('');
@@ -230,6 +250,44 @@ test.describe('B3', () => {
       deletePosts(TESTS, [testsEvent]);
       unshop(TESTS, testsShop);
       deleteUsersByLoginPrefix(TESTS, `${prefix}-`);
+    }
+  });
+
+  test('0.5.1: a video event with the separate-picture switch gets videoUrl; the same-link switch or an audio event does not', async ({ browser }) => {
+    const VIDEO = 'http://stream.example.test/video/playlist.m3u8';
+    try {
+      setMeta(DEV, eventId, { media_kind: 'video', video_source: 'separate', source_hls_video: VIDEO });
+      const separate = await buyerPlayback(browser, 'atmos');
+      expect(separate.json).toMatchObject({ kind: 'hls', url: GOOD, mode: 'atmos', videoUrl: VIDEO });
+
+      setMeta(DEV, eventId, { video_source: 'same' });
+      expect((await buyerPlayback(browser, 'atmos')).json).not.toHaveProperty('videoUrl');
+
+      setMeta(DEV, eventId, { media_kind: 'audio', video_source: 'separate' });
+      expect((await buyerPlayback(browser, 'atmos')).json).not.toHaveProperty('videoUrl');
+
+      // A picture link on a host that is not allowed is never handed out; the sound still is.
+      setMeta(DEV, eventId, { media_kind: 'video', video_source: 'separate', source_hls_video: 'http://elsewhere.example.test/v.m3u8' });
+      const refused = await buyerPlayback(browser, 'atmos');
+      expect(refused.json).toMatchObject({ kind: 'hls', url: GOOD });
+      expect(refused.json).not.toHaveProperty('videoUrl');
+      // The picture link never reaches public data.
+      expect((await rest(DEV, `events/${prefix}-concert`)).text).not.toContain('video/playlist');
+    } finally {
+      setMeta(DEV, eventId, { media_kind: 'audio', video_source: 'same', source_hls_video: '' });
+    }
+  });
+
+  test('0.5.1: the admin setting allows unsigned stream links on production, like the wp-config constant', () => {
+    const before = getSettings(TESTS).allow_unsigned_streams ?? false;
+    try {
+      setSettingsKeys(TESTS, { allow_unsigned_streams: true });
+      expect(wpPhp<string | null>(TESTS, SIGNER)).toBe('WG_Live\\Unsigned_Signer');
+      expect(wpPhp<string>(TESTS, 'return WG_Live\\Stream_Signers::describe();')).toContain('已允許未簽章串流連結');
+      setSettingsKeys(TESTS, { allow_unsigned_streams: false });
+      expect(wpPhp<string | null>(TESTS, SIGNER)).toBeNull();
+    } finally {
+      setSettingsKeys(TESTS, { allow_unsigned_streams: before });
     }
   });
 

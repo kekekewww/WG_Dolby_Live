@@ -106,6 +106,8 @@ final class Settings {
 			'stream_hosts'             => array(),
 			'player_origins'           => array(),
 			'delete_data_on_uninstall' => false,
+			// 0.5.1: hand out unsigned stream links on production (the provider signs nothing; plain http links).
+			'allow_unsigned_streams'   => false,
 		);
 	}
 
@@ -352,6 +354,7 @@ final class Settings {
 		$out['player_origins']  = self::clean_origins( isset( $stored['player_origins'] ) ? $stored['player_origins'] : array() );
 
 		$out['delete_data_on_uninstall'] = ! empty( $stored['delete_data_on_uninstall'] );
+		$out['allow_unsigned_streams']   = ! empty( $stored['allow_unsigned_streams'] );
 
 		return $out;
 	}
@@ -657,6 +660,7 @@ final class Settings {
 		add_settings_section( 'wg_live_mode', '運作模式', array( __CLASS__, 'section_mode' ), $page );
 		add_settings_field( 'wg_live_f_mode', '部署模式', array( __CLASS__, 'field_mode' ), $page, 'wg_live_mode' );
 		add_settings_field( 'wg_live_f_stream_hosts', '串流主機', array( __CLASS__, 'field_stream_hosts' ), $page, 'wg_live_mode', array( 'label_for' => 'wg-live-stream_hosts' ) );
+		add_settings_field( 'wg_live_f_unsigned', '未簽章串流連結', array( __CLASS__, 'field_unsigned_streams' ), $page, 'wg_live_mode', array( 'label_for' => 'wg-live-allow_unsigned_streams' ) );
 		add_settings_field( 'wg_live_f_player_origins', '播放器網域', array( __CLASS__, 'field_player_origins' ), $page, 'wg_live_mode', array( 'label_for' => 'wg-live-player_origins' ) );
 
 		add_settings_section( 'wg_live_pages', '頁面綁定', array( __CLASS__, 'section_pages' ), $page );
@@ -909,6 +913,8 @@ final class Settings {
 			$out['player_origins'] = $form ? array() : $current['player_origins'];
 		}
 
+		$out['allow_unsigned_streams'] = array_key_exists( 'allow_unsigned_streams', $in ) ? ! empty( $in['allow_unsigned_streams'] ) : ( $form ? false : $current['allow_unsigned_streams'] );
+
 		// Delete-on-uninstall: from the form it needs both checkboxes (the second is the confirmation).
 		if ( $form ) {
 			$wants = ! empty( $in['delete_data_on_uninstall'] );
@@ -1063,7 +1069,17 @@ final class Settings {
 			esc_attr( self::name( 'stream_hosts' ) ),
 			esc_textarea( implode( "\n", self::get()['stream_hosts'] ) )
 		);
-		echo '<p class="description">每行一個主機名稱，例如 <code>stream.example.com</code>。活動的 HLS 播放清單網址必須使用 https，且主機在這個清單內。觀眾看不到這些網址。</p>';
+		echo '<p class="description">每行一個主機名稱，例如 <code>stream.example.com</code>。活動的 HLS 播放清單網址可用 http 或 https，主機必須在這個清單內（IP 位址也可以，例如 <code>203.0.113.10</code>，不含連接埠）。觀眾看不到這些網址。</p>';
+	}
+
+	/** @return void */
+	public static function field_unsigned_streams(): void {
+		printf(
+			'<label><input type="checkbox" id="wg-live-allow_unsigned_streams" name="%1$s" value="1"%2$s /> 正式站提供未簽章的串流連結</label>',
+			esc_attr( self::name( 'allow_unsigned_streams' ) ),
+			checked( (bool) self::get()['allow_unsigned_streams'], true, false )
+		);
+		echo '<p class="description">串流服務商沒有網址簽章時（例如直接使用 http 串流網址），必須開啟，已購票的觀眾才拿得到播放連結。開啟後，播放連結就是串流原始網址：拿到的人都能播放，請只在需要時開啟。wp-config.php 的 WG_LIVE_ALLOW_UNSIGNED_STREAMS 也有相同效果。</p>';
 	}
 
 	/** @return void */
@@ -1584,6 +1600,7 @@ final class Settings {
 		self::kv( '最後更新（UTC）', '' !== $meta['updated_at'] ? $meta['updated_at'] : '—' );
 		$who = $meta['updated_by'] > 0 ? get_userdata( $meta['updated_by'] ) : false;
 		self::kv( '更新者', $who ? $who->display_name . ' (#' . $meta['updated_by'] . ')' : ( $meta['updated_by'] > 0 ? '#' . $meta['updated_by'] : '系統' ) );
+		self::kv( '未簽章串流連結（設定）', $settings['allow_unsigned_streams'] ? '開啟' : '關閉' );
 		self::kv( '解除安裝時刪除資料', $settings['delete_data_on_uninstall'] ? '是' : '否' );
 		echo '</tbody></table>';
 

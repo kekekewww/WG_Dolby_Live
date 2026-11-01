@@ -145,7 +145,146 @@ function abortError(message = 'The operation was aborted.'): DOMException {
 /* Adapter                                                             */
 /* ------------------------------------------------------------------ */
 
+/**
+ * 0.5.1 (user decision 2026-11-02: the live stream is plain http): an http stream on an https page is mixed content,
+ * which browsers block or upgrade to https, so it never plays in the page. Refuse it before any request; the ticket
+ * holder's personal link (VLC / Safari) is the way to listen.
+ */
+export function isMixedContent(url: string, win: Window): boolean {
+  try {
+    return win.location?.protocol === 'https:' && new URL(url).protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 export function createHlsAdapter(host: MediaHost, env: AdapterEnv, deps: HlsDeps = {}): PlaybackAdapter {
+  const primary = createSingleHlsAdapter(host, env, deps);
+  // 0.5.1: only a video stage can show a separate picture link; an audio stage always plays the one link.
+  return host.media.tagName === 'VIDEO' ? createPictureAndSoundAdapter(primary, host, env, deps) : primary;
+}
+
+const ADAPTER_EVENTS: readonly AdapterEvent[] = ['playing', 'paused', 'waiting', 'stalled', 'ended', 'error'];
+
+/**
+ * 0.5.1 (user decision 2026-11-02): a video event may take its picture from a separate HLS link. Then the stage
+ * <video> plays the picture link muted and a hidden <audio> owned by this adapter plays the Dolby Atmos link; one
+ * click starts both and pause stops both. The sound drives the player: its events, errors, mute and volume. A picture
+ * failure is swallowed and the sound goes on (the stage then has no picture). Two live streams: picture and sound can
+ * be a second or two apart. Without a videoUrl the stage plays the one link exactly as before.
+ */
+function createPictureAndSoundAdapter(picture: PlaybackAdapter, host: MediaHost, env: AdapterEnv, deps: HlsDeps): PlaybackAdapter {
+  const listeners = new Map<AdapterEvent, Set<(detail?: AdapterErrorDetail) => void>>();
+  const emit = (event: AdapterEvent, detail?: AdapterErrorDetail): void => {
+    for (const listener of [...(listeners.get(event) ?? [])]) listener(detail);
+  };
+  const forward = (adapter: PlaybackAdapter): (() => void) => {
+    const offs = ADAPTER_EVENTS.map((event) => adapter.on(event, (detail) => emit(event, detail)));
+    return () => offs.forEach((off) => off());
+  };
+
+  let unforward = forward(picture);
+  let sound: { el: HTMLAudioElement; adapter: PlaybackAdapter } | null = null;
+  let destroyed = false;
+
+  const dropSound = (): void => {
+    if (!sound) return;
+    sound.adapter.destroy();
+    sound.el.remove();
+    sound = null;
+  };
+
+  return {
+    kind: 'hls',
+    get capabilities() {
+      // The sound's controls; fullscreen belongs to the picture.
+      return sound ? { ...sound.adapter.capabilities, fullscreen: picture.capabilities.fullscreen } : picture.capabilities;
+    },
+
+    load(source, signal) {
+      if (destroyed) return picture.load(source, signal);
+      if (source.kind !== 'hls' || !source.videoUrl) {
+        if (sound) {
+          unforward();
+          dropSound();
+          unforward = forward(picture);
+          host.media.muted = false;
+        }
+        return picture.load(source, signal);
+      }
+      if (!sound) {
+        const el = document.createElement('audio');
+        el.preload = 'none';
+        el.hidden = true;
+        el.className = 'wg-live__sound';
+        host.media.insertAdjacentElement('afterend', el);
+        unforward();
+        sound = { el, adapter: createSingleHlsAdapter({ media: el, frameSlot: host.frameSlot }, env, deps) };
+        unforward = forward(sound.adapter);
+      }
+      host.media.muted = true;
+      // The sound first: a refused sound (no E-AC-3, mixed content) fails before the picture is fetched.
+      const heard = sound.adapter.load({ kind: 'hls', url: source.url, mode: source.mode }, signal);
+      // The picture link carries no Dolby Atmos requirement ('binaural' skips the E-AC-3 check); its failure is not
+      // the player's (no listener sees it) and never stops the sound.
+      picture.load({ kind: 'hls', url: source.videoUrl, mode: 'binaural' }, signal).catch(() => undefined);
+      return heard;
+    },
+
+    play() {
+      if (!sound) return picture.play();
+      // Both inside the same click (the sound is the one that counts; a muted picture may start on its own).
+      picture.play().catch(() => undefined);
+      return sound.adapter.play();
+    },
+
+    pause() {
+      picture.pause();
+      sound?.adapter.pause();
+    },
+
+    setMuted(muted) {
+      if (!sound) {
+        picture.setMuted(muted);
+        return;
+      }
+      sound.adapter.setMuted(muted);
+      picture.setMuted(true);
+    },
+
+    setVolume(volume) {
+      (sound?.adapter ?? picture).setVolume(volume);
+    },
+
+    seekToLive() {
+      picture.seekToLive();
+      sound?.adapter.seekToLive();
+    },
+
+    destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      unforward();
+      listeners.clear();
+      picture.destroy();
+      dropSound();
+    },
+
+    on(event, listener) {
+      let set = listeners.get(event);
+      if (!set) {
+        set = new Set();
+        listeners.set(event, set);
+      }
+      set.add(listener);
+      return () => {
+        listeners.get(event)?.delete(listener);
+      };
+    },
+  };
+}
+
+function createSingleHlsAdapter(host: MediaHost, env: AdapterEnv, deps: HlsDeps): PlaybackAdapter {
   const win = deps.win ?? window;
   const path = chooseHlsPath(host.media, win);
   if (path === 'native') {
@@ -153,7 +292,9 @@ export function createHlsAdapter(host: MediaHost, env: AdapterEnv, deps: HlsDeps
       kind: 'hls',
       loop: false,
       refuse: (source) =>
-        source.kind === 'hls' && canPlayMode(source.mode, 'native', host.media, win) === false ? { code: 'unsupported', fatal: true } : null,
+        source.kind === 'hls' && (isMixedContent(source.url, win) || canPlayMode(source.mode, 'native', host.media, win) === false)
+          ? { code: 'unsupported', fatal: true }
+          : null,
     });
   }
   return createHlsJsAdapter(host, env, win, deps);
@@ -361,8 +502,9 @@ function createHlsJsAdapter(host: MediaHost, env: AdapterEnv, win: Window, deps:
         fail({ code: 'unknown', fatal: true });
         return promise;
       }
-      // Before any request: a track this browser cannot decode, or no MSE at all.
-      if (canPlayMode(source.mode, chooseHlsPath(media, win), media, win) === false) {
+      // Before any request: an http stream on an https page (mixed content), a track this browser cannot decode, or
+      // no MSE at all.
+      if (isMixedContent(href, win) || canPlayMode(source.mode, chooseHlsPath(media, win), media, win) === false) {
         fail({ code: 'unsupported', fatal: true });
         return promise;
       }

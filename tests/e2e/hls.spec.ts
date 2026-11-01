@@ -127,3 +127,38 @@ test('Edge: Atmos plays with E-AC-3 decoded (msedge project only)', async ({ pag
   const decoded = await p.media.evaluate((v) => (v as unknown as { webkitAudioDecodedByteCount?: number }).webkitAudioDecodedByteCount ?? 0);
   expect(decoded).toBeGreaterThan(0);
 });
+
+/* ---- 0.5.1: picture from a separate HLS link (muted) + Dolby Atmos sound ---- */
+
+const SEPARATE = 'separate-video-live';
+
+test('separate picture link without E-AC-3: the sound is refused before any atmos request and the link panel shows', async ({ page }) => {
+  const p = await gotoPlayer(page, { event: SEPARATE, harness: 'hls' });
+  const env = await probe(page);
+  test.skip(env.ec3 === true || (env.native !== '' && env.mms), 'this engine decodes E-AC-3: covered by the Edge test');
+  const atmos = recordRequests(page, isPlaylist('atmos'));
+  await page.getByRole('button', { name: '開始聆聽' }).click();
+  await expect(p.view).toHaveAttribute('data-status', 'failed');
+  await expect(p.statusTitle).toHaveText(UNSUPPORTED);
+  await expect(page.locator('.wg-live__external')).toBeVisible();
+  expect(atmos.count(), 'no atmos playlist or segment was requested').toBe(0);
+});
+
+test('Edge: separate picture link plays muted on the stage while the Dolby Atmos sound plays (msedge project only)', async ({ page }, info) => {
+  test.skip(info.project.name !== 'harness-dev-msedge', 'Edge only (WG_E2E_EDGE=1 --project=harness-dev-msedge)');
+  const p = await gotoPlayer(page, { event: SEPARATE, harness: 'hls' });
+  expect((await probe(page)).ec3).toBe(true);
+  await page.getByRole('button', { name: '開始聆聽' }).click();
+  const video = page.locator('.wg-live video');
+  const sound = page.locator('audio.wg-live__sound');
+  await expect(sound).toHaveCount(1);
+  await expect.poll(() => sound.evaluate((a) => (a as HTMLAudioElement).currentTime), { timeout: 20_000 }).toBeGreaterThan(1);
+  await expect.poll(() => video.evaluate((v) => (v as HTMLVideoElement).currentTime), { timeout: 20_000 }).toBeGreaterThan(1);
+  expect(await video.evaluate((v) => (v as HTMLVideoElement).muted)).toBe(true);
+  expect(await video.evaluate((v) => (v as HTMLVideoElement).videoWidth)).toBeGreaterThan(0);
+  expect(await sound.evaluate((a) => (a as unknown as { webkitAudioDecodedByteCount?: number }).webkitAudioDecodedByteCount ?? 0)).toBeGreaterThan(0);
+  await expect(p.modeLabel).toContainText('Dolby Atmos 音軌');
+  await page.getByRole('button', { name: '暫停' }).click();
+  await expect.poll(() => sound.evaluate((a) => (a as HTMLAudioElement).paused)).toBe(true);
+  await expect.poll(() => video.evaluate((v) => (v as HTMLVideoElement).paused)).toBe(true);
+});

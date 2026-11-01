@@ -168,7 +168,7 @@ final class Events {
 	 * Normalized event data, from the stored meta (M1-PLAN 4.2). Never throws on bad data.
 	 *
 	 * @param WP_Post $post Event post.
-	 * @return array{performers:string[],description:string,starts_at_utc:string,display_timezone:string,status:string,media_kind:string,available_modes:string[],programme:string[],product_id:int,product_url:string,replay_available:bool,is_demo:bool,source_type:string}
+	 * @return array{performers:string[],description:string,starts_at_utc:string,display_timezone:string,status:string,media_kind:string,available_modes:string[],programme:string[],product_id:int,product_url:string,replay_available:bool,is_demo:bool,source_type:string,video_source:string}
 	 */
 	public static function get_event_data( $post ): array {
 		$id = $post instanceof WP_Post ? (int) $post->ID : 0;
@@ -209,6 +209,8 @@ final class Events {
 			'replay_available' => self::meta_bool( $id, 'replay_available' ),
 			'is_demo'          => $is_demo,
 			'source_type'      => $source_type,
+			// 0.5.1: where a video event's picture comes from: the Atmos link itself, or a separate HLS link.
+			'video_source'     => 'separate' === self::meta( $id, 'video_source' ) ? 'separate' : 'same',
 		);
 	}
 
@@ -502,14 +504,30 @@ final class Events {
 		foreach ( array( 'atmos' => 'HLS 播放清單（Dolby Atmos）' ) as $mode => $label ) {
 			self::row_open( 'wg-live-source-hls-' . $mode, $label );
 			printf(
-				'<input type="url" id="wg-live-source-hls-%1$s" name="%2$s[source_hls_%1$s]" value="%3$s" class="large-text code" spellcheck="false" placeholder="https://" />',
+				'<input type="url" id="wg-live-source-hls-%1$s" name="%2$s[source_hls_%1$s]" value="%3$s" class="large-text code" spellcheck="false" placeholder="http://" />',
 				esc_attr( $mode ),
 				esc_attr( $key ),
 				esc_attr( self::source_url( (int) $post->ID, 'hls', $mode ) )
 			);
 			self::row_close();
 		}
-		echo '<tr><th scope="row"></th><td><p class="description">網址必須使用 https，且主機在「Live 活動 → 設定 → 串流主機」清單內（由管理員設定）。</p></td></tr>';
+		// 0.5.1: a video event's picture comes from the Atmos link itself, or from a separate HLS link (a switch).
+		self::row_open( 'wg-live-video-separate', '影像來源' );
+		printf(
+			'<label><input type="checkbox" role="switch" id="wg-live-video-separate" name="%1$s[video_separate]" value="1"%2$s /> 影像使用另一個連結</label>',
+			esc_attr( $key ),
+			checked( $data['video_source'], 'separate', false )
+		);
+		echo '<p class="description">只在媒體類型為「影片」時使用。關閉：影像與 Dolby Atmos 音訊在同一個連結。開啟：畫面播放下方的影像連結（靜音），聲音播放上方的 Dolby Atmos 連結，兩者同時開始與暫停。個人播放連結只提供 Dolby Atmos 音訊連結。</p>';
+		self::row_close();
+		self::row_open( 'wg-live-source-hls-video', 'HLS 影像串流（另一個連結）' );
+		printf(
+			'<input type="url" id="wg-live-source-hls-video" name="%1$s[source_hls_video]" value="%2$s" class="large-text code" spellcheck="false" placeholder="http://" />',
+			esc_attr( $key ),
+			esc_attr( self::source_url( (int) $post->ID, 'hls', 'video' ) )
+		);
+		self::row_close();
+		echo '<tr><th scope="row"></th><td><p class="description">網址可用 http 或 https，且主機在「Live 活動 → 設定 → 串流主機」清單內（由管理員設定）。http 串流無法在本站的 https 頁面內播放，已購票的觀眾會改用個人播放連結（VLC 或 Safari）收聽。</p></td></tr>';
 
 		// Provider player pages per mode (M2-PLAN D1). Same rule: only through /playback after the ticket check.
 		foreach ( array( 'atmos' => '串流服務播放器頁面（Dolby Atmos）' ) as $mode => $label ) {
@@ -549,11 +567,12 @@ final class Events {
 	 *
 	 * @param int    $post_id Event ID.
 	 * @param string $type    hls (iframe in D1).
-	 * @param string $mode    binaural|atmos.
+	 * @param string $mode    binaural|atmos, or video (hls only, 0.5.1: the separate picture link).
 	 * @return string
 	 */
 	public static function source_url( int $post_id, string $type, string $mode ): string {
-		if ( ! in_array( $type, array( 'hls', 'iframe' ), true ) || ! in_array( $mode, array( 'binaural', 'atmos' ), true ) ) {
+		$modes = 'hls' === $type ? array( 'binaural', 'atmos', 'video' ) : array( 'binaural', 'atmos' );
+		if ( ! in_array( $type, array( 'hls', 'iframe' ), true ) || ! in_array( $mode, $modes, true ) ) {
 			return '';
 		}
 		$value = get_post_meta( $post_id, self::META_PREFIX . 'source_' . $type . '_' . $mode, true );
@@ -561,9 +580,11 @@ final class Events {
 	}
 
 	/**
-	 * Why a stream URL is refused ('' = acceptable): https only, and the host must be on Settings::stream_hosts().
-	 * In local/development environments plain http is also accepted for a loopback address or this site's own
-	 * host, for test fixtures.
+	 * Why a stream URL is refused ('' = acceptable): http or https, and the host must be on Settings::stream_hosts().
+	 *
+	 * 0.5.1 (user decision 2026-11-02): the live stream itself is plain http, so http is accepted on every
+	 * environment. On the https site such a stream cannot play inside the page (mixed content; the client refuses
+	 * it before any request) and ticket holders listen through their personal link in VLC or Safari.
 	 *
 	 * @param string $url Candidate.
 	 * @return string Taiwan Chinese message, or ''.
@@ -575,12 +596,8 @@ final class Events {
 		$parts  = wp_parse_url( $url );
 		$scheme = is_array( $parts ) && isset( $parts['scheme'] ) ? strtolower( $parts['scheme'] ) : '';
 		$host   = is_array( $parts ) && isset( $parts['host'] ) ? strtolower( $parts['host'] ) : '';
-		$own    = strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
-		$ip     = ip2long( $host );
-		$local  = in_array( wp_get_environment_type(), array( 'local', 'development' ), true )
-			&& ( ( false !== $ip && 127 === ( $ip >> 24 ) ) || ( '' !== $own && $own === $host ) );
-		if ( '' === $host || ! ( 'https' === $scheme || ( 'http' === $scheme && $local ) ) ) {
-			return sprintf( '串流網址「%s」必須使用 https，已保留原本的網址。', self::shorten( $url, 80 ) );
+		if ( '' === $host || ! in_array( $scheme, array( 'http', 'https' ), true ) ) {
+			return sprintf( '串流網址「%s」必須使用 http 或 https，已保留原本的網址。', self::shorten( $url, 80 ) );
 		}
 		if ( ! in_array( $host, Settings::stream_hosts(), true ) ) {
 			return sprintf( '「%s」不在「設定 → 串流主機」清單內，已保留原本的網址。請管理員先加入這個主機。', $host );
@@ -1076,8 +1093,10 @@ final class Events {
 
 		// HLS playlists (M2-PLAN B1): https on an admin-approved host. Provider player pages (D1): https on an
 		// admin-approved origin, plus a framing check that only warns. A refused value keeps the old one.
+		// 0.5.1: the switch for a separate picture link; the link itself is validated like the Atmos playlist.
+		update_post_meta( $post_id, $p . 'video_source', ! empty( $in['video_separate'] ) ? 'separate' : 'same' );
 		foreach ( array( 'hls', 'iframe' ) as $type ) {
-			foreach ( array( 'binaural', 'atmos' ) as $mode ) {
+			foreach ( 'hls' === $type ? array( 'binaural', 'atmos', 'video' ) : array( 'binaural', 'atmos' ) as $mode ) {
 				$field = 'source_' . $type . '_' . $mode;
 				if ( ! isset( $in[ $field ] ) || ! is_string( $in[ $field ] ) ) {
 					continue;

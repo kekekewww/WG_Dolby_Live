@@ -247,6 +247,25 @@ export function atmosOnlyHarnessEvent(now = Date.now()) {
   };
 }
 
+/** 0.5.1: a video event whose picture comes from a separate HLS link (?harness=hls, entitled). */
+export const SEPARATE_VIDEO_EVENT_SLUG = 'separate-video-live';
+
+/**
+ * @param {number} [now]
+ * @returns {PublicEvent}
+ */
+export function separateVideoHarnessEvent(now = Date.now()) {
+  return {
+    ...hlsHarnessEvent(now),
+    id: 9008,
+    slug: SEPARATE_VIDEO_EVENT_SLUG,
+    title: '【測試資料】影像另一個連結測試',
+    description: '開發測試資料：畫面來自另一個 HLS 連結（靜音），聲音是 Dolby Atmos 連結。',
+    availableModes: ['atmos'],
+    mediaKind: 'video',
+  };
+}
+
 export const IFRAME_EVENT_SLUG = 'iframe-fixture-live';
 /** The fake provider origin: the e2e tests serve dev/fake-player/ there through Playwright routing. */
 export const FAKE_PLAYER_ORIGIN = 'https://player.fake.test';
@@ -272,7 +291,7 @@ export function iframeHarnessEvent(now = Date.now()) {
  * @returns {PublicEvent[]}
  */
 function knownEvents(now = Date.now()) {
-  return [...harnessEvents(now), hlsHarnessEvent(now), iframeHarnessEvent(now), atmosOnlyHarnessEvent(now)];
+  return [...harnessEvents(now), hlsHarnessEvent(now), iframeHarnessEvent(now), atmosOnlyHarnessEvent(now), separateVideoHarnessEvent(now)];
 }
 
 /* ------------------------------------------------------------------ */
@@ -471,7 +490,7 @@ export function injectSiteMock(html, pageBase = '/dev/') {
 export function entitlementFor(event) {
   if (event.isDemo && event.sourceKind === 'demo') return 'entitled';
   // M2-PLAN C4: the harness viewer owns a ticket for the hls fixture event.
-  return event.slug === HLS_EVENT_SLUG || event.slug === IFRAME_EVENT_SLUG || event.slug === ATMOS_ONLY_EVENT_SLUG ? 'entitled' : 'unavailable';
+  return [HLS_EVENT_SLUG, IFRAME_EVENT_SLUG, ATMOS_ONLY_EVENT_SLUG, SEPARATE_VIDEO_EVENT_SLUG].includes(event.slug) ? 'entitled' : 'unavailable';
 }
 
 /**
@@ -489,6 +508,8 @@ export function resolvePlayback({ disabled, event, mode, env = process.env }) {
     return { kind: 'not_ready', reason: 'event_not_playable' }; // 6 (demo events skip it)
   }
   // 7 (M2): a real event's playlist for the mode, from the local fixture (unsigned: the harness is a local site).
+  // 0.5.1: the separate-picture event takes its picture from the AAC fixture (video + stereo), its sound from the Atmos one.
+  if (event.sourceKind === 'hls' && event.slug === SEPARATE_VIDEO_EVENT_SLUG) return { kind: 'hls', url: `/hls/${mode}/index.m3u8`, mode, videoUrl: '/hls/binaural/index.m3u8' };
   if (event.sourceKind === 'hls') return { kind: 'hls', url: `/hls/${mode}/index.m3u8`, mode };
   if (event.sourceKind === 'iframe') return { kind: 'iframe', url: `${FAKE_PLAYER_ORIGIN}/embed?track=${mode}`, allowedOrigin: FAKE_PLAYER_ORIGIN };
   // 7a: dev-only local Atmos file for the live demo event (hook above; unset = nothing changes).

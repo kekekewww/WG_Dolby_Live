@@ -150,11 +150,24 @@ final class Playback_Provider {
 				'allowedOrigin' => $origin,
 			);
 		}
-		return array(
+		$source = array(
 			'kind' => 'hls',
 			'url'  => $signed,
 			'mode' => $mode,
 		);
+		// 0.5.1: a video event with a separate picture link plays that link (muted) beside the Atmos sound. A missing,
+		// refused or unsignable picture link leaves the sound alone: the stage then stays without a picture.
+		$data = Events::get_event_data( get_post( (int) $event_id ) );
+		if ( 'video' === $data['media_kind'] && 'separate' === $data['video_source'] ) {
+			$video = Events::source_url( (int) $event_id, 'hls', 'video' );
+			if ( '' !== $video && '' === Events::stream_url_error( $video ) ) {
+				$signed_video = $signer->sign( $video, time() + Stream_Signers::ttl( (int) $event_id ) );
+				if ( '' !== $signed_video ) {
+					$source['videoUrl'] = $signed_video;
+				}
+			}
+		}
+		return $source;
 	}
 
 	/**

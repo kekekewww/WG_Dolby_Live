@@ -180,6 +180,19 @@ const NOT_CONFIGURED: PlaybackSource = { kind: 'not_ready', reason: 'source_not_
  * not_ready/source_not_configured. `demo` and (M2-PLAN C3) `hls` pass with a safe http(s) URL; `iframe` is
  * downgraded until its adapter exists (M2-PLAN D2), so no URL of it leaves this function.
  */
+/** A safe absolute http(s) URL, or null. */
+function httpUrl(value: unknown): string | null {
+  if (typeof value !== 'string' || value === '') return null;
+  const safe = safeUrl(value);
+  if (safe === null) return null;
+  try {
+    const protocol = new URL(safe).protocol;
+    return protocol === 'http:' || protocol === 'https:' ? safe : null;
+  } catch {
+    return null;
+  }
+}
+
 export function parsePlaybackSource(raw: unknown): PlaybackSource {
   if (!isRecord(raw)) return NOT_CONFIGURED;
 
@@ -220,7 +233,9 @@ export function parsePlaybackSource(raw: unknown): PlaybackSource {
       return NOT_CONFIGURED;
     }
     if (protocol !== 'http:' && protocol !== 'https:') return NOT_CONFIGURED;
-    return { kind: 'hls', url: safe, mode: mode as ListeningMode };
+    // 0.5.1: an optional separate picture link, same rules; a bad one is dropped and the sound still plays.
+    const video = httpUrl(raw.videoUrl);
+    return video === null ? { kind: 'hls', url: safe, mode: mode as ListeningMode } : { kind: 'hls', url: safe, mode: mode as ListeningMode, videoUrl: video };
   }
 
   if (raw.kind === 'iframe') {

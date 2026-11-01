@@ -515,3 +515,25 @@ describe('0.5.0: event requests carry the REST session (a manager previews a dem
     expect(headerOf(fetchMock.mock.calls[2] as unknown[])).toBe('9f8e7d6c5b');
   });
 });
+
+describe('0.5.1: a separate picture link (videoUrl) on an hls source', () => {
+  const base = { kind: 'hls', url: 'http://198.51.100.7:1935/live/atmos/playlist.m3u8', mode: 'atmos' } as const;
+
+  it('keeps an http(s) videoUrl next to the Atmos link', () => {
+    expect(parsePlaybackSource({ ...base, videoUrl: 'http://198.51.100.7:1935/live/video/playlist.m3u8' })).toEqual({
+      ...base,
+      videoUrl: 'http://198.51.100.7:1935/live/video/playlist.m3u8',
+    });
+    expect(parsePlaybackSource({ ...base, videoUrl: 'https://v.example.test/v.m3u8' })).toEqual({ ...base, videoUrl: 'https://v.example.test/v.m3u8' });
+  });
+
+  it('drops an unsafe or malformed videoUrl but keeps the sound', () => {
+    for (const videoUrl of ['javascript:alert(1)', 'mailto:a@b.test', 42, '', null]) {
+      expect(parsePlaybackSource({ ...base, videoUrl })).toEqual(base);
+    }
+  });
+
+  it('a source without videoUrl stays as it was', () => {
+    expect(parsePlaybackSource(base)).toEqual(base);
+  });
+});
