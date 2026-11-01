@@ -77,10 +77,11 @@ describe('entitlement panel (plan 6.2 table)', () => {
     expect(build(makeState({ entitlement: 'guest', source: 'not_configured' })).panel.el.hidden).toBe(true);
   });
 
-  it('is a labelled region and says the display is not a grant of access', () => {
+  it('is a labelled region with no internal note (0.5.0: the server-check note is maintainer text)', () => {
     const { panel } = build(makeState({ entitlement: 'guest' }));
     expect(panel.el.getAttribute('aria-label')).toBe('觀看資格');
-    expect(panel.el.textContent).toContain('觀看資格由伺服器端確認');
+    expect(panel.el.textContent).not.toContain('伺服器端確認');
+    expect(panel.el.querySelector('.wg-live__entitlement-note')).toBeNull();
   });
 
   it('refuses unsafe link targets', () => {

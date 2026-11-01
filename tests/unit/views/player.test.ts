@@ -298,9 +298,8 @@ describe('layout and content', () => {
       'wg-live__entitlement',
       'wg-live__external',
     ]);
-    // The mode-label note moved into the status block (the bar stays one row).
-    expect(q(m, '.wg-live__status .wg-live__mode-note')).toBeTruthy();
-    expect(maybe(m, '.wg-live__modebar .wg-live__mode-note')).toBeNull();
+    // 0.5.0: no mode-label disclaimer anywhere (maintainer document).
+    expect(maybe(m, '.wg-live__mode-note')).toBeNull();
 
     const player = q(m, '.wg-live__player');
     expect(player.getAttribute('role')).toBe('group');
@@ -367,7 +366,8 @@ describe('layout and content', () => {
     ]);
     expect(programme.textContent).not.toMatch(/正在演出|Now playing/i);
     for (const li of Array.from(programme.querySelectorAll('li'))) expect(li.textContent).not.toMatch(/正在|目前播放|Now/i);
-    expect(programme.textContent).toContain('不代表目前正在播放的曲目');
+    // 0.5.0: the programme is a plain list; the 「預定內容」 disclaimer is maintainer text.
+    expect(programme.textContent).not.toContain('不代表目前正在播放的曲目');
   });
 
   it('renders no empty labels when performers and programme are missing', () => {

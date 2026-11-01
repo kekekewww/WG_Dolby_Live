@@ -6,8 +6,6 @@
  */
 import type {
   BootConfig,
-  CompatibilityRow,
-  CompatibilityState,
   DeploymentMode,
   EventStatus,
   FaqItem,
@@ -26,7 +24,6 @@ const VIEWS: readonly LiveView[] = ['events', 'player', 'help'];
 const STATUSES: readonly EventStatus[] = ['scheduled', 'doors_open', 'live', 'intermission', 'ended', 'cancelled'];
 const SOURCE_KINDS: readonly SourceKind[] = ['not_configured', 'demo', 'hls', 'iframe'];
 const MODES: readonly ListeningMode[] = ['binaural', 'atmos'];
-const COMPAT_STATES: readonly CompatibilityState[] = ['pending', 'verified', 'not_working'];
 const DEFAULT_ZONE = 'Asia/Taipei';
 const MAX_EVENTS = 100;
 const MAX_ITEMS = 100;
@@ -167,27 +164,7 @@ function parseHelp(raw: unknown): HelpContent {
       }
     }
   }
-  const compatibility: CompatibilityRow[] = [];
-  if (Array.isArray(r.compatibility)) {
-    for (const item of r.compatibility.slice(0, MAX_ITEMS)) {
-      if (!isRec(item)) continue;
-      const state = oneOf(item.status, COMPAT_STATES) ?? 'pending';
-      const testedAt = typeof item.testedAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.testedAt) ? item.testedAt : null;
-      // Never show "verified"/"not working" without a test date (plan 4.3): fall back to pending.
-      const status: CompatibilityState = state !== 'pending' && testedAt === null ? 'pending' : state;
-      compatibility.push({
-        device: str(item.device),
-        os: str(item.os),
-        browser: str(item.browser),
-        outputPath: str(item.outputPath),
-        sourceFormat: str(item.sourceFormat),
-        status,
-        testedAt: status === 'pending' ? null : testedAt,
-        notes: str(item.notes),
-      });
-    }
-  }
-  return { faq, compatibility, supportNote: str(r.supportNote) };
+  return { faq, supportNote: str(r.supportNote) };
 }
 
 /** Find the config script that belongs to this root (not one nested in another .wg-live). */

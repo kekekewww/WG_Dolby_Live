@@ -543,13 +543,8 @@
   line-height: 1.4;
 }
 
-.wg-live .wg-live__guide-mode-text,
-.wg-live .wg-live__guide-mode-note {
+.wg-live .wg-live__guide-mode-text {
   margin: 10px 0 0;
-}
-
-.wg-live .wg-live__guide-mode-note {
-  margin-top: 8px;
 }
 
 .wg-live .wg-live__guide-help {

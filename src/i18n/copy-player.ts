@@ -79,8 +79,6 @@ export const playerCopy = {
   info: {
     heading: '活動資訊',
     programmeHeading: '節目單',
-    /** Static list only: never claims a track is playing now (spec 5.3). */
-    programmeNote: '節目單為預定內容，不代表目前正在播放的曲目。',
     dateLabel: '演出時間',
   },
   helpLink: '聆聽說明',

@@ -32,7 +32,6 @@ export function createEntitlementPanel(options: EntitlementPanelOptions): Entitl
   const { controller, links, event } = options;
 
   const message = h('p', { className: 'wg-live__entitlement-message' });
-  const note = h('p', { className: 'wg-live__entitlement-note wg-live__small wg-live__muted', text: statusCopy.entitlement.note });
 
   const accountHref = safeUrl(links.account);
   const buyHref = safeUrl(event.productUrl);
@@ -62,7 +61,6 @@ export function createEntitlementPanel(options: EntitlementPanelOptions): Entitl
     { className: 'wg-live__entitlement', hidden: true, attrs: { 'aria-label': playerCopy.entitlementLabel } },
     message,
     actions,
-    note,
   );
 
   const onRetry = (): void => {

@@ -1,17 +1,15 @@
-import { DEMO_MEDIA_NOTICE } from './copy-status';
-
 /**
  * Help page copy (plan 6.11, spec 5.5). Taiwan Traditional Chinese.
  *
- * The fixed sections come from here, in this order: modes, Safari-first note, home-theater
- * compatibility table, no sound, reconnecting, switching modes, keyboard, contact. Admin FAQ items
- * (HelpContent.faq) come after them. Nothing here claims a device works: "supported" is only ever
- * shown for a compatibility row the admin saved with a test record (plan 4.3).
+ * The fixed sections come from here, in this order: how to listen, no sound, reconnecting, VLC,
+ * keyboard, contact. Admin FAQ items (HelpContent.faq) come after them. Nothing here claims a device
+ * works. 0.5.0: testing and acceptance notes (Safari-first, the compatibility table, label disclaimers)
+ * are not on the site; they live in the maintainer document「WG Studio Live 維護與測試說明」.
  */
 export const helpCopy = {
   title: 'Listening Guide', // [spec 2.3]
   subtitle: '聆聽說明',
-  intro: '開始聆聽前，可以先了解播放方式、支援條件與常見問題。',
+  intro: '開始聆聽前，可以先了解播放方式與常見問題。',
   backToEvents: '返回活動列表',
 
   /* ---- 1. how to listen (one Dolby Atmos stream) ---- */
@@ -22,51 +20,11 @@ export const helpCopy = {
     apple: {
       name: 'Mac、iPhone、iPad · Safari',
       description: '用 Safari 開啟播放頁，按「開始聆聽」即可播放 Dolby Atmos 串流。',
-      note: '耳機或家庭劇院能否呈現 Atmos 效果，依裝置與連接方式而定，請以聆聽說明的相容表為準。',
     },
     windows: {
       name: 'Windows 與其他瀏覽器 · VLC',
       description: '瀏覽器無法播放 Dolby Atmos 時，已購票的觀眾可在播放頁取得個人播放連結，用 VLC 開啟。',
-      note: 'VLC 能否輸出 Atmos 效果，依 VLC 的設定與設備而定。',
     },
-    labelNote: '畫面上的「已選擇」與「目前播放」只代表播放的音訊版本，不代表已確認裝置的輸出方式。',
-  },
-
-  /* ---- 2. Safari-first ---- */
-  safari: {
-    heading: '瀏覽器與驗收說明',
-    paragraphs: [
-      '本專案以 Safari（iPhone、iPad 與 Mac）作為優先驗收的瀏覽器；其他瀏覽器尚未全面驗收。',
-      '本站依瀏覽器實際提供的功能判斷能否播放，不依瀏覽器名稱限制使用。瀏覽器無法播放 Dolby Atmos 時（例如 Windows 上的 Chrome、Edge），播放頁會說明，並讓已購票的觀眾取得個人播放連結，改用 VLC 開啟。',
-      '能否呈現 Atmos 效果，取決於播放裝置、連接方式與瀏覽器的組合，請以下方相容表的實測紀錄為準。',
-    ],
-  },
-
-  /* ---- 3. compatibility table ---- */
-  compat: {
-    heading: '家庭劇院連接方式',
-    lead: '下表記錄各裝置、連接方式與瀏覽器的實測結果。沒有實測的組合一律標示為「尚待測試」，不代表支援，也不代表不支援。',
-    caption: '家庭劇院相容表：裝置、作業系統、瀏覽器、輸出路徑、來源格式與測試結果',
-    columns: {
-      device: '裝置',
-      os: '作業系統',
-      browser: '瀏覽器',
-      outputPath: '輸出路徑',
-      sourceFormat: '來源格式',
-      status: '測試結果',
-      testedAt: '測試日期',
-      notes: '備註',
-    },
-    status: {
-      pending: '尚待測試', // [spec 5.5 / plan 6.11]
-      verified: '已驗證',
-      not_working: '實測無法使用',
-    },
-    /** Cell without a value (a pending row the admin has not filled in yet). */
-    cellEmpty: '待確認',
-    dateEmpty: '尚無紀錄',
-    empty: '相容表資料尚未建立，所有連接方式目前都尚待測試。',
-    demoNote: `介面示範活動使用的是「${DEMO_MEDIA_NOTICE}」，不能用來判斷您的設備是否能呈現 Atmos。`,
   },
 
   /* ---- 4. no sound ---- */

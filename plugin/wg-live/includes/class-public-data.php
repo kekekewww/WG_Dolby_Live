@@ -423,9 +423,9 @@ final class Public_Data {
 	}
 
 	/**
-	 * HelpContent from the settings (faq, compatibility table, support note).
+	 * HelpContent from the settings (faq, support note). 0.5.0: no compatibility table.
 	 *
-	 * @return array{faq:array,compatibility:array,supportNote:string}
+	 * @return array{faq:array,supportNote:string}
 	 */
 	public static function help_content() {
 		$settings = Settings::get();
@@ -447,19 +447,10 @@ final class Public_Data {
 			}
 		}
 
-		$compatibility = array();
-		if ( isset( $settings['compatibility'] ) && is_array( $settings['compatibility'] ) ) {
-			foreach ( $settings['compatibility'] as $row ) {
-				if ( is_array( $row ) ) {
-					$compatibility[] = self::compatibility_row( $row );
-				}
-			}
-		}
-
+		// 0.5.0: the device compatibility table stays an internal test record; it is never public data.
 		return array(
-			'faq'           => $faq,
-			'compatibility' => $compatibility,
-			'supportNote'   => self::plain_text( isset( $settings['support_note'] ) ? $settings['support_note'] : '' ),
+			'faq'         => $faq,
+			'supportNote' => self::plain_text( isset( $settings['support_note'] ) ? $settings['support_note'] : '' ),
 		);
 	}
 
@@ -725,46 +716,5 @@ final class Public_Data {
 			);
 		}
 		return null;
-	}
-
-	/**
-	 * Normalize one compatibility row (accepts camelCase or snake_case keys).
-	 *
-	 * @param array $row Stored row.
-	 * @return array CompatibilityRow.
-	 */
-	private static function compatibility_row( array $row ) {
-		$pick = static function ( array $keys ) use ( $row ) {
-			foreach ( $keys as $key ) {
-				if ( isset( $row[ $key ] ) && is_scalar( $row[ $key ] ) ) {
-					return Public_Data::plain_text( $row[ $key ] );
-				}
-			}
-			return '';
-		};
-
-		$state     = $pick( array( 'status' ) );
-		$tested_at = $pick( array( 'testedAt', 'tested_at' ) );
-		if ( 1 !== preg_match( '/^\d{4}-\d{2}-\d{2}$/D', $tested_at ) ) {
-			$tested_at = '';
-		}
-		if ( 'verified' !== $state && 'not_working' !== $state ) {
-			$state = 'pending';
-		}
-		// Plan 4.3: a result without a test date is shown as pending.
-		if ( 'pending' !== $state && '' === $tested_at ) {
-			$state = 'pending';
-		}
-
-		return array(
-			'device'       => $pick( array( 'device' ) ),
-			'os'           => $pick( array( 'os' ) ),
-			'browser'      => $pick( array( 'browser' ) ),
-			'outputPath'   => $pick( array( 'outputPath', 'output_path' ) ),
-			'sourceFormat' => $pick( array( 'sourceFormat', 'source_format' ) ),
-			'status'       => $state,
-			'testedAt'     => ( 'pending' === $state || '' === $tested_at ) ? null : $tested_at,
-			'notes'        => $pick( array( 'notes' ) ),
-		);
 	}
 }

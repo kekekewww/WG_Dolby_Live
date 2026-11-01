@@ -31,7 +31,7 @@ export const statusCopy = {
     sourceNotConfigured: { title: '播放來源尚未開放', detail: '這場活動的播放來源尚未開放，請稍後再查看。' }, // [spec 6]
     scheduled: { title: '演出尚未開始', detail: null }, // [spec 6] detail = startsAt(...)
     doorsOpen: { title: '即將開放聆聽', detail: '開放後即可按「開始聆聽」。' }, // [spec 6]; decision 2026-11-01: no mode to choose
-    intermission: { title: '演出中場休息', detail: '播放連線與目前模式會保留。' }, // [spec 6]
+    intermission: { title: '演出中場休息', detail: '播放連線會保留。' }, // [spec 6]; 0.5.0: one stream, no mode
     live: { title: '演出進行中', detail: null },
   },
   /** "開始時間：2026年10月24日（六）19:30 台北時間" */
@@ -65,8 +65,6 @@ export const statusCopy = {
   providerSelectedMode: (modeName: string): string => `已選擇：${modeName}（由串流服務播放器播放）`,
   /** 目前播放：Binaural — only after the adapter confirmed playing. */
   currentMode: (modeName: string): string => `目前播放：${modeName}`,
-  /** Help text for the label (never claims device output). */
-  modeLabelNote: '模式標示只代表所選的音訊版本，不代表已確認裝置的輸出方式。',
 
   /* ---- event status badges ---- */
   eventStatus: eventStatusLabels,
@@ -77,7 +75,6 @@ export const statusCopy = {
     notEntitled: { message: '尚未取得觀看資格', action: '購票' }, // [plan 6.2]
     unavailable: { message: '暫時無法確認觀看資格', retry: '重試', contact: '聯絡我們' }, // [spec 6]
     checking: '正在確認觀看資格',
-    note: '觀看資格由伺服器端確認；介面上的顯示不代表已取得權限。',
   },
 
   /* ---- actions (button / link labels) ---- */

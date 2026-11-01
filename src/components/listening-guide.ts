@@ -23,7 +23,6 @@ export function createListeningGuide(opts: ListeningGuideOptions): HTMLElement {
       { className: `wg-live__guide-mode wg-live__guide-mode--${key}` },
       h(subTag, { className: 'wg-live__guide-mode-name', text: copy.modes[key].name }),
       h('p', { className: 'wg-live__guide-mode-text', text: copy.modes[key].description }),
-      h('p', { className: 'wg-live__guide-mode-note wg-live__muted wg-live__small', text: copy.modes[key].note }),
     );
 
   const section = h(

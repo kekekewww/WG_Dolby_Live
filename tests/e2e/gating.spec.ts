@@ -34,7 +34,8 @@ test.describe('F02 direct player link', () => {
     await expect(p.root.locator('.wg-live__info')).toContainText('這是介面示範活動');
     await expect(p.root.getByRole('heading', { name: '節目單' })).toBeVisible();
     await expect(p.root.locator('.wg-live__programme-list li')).toHaveText(['示範曲目 一', '示範曲目 二', '示範曲目 三']);
-    await expect(p.root.locator('.wg-live__programme-note')).toContainText('不代表目前正在播放的曲目');
+    // 0.5.0: the programme is a plain list; its 「預定內容」 disclaimer is maintainer text.
+    await expect(p.root.locator('.wg-live__programme-note')).toHaveCount(0);
     await expect(p.root.locator('.wg-live__help-link a')).toHaveText('聆聽說明');
     await expectHref(p.root.locator('.wg-live__help-link a'), '/dev/help.html');
 
@@ -346,7 +347,7 @@ test.describe('F10 entitlement panels', () => {
     await expect(p.entitlement).toBeVisible();
     await expect(p.entitlement.locator('.wg-live__entitlement-message')).toHaveText('請先登入');
     await expectHref(p.entitlement.getByRole('link', { name: '登入' }), '/dev/stub.html?page=account');
-    await expect(p.entitlement).toContainText('觀看資格由伺服器端確認');
+    await expect(p.entitlement).not.toContainText('伺服器端確認');
     await expect(p.primary).toHaveAttribute('aria-disabled', 'true');
     await expect(p.startReason).toHaveText('請先登入');
     // The status message and the entitlement panel are separate things (plan 6.2).

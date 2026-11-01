@@ -260,23 +260,9 @@ export interface FaqItem {
   answer: string;
 }
 
-export type CompatibilityState = 'pending' | 'verified' | 'not_working';
-
-export interface CompatibilityRow {
-  device: string;
-  os: string;
-  browser: string;
-  outputPath: string;
-  sourceFormat: string;
-  status: CompatibilityState;
-  /** ISO date (YYYY-MM-DD) or null when untested. */
-  testedAt: string | null;
-  notes: string;
-}
-
+/** 0.5.0: the device compatibility table is an internal test record (maintainer document), not public data. */
 export interface HelpContent {
   faq: FaqItem[];
-  compatibility: CompatibilityRow[];
   /** Optional admin note shown above the contact link. Plain text. */
   supportNote: string;
 }

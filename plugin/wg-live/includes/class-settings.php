@@ -675,7 +675,7 @@ final class Settings {
 		add_settings_section( 'wg_live_help', '聆聽說明內容', array( __CLASS__, 'section_help' ), $page );
 		add_settings_field( 'wg_live_f_support', '支援說明', array( __CLASS__, 'field_support_note' ), $page, 'wg_live_help', array( 'label_for' => 'wg-live-support_note' ) );
 		add_settings_field( 'wg_live_f_faq', '常見問題', array( __CLASS__, 'field_faq' ), $page, 'wg_live_help' );
-		add_settings_field( 'wg_live_f_compat', '家庭劇院相容表', array( __CLASS__, 'field_compat' ), $page, 'wg_live_help' );
+		add_settings_field( 'wg_live_f_compat', '家庭劇院相容表（內部紀錄）', array( __CLASS__, 'field_compat' ), $page, 'wg_live_help' );
 
 		add_settings_section( 'wg_live_audio', '示範音訊', array( __CLASS__, 'section_audio' ), $page );
 		// Decision 2026-11-01: no Binaural mode, so no Binaural demo audio picker (the stored value is kept, unused).
@@ -1198,7 +1198,7 @@ final class Settings {
 
 	/** @return void */
 	public static function section_help(): void {
-		echo '<p>這些內容會顯示在聆聽說明頁。全部是純文字，不支援 HTML。</p>';
+		echo '<p>支援說明與常見問題會顯示在聆聽說明頁；相容表只是內部紀錄，不會顯示在網站上。全部是純文字，不支援 HTML。</p>';
 	}
 
 	/** @return void */
@@ -1247,7 +1247,7 @@ final class Settings {
 	/** @return void */
 	public static function field_compat(): void {
 		$rows = self::get()['compatibility'];
-		echo '<p class="description">初始狀態全部是「尚待測試」。沒有實測就不要標示「已驗證」；選擇「已驗證」或「無法使用」時，測試日期、裝置、作業系統、瀏覽器與輸出路徑都必須填寫，否則會自動存回「尚待測試」。</p>';
+		echo '<p class="description">內部紀錄，不會顯示在網站上（0.5.0 起；正式紀錄見維護與測試說明文件）。初始狀態全部是「尚待測試」。沒有實測就不要標示「已驗證」；選擇「已驗證」或「無法使用」時，測試日期、裝置、作業系統、瀏覽器與輸出路徑都必須填寫，否則會自動存回「尚待測試」。</p>';
 		echo '<div class="wg-live-admin__repeat" data-wg-live-repeat data-next-index="' . esc_attr( (string) ( count( $rows ) + 1 ) ) . '">';
 		echo '<div data-wg-live-rows>';
 		foreach ( array_values( $rows ) as $index => $row ) {

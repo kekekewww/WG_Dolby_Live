@@ -48,13 +48,10 @@ for (const vp of VIEWPORTS) {
       await expectNoHorizontalScroll(page, 'events disabled');
     });
 
-    test('help page (compatibility table stacks instead of scrolling)', async ({ page }) => {
+    test('help page', async ({ page }) => {
       await gotoView(page, 'help');
+      await expect(page.locator('.wg-live__help-section--keyboard')).toBeVisible();
       await expectNoHorizontalScroll(page, 'help');
-      const table = page.locator('.wg-live__compat-table');
-      await expect(table).toBeVisible();
-      const wrap = await page.locator('.wg-live__compat-wrap').evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth }));
-      expect(wrap.sw).toBeLessThanOrEqual(wrap.cw + 1);
     });
 
     test('player: idle, mode chosen', async ({ page }) => {

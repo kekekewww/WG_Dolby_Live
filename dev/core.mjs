@@ -21,7 +21,6 @@ import { renderHls } from '../scripts/build-hls.mjs';
 /** @typedef {import('../src/types.ts').ListeningMode} ListeningMode */
 /** @typedef {import('../src/types.ts').LiveView} LiveView */
 /** @typedef {import('../src/types.ts').SiteLinks} SiteLinks */
-/** @typedef {import('../src/types.ts').CompatibilityRow} CompatibilityRow */
 
 export const ROOT = resolve(import.meta.dirname, '..');
 // tests/fixtures/media holds the self-generated E-AC-3 test clip (tests/e2e/unsupported-audio.spec.ts); the harness only.
@@ -276,30 +275,6 @@ function knownEvents(now = Date.now()) {
   return [...harnessEvents(now), hlsHarnessEvent(now), iframeHarnessEvent(now), atmosOnlyHarnessEvent(now)];
 }
 
-/** @type {CompatibilityRow[]} */
-const COMPAT_ROWS = [
-  {
-    device: 'iPhone / iPad',
-    os: 'iOS / iPadOS',
-    browser: 'Safari',
-    outputPath: '耳機',
-    sourceFormat: '示範音訊',
-    status: 'pending',
-    testedAt: null,
-    notes: '尚待測試',
-  },
-  {
-    device: 'Mac',
-    os: 'macOS',
-    browser: 'Safari',
-    outputPath: 'AirPlay / 家庭劇院',
-    sourceFormat: '示範音訊',
-    status: 'pending',
-    testedAt: null,
-    notes: '尚待測試',
-  },
-];
-
 /* ------------------------------------------------------------------ */
 /* Harness options and BootConfig                                      */
 /* ------------------------------------------------------------------ */
@@ -413,7 +388,6 @@ export function buildBootConfig(view, now = Date.now(), overrides = {}) {
         { question: '【介面示範】需要什麼設備？', answer: '這是示範內容。\n實際說明會由後台設定。' },
         { question: '【介面示範】聽不到聲音怎麼辦？', answer: '這是示範內容。' },
       ],
-      compatibility: COMPAT_ROWS,
       supportNote: '這是介面示範用的客服說明。',
     },
     devTools: options.devTools,

@@ -38,7 +38,7 @@ function config(view: string): string {
     rest: { root: '/wp-json/wg-live/v1/' },
     links: { home: '/' },
     events: [],
-    help: { faq: [], compatibility: [], supportNote: '' },
+    help: { faq: [], supportNote: '' },
     devTools: false,
   });
 }

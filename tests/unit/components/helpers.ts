@@ -58,7 +58,7 @@ export function makeBoot(overrides: Partial<BootConfig> = {}): BootConfig {
     featuredEventSlug: null,
     heading: 'h2',
     events: [event],
-    help: { faq: [], compatibility: [], supportNote: '' },
+    help: { faq: [], supportNote: '' },
     devTools: false,
     ...overrides,
   };

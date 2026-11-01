@@ -73,7 +73,7 @@ export function makeBoot(patch: Partial<BootConfig> = {}): BootConfig {
     featuredEventSlug: null,
     heading: 'h2',
     events: [],
-    help: { faq: [], compatibility: [], supportNote: '' },
+    help: { faq: [], supportNote: '' },
     devTools: false,
     ...patch,
   };

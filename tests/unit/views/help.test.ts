@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { helpCopy } from '../../../src/i18n/copy-help';
-import { DEMO_MEDIA_NOTICE } from '../../../src/i18n/copy-status';
-import type { BootConfig, CompatibilityRow } from '../../../src/types';
+import type { BootConfig } from '../../../src/types';
 import { mountHelpView } from '../../../src/views/help';
 import type { ViewInstance } from '../../../src/views/types';
 
@@ -27,22 +26,8 @@ function makeBoot(overrides: Partial<BootConfig> = {}): BootConfig {
     featuredEventSlug: null,
     heading: 'h2',
     events: [],
-    help: { faq: [], compatibility: [], supportNote: '' },
+    help: { faq: [], supportNote: '' },
     devTools: false,
-    ...overrides,
-  };
-}
-
-function row(overrides: Partial<CompatibilityRow> = {}): CompatibilityRow {
-  return {
-    device: 'Apple TV 4K',
-    os: 'tvOS',
-    browser: 'Safari',
-    outputPath: 'HDMI 到支援的電視',
-    sourceFormat: 'HLS',
-    status: 'pending',
-    testedAt: null,
-    notes: '',
     ...overrides,
   };
 }
@@ -90,12 +75,10 @@ describe('help view: fixed sections (plan 6.11)', () => {
     expect(mount.querySelector('.wg-live__help-mode-name')?.tagName).toBe('H3');
   });
 
-  it('has the eight fixed sections in order, with no FAQ section when the admin FAQ is empty', () => {
+  it('has the six fixed sections in order, with no FAQ section when the admin FAQ is empty', () => {
     mountView(makeBoot());
     expect(sectionHeadings()).toEqual([
       helpCopy.modes.heading,
-      helpCopy.safari.heading,
-      helpCopy.compat.heading,
       '沒有聲音時',
       '重新連線',
       '用 VLC 收聽',
@@ -115,9 +98,12 @@ describe('help view: fixed sections (plan 6.11)', () => {
     expect(mount.textContent).not.toMatch(/已認證|7\.1\.4 已連線|全部設備|所有設備都/);
   });
 
-  it('states the Safari-first acceptance note', () => {
+  it('0.5.0: shows no testing or acceptance text (Safari-first note, compatibility table, label disclaimers)', () => {
     mountView(makeBoot());
-    expect(mount.querySelector('.wg-live__help-section--safari')?.textContent).toContain('Safari');
+    expect(mount.querySelector('.wg-live__help-section--safari')).toBeNull();
+    expect(mount.querySelector('.wg-live__help-section--compat')).toBeNull();
+    expect(mount.querySelector('table')).toBeNull();
+    expect(mount.textContent).not.toMatch(/驗收|尚待測試|相容表|實測|驗證素材|不代表已確認|支援條件/);
   });
 
   it('UI-09: does not promise a 「尚未確認」 state the player never renders', () => {
@@ -171,107 +157,9 @@ describe('help view: fixed sections (plan 6.11)', () => {
   });
 });
 
-describe('help view: compatibility table', () => {
-  it('renders pending rows as 尚待測試 text, not as a supported claim', () => {
-    mountView(makeBoot({ help: { faq: [], supportNote: '', compatibility: [row(), row({ device: 'AVR 示意', os: 'iPadOS' })] } }));
-    const statuses = Array.from(mount.querySelectorAll('.wg-live__compat-status'));
-    expect(statuses).toHaveLength(2);
-    for (const el of statuses) {
-      expect(el.textContent).toBe('尚待測試');
-      expect((el as HTMLElement).dataset.status).toBe('pending');
-    }
-    expect(helpCopy.compat.status.pending).toBe('尚待測試');
-    expect(mount.querySelector('.wg-live__help-section--compat')?.textContent).not.toMatch(/已支援|支援 ✓|通過/);
-  });
-
-  it('uses a real table with a caption, column headers with scope and row headers', () => {
-    mountView(makeBoot({ help: { faq: [], supportNote: '', compatibility: [row()] } }));
-    const table = mount.querySelector('table.wg-live__compat-table') as HTMLTableElement;
-    expect(table).not.toBeNull();
-    expect(table.querySelector('caption')?.textContent).toBe(helpCopy.compat.caption);
-    const heads = Array.from(table.querySelectorAll('thead th'));
-    expect(heads.map((th) => th.textContent)).toEqual([
-      '裝置',
-      '作業系統',
-      '瀏覽器',
-      '輸出路徑',
-      '來源格式',
-      '測試結果',
-      '測試日期',
-      '備註',
-    ]);
-    for (const th of heads) expect(th.getAttribute('scope')).toBe('col');
-    const rowHead = table.querySelector('tbody th');
-    expect(rowHead?.getAttribute('scope')).toBe('row');
-    expect(rowHead?.textContent).toContain('Apple TV 4K');
-    // Explicit roles keep the table semantics when CSS turns the rows into stacked blocks.
-    expect(table.getAttribute('role')).toBe('table');
-    expect(table.querySelector('tbody tr')?.getAttribute('role')).toBe('row');
-  });
-
-  it('records device, OS, browser, output path, source format and test date in each row', () => {
-    mountView(
-      makeBoot({
-        help: {
-          faq: [],
-          supportNote: '',
-          compatibility: [row({ status: 'verified', testedAt: '2026-10-12', notes: '實機測試' })],
-        },
-      }),
-    );
-    const text = mount.querySelector('tbody tr')?.textContent ?? '';
-    for (const part of ['Apple TV 4K', 'tvOS', 'Safari', 'HDMI 到支援的電視', 'HLS', '已驗證', '2026-10-12', '實機測試']) {
-      expect(text).toContain(part);
-    }
-  });
-
-  it('shows the result as text for not_working rows and a placeholder for missing values', () => {
-    mountView(
-      makeBoot({
-        help: {
-          faq: [],
-          supportNote: '',
-          compatibility: [row({ status: 'not_working', testedAt: '2026-10-12' }), row({ device: '', os: '', browser: '', outputPath: '', sourceFormat: '' })],
-        },
-      }),
-    );
-    const rows = mount.querySelectorAll('tbody tr');
-    expect(rows[0]?.querySelector('.wg-live__compat-status')?.textContent).toBe('實測無法使用');
-    expect(rows[1]?.textContent).toContain('待確認');
-    expect(rows[1]?.querySelector('.wg-live__compat-status')?.textContent).toBe('尚待測試');
-    expect(rows[1]?.textContent).toContain('尚無紀錄');
-  });
-
-  it('hides the stacked-layout cell labels from assistive technology (column headers name the cells)', () => {
-    mountView(makeBoot({ help: { faq: [], supportNote: '', compatibility: [row()] } }));
-    const labels = mount.querySelectorAll('.wg-live__compat-cell-label');
-    expect(labels.length).toBeGreaterThan(0);
-    for (const label of Array.from(labels)) expect(label.getAttribute('aria-hidden')).toBe('true');
-  });
-
-  it('shows an explanatory empty note instead of an empty table', () => {
-    mountView(makeBoot());
-    expect(mount.querySelector('table')).toBeNull();
-    expect(mount.querySelector('.wg-live__compat-empty')?.textContent).toBe(helpCopy.compat.empty);
-    expect(mount.querySelector('.wg-live__help-section--compat')?.textContent).toContain('尚待測試');
-  });
-
-  it('keeps the demo-media disclaimer next to the table', () => {
-    mountView(makeBoot());
-    expect(mount.querySelector('.wg-live__help-section--compat')?.textContent).toContain(DEMO_MEDIA_NOTICE);
-  });
-
-  it('renders hostile cell values as text', () => {
-    const evil = '<img src=x onerror=alert(1)>';
-    mountView(makeBoot({ help: { faq: [], supportNote: '', compatibility: [row({ device: evil, notes: evil })] } }));
-    expect(mount.querySelector('img')).toBeNull();
-    expect(mount.querySelector('tbody th .wg-live__compat-cell-value')?.textContent).toBe(evil);
-  });
-});
-
 describe('help view: contact and FAQ', () => {
   it('shows the support note first, then the contact link', () => {
-    mountView(makeBoot({ help: { faq: [], compatibility: [], supportNote: '服務時間：週一至週五。\n請附上裝置型號。' } }));
+    mountView(makeBoot({ help: { faq: [], supportNote: '服務時間：週一至週五。\n請附上裝置型號。' } }));
     const contact = mount.querySelector('.wg-live__help-section--contact') as HTMLElement;
     const children = Array.from(contact.children).slice(1); // after the heading
     expect(children[0]?.textContent).toBe('服務時間：週一至週五。');
@@ -302,7 +190,6 @@ describe('help view: contact and FAQ', () => {
             { question: '可以用藍牙耳機嗎？', answer: '可以。\n但延遲依裝置而定。' },
             { question: '', answer: 'ignored' },
           ],
-          compatibility: [],
           supportNote: '',
         },
       }),
@@ -331,13 +218,13 @@ describe('help view: contact and FAQ', () => {
 describe('help view: availability and safety', () => {
   it('stays fully available in disabled mode', () => {
     mountView(makeBoot({ deploymentMode: 'disabled', events: [] }));
-    expect(sectionHeadings()).toHaveLength(8);
+    expect(sectionHeadings()).toHaveLength(6);
     expect(mount.textContent).not.toContain('線上音樂會尚未開放');
   });
 
   it('keeps hostile admin text as text', () => {
     const evil = '<script>alert(1)</script><img src=x onerror=alert(2)>';
-    mountView(makeBoot({ help: { faq: [{ question: evil, answer: evil }], compatibility: [], supportNote: evil } }));
+    mountView(makeBoot({ help: { faq: [{ question: evil, answer: evil }], supportNote: evil } }));
     expect(mount.querySelector('script')).toBeNull();
     expect(mount.querySelector('img')).toBeNull();
     expect(mount.querySelector('[onerror]')).toBeNull();

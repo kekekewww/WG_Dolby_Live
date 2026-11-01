@@ -3,11 +3,8 @@
  * with the events view and live in events.css.
  *
  * Same system as the events page (docs/design/HYBRID.md): type scale and space, no boxes, no
- * rules. Two-class selectors throughout (see events.css). The compatibility table is a real
- * <table> from 1024px up. Below that each row becomes a stacked block with visible cell labels,
- * so there is no horizontal scrolling at 360px (spec 7.1); the table roles are set explicitly in
- * the markup, so assistive technology keeps the table semantics when display is changed. The
- * test result is always text in a badge, never colour alone (spec 7.2).
+ * rules. Two-class selectors throughout (see events.css). 0.5.0: no compatibility table on the
+ * site (it is an internal test record in the maintainer document).
  */
 
 .wg-live .wg-live__help-section {
@@ -103,159 +100,6 @@
   line-height: 1.7;
 }
 
-/* ---- 3. compatibility table: stacked blocks by default ---- */
-.wg-live .wg-live__compat-wrap {
-  display: block;
-  min-width: 0;
-  margin: 28px 0 var(--wg-space-4);
-}
-
-.wg-live .wg-live__compat-table {
-  display: block;
-  width: 100%;
-  margin: 0;
-  border: 0;
-  border-collapse: collapse;
-  color: var(--wg-text);
-  font-size: var(--wg-font-size-body);
-  line-height: 1.5;
-}
-
-.wg-live .wg-live__compat-caption {
-  display: block;
-  margin: 0 0 var(--wg-space-4);
-  padding: 0;
-  color: var(--wg-text-muted);
-  font-size: var(--wg-font-size-small);
-  font-weight: var(--wg-font-weight-text);
-  text-align: start;
-}
-
-/* The header row stays in the accessibility tree (visually hidden) while rows are stacked. */
-.wg-live .wg-live__compat-thead {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  border: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.wg-live .wg-live__compat-table tbody {
-  display: block;
-}
-
-.wg-live .wg-live__compat-row {
-  display: block;
-  margin: 0 0 40px;
-  padding: 0;
-}
-
-.wg-live .wg-live__compat-device,
-.wg-live .wg-live__compat-cell {
-  display: grid;
-  grid-template-columns: minmax(6em, 8em) minmax(0, 1fr);
-  gap: var(--wg-space-3);
-  align-items: baseline;
-  margin: 0;
-  padding: var(--wg-space-1) 0;
-  border: 0;
-  color: var(--wg-text);
-  font-size: var(--wg-font-size-body);
-  font-weight: var(--wg-font-weight-body);
-  text-align: start;
-  overflow-wrap: anywhere;
-}
-
-.wg-live .wg-live__compat-device {
-  font-family: var(--wg-font-ui);
-  font-size: var(--wg-font-size-h4);
-  font-weight: var(--wg-font-weight-strong);
-}
-
-.wg-live .wg-live__compat-cell-label {
-  color: var(--wg-text-muted);
-  font-size: var(--wg-font-size-small);
-  font-weight: var(--wg-font-weight-text);
-}
-
-.wg-live .wg-live__compat-status {
-  justify-self: start;
-  white-space: normal;
-}
-
-/* ---- 3. compatibility table: a real table on wide screens ---- */
-@media (min-width: 1024px) {
-  .wg-live .wg-live__compat-table {
-    display: table;
-    table-layout: auto;
-  }
-
-  .wg-live .wg-live__compat-caption {
-    display: table-caption;
-    caption-side: top;
-  }
-
-  .wg-live .wg-live__compat-thead {
-    position: static;
-    display: table-header-group;
-    width: auto;
-    height: auto;
-    margin: 0;
-    overflow: visible;
-    clip: auto;
-    clip-path: none;
-    white-space: normal;
-  }
-
-  .wg-live .wg-live__compat-table tbody {
-    display: table-row-group;
-  }
-
-  .wg-live .wg-live__compat-table tr {
-    display: table-row;
-  }
-
-  .wg-live .wg-live__compat-head,
-  .wg-live .wg-live__compat-device,
-  .wg-live .wg-live__compat-cell {
-    display: table-cell;
-    padding: 20px 20px 20px 0;
-    border: 0;
-    overflow-wrap: break-word; /* anywhere would shrink the columns until short words break (Chrome) */
-    vertical-align: top;
-  }
-
-  .wg-live .wg-live__compat-head {
-    padding-top: 0;
-    padding-bottom: 12px;
-    color: var(--wg-text-muted);
-    font-family: var(--wg-font-ui);
-    font-size: var(--wg-font-size-small);
-    font-weight: var(--wg-font-weight-text);
-    text-align: start;
-    white-space: normal;
-  }
-
-  .wg-live .wg-live__compat-device {
-    font-size: var(--wg-font-size-body);
-  }
-
-  .wg-live .wg-live__compat-row {
-    display: table-row;
-    margin: 0;
-    padding: 0;
-  }
-
-  .wg-live .wg-live__compat-cell-label {
-    display: none;
-  }
-}
-
 /* ---- 7. keyboard ---- */
 .wg-live .wg-live__keys {
   display: block;
@@ -325,12 +169,6 @@
   .wg-live .wg-live__keys-row {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--wg-space-2);
-  }
-
-  .wg-live .wg-live__compat-device,
-  .wg-live .wg-live__compat-cell {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--wg-space-1);
   }
 
   .wg-live .wg-live__help-step {

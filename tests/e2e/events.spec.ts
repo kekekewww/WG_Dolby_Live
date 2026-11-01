@@ -55,7 +55,8 @@ test.describe('F01 events list', () => {
     await expect(live.locator('.wg-live__event-card-performers')).toHaveText('演出者：示範樂手 A、示範樂手 B');
     await expect(live.locator('.wg-live__event-card-when time')).toHaveText(/\d{4}年\d{1,2}月\d{1,2}日（.）\d{2}:\d{2} 台北時間/);
     await expect(live.locator('.wg-live__event-card-modes')).toContainText('耳機 Binaural');
-    await expect(live.locator('.wg-live__event-card-modes')).toContainText('家庭劇院 Dolby Atmos');
+    await expect(live.locator('.wg-live__event-card-modes')).toContainText('Dolby Atmos');
+    await expect(live.locator('.wg-live__event-card-modes')).not.toContainText('家庭劇院');
     const img = live.locator('img.wg-live__event-card-img');
     await expect(img).toHaveAttribute('width', '1200');
     await expect(img).toHaveAttribute('height', '675');

@@ -1,15 +1,16 @@
 /**
- * Plan 6.11 / spec 5.5: the help page /live/help/ renders the fixed sections in order, the
- * compatibility table with 尚待測試 for untested rows, the keyboard shortcuts and the contact link. It
- * stays available when the deployment mode is disabled (D16).
+ * Plan 6.11 / spec 5.5: the help page /live/help/ renders the fixed sections in order, the keyboard
+ * shortcuts and the contact link. It stays available when the deployment mode is disabled (D16).
+ * 0.5.0: no testing text for visitors: the Safari-first acceptance note and the compatibility table are
+ * in the maintainer document, not on the page.
  */
 import { test } from '@playwright/test';
 import { expect, expectHref, gotoView, isMediaUrl, isRestUrl, recordRequests } from './helpers';
 
 test.describe.configure({ timeout: 60_000 });
 
-// Decision 2026-11-01: one Dolby Atmos stream; 切換模式 became 用 VLC 收聽.
-const SECTION_HEADINGS = ['播放方式', '瀏覽器與驗收說明', '家庭劇院連接方式', '沒有聲音時', '重新連線', '用 VLC 收聽', '鍵盤操作', '聯絡我們'];
+// Decision 2026-11-01: one Dolby Atmos stream; 切換模式 became 用 VLC 收聽. 0.5.0: no 驗收 / 相容表 sections.
+const SECTION_HEADINGS = ['播放方式', '沒有聲音時', '重新連線', '用 VLC 收聽', '鍵盤操作', '聯絡我們'];
 
 test('the fixed sections appear in the documented order, followed by the admin FAQ', async ({ page }) => {
   const rest = recordRequests(page, (u) => isRestUrl(u) || isMediaUrl(u));
@@ -24,40 +25,26 @@ test('the fixed sections appear in the documented order, followed by the admin F
   expect(rest.count(), 'static page: no REST, no media').toBe(0);
 });
 
-test('the 播放方式 section describes one Dolby Atmos stream, Safari and VLC, and the label note', async ({ page }) => {
+test('the 播放方式 section describes one Dolby Atmos stream, Safari and VLC, with no disclaimer notes', async ({ page }) => {
   await gotoView(page, 'help');
   const modes = page.locator('.wg-live__help-section--modes');
   await expect(modes).toContainText('每場音樂會提供一個 Dolby Atmos 串流');
   await expect(modes).toContainText('Mac、iPhone、iPad · Safari');
   await expect(modes).toContainText('Windows 與其他瀏覽器 · VLC');
   await expect(modes).not.toContainText('Binaural');
-  await expect(modes).toContainText('只代表播放的音訊版本，不代表已確認裝置的輸出方式');
+  await expect(modes).not.toContainText('不代表已確認裝置的輸出方式');
 });
 
-test('the Safari-first note does not block other browsers and promises no state the UI never shows', async ({ page }) => {
+test('0.5.0: visitors see no testing text: no acceptance note, no compatibility table, no 尚待測試', async ({ page }) => {
   await gotoView(page, 'help');
-  const safari = page.locator('.wg-live__help-section--safari');
-  await expect(safari).toContainText('Safari');
-  await expect(safari).toContainText('不依瀏覽器名稱限制使用');
-  await expect(safari).not.toContainText('尚未確認');
-});
-
-test('the compatibility table is a real table; untested rows read 尚待測試; nothing is claimed supported', async ({ page }) => {
-  await gotoView(page, 'help');
-  const section = page.locator('.wg-live__help-section--compat');
-  const table = section.getByRole('table');
-  await expect(table).toBeVisible();
-  await expect(table).toHaveAccessibleName(/家庭劇院相容表/);
-  for (const column of ['裝置', '作業系統', '瀏覽器', '輸出路徑', '來源格式', '測試結果', '測試日期', '備註']) {
-    await expect(table.getByRole('columnheader', { name: column })).toBeVisible();
+  const root = page.locator('.wg-live');
+  await expect(root.locator('.wg-live__help-section--modes')).toBeVisible();
+  await expect(root.locator('.wg-live__help-section--safari')).toHaveCount(0);
+  await expect(root.locator('.wg-live__help-section--compat')).toHaveCount(0);
+  await expect(root.getByRole('table')).toHaveCount(0);
+  for (const word of ['驗收', '尚待測試', '相容表', '實測', '支援條件', '尚未確認']) {
+    await expect(root).not.toContainText(word);
   }
-  const rows = table.locator('tbody tr, tr.wg-live__compat-row');
-  await expect(rows).toHaveCount(2);
-  await expect(section.locator('.wg-live__compat-status')).toHaveText(['尚待測試', '尚待測試']);
-  await expect(section).not.toContainText('已驗證');
-  await expect(section).not.toContainText('支援 Atmos');
-  await expect(section).toContainText('不代表支援，也不代表不支援');
-  await expect(section.locator('.wg-live__compat-row').first()).toContainText('iPhone / iPad');
 });
 
 test('no-sound steps, reconnecting and the VLC section state the real behaviour', async ({ page }) => {
@@ -120,7 +107,7 @@ test('an empty FAQ is valid: no FAQ section, no empty heading', async ({ page })
 test('the help page stays available when the deployment mode is disabled (D16)', async ({ page }) => {
   await gotoView(page, 'help', { harness: 'disabled' });
   await expect(page.locator('.wg-live').getByRole('heading', { name: '播放方式' })).toBeVisible();
-  await expect(page.locator('.wg-live__help-section--compat')).toBeVisible();
+  await expect(page.locator('.wg-live__help-section--contact')).toBeVisible();
 });
 
 test('heading=h1 promotes the view title; sections move to h2', async ({ page }) => {

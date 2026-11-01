@@ -61,7 +61,7 @@ function makeBoot(overrides: Partial<BootConfig> = {}): BootConfig {
     featuredEventSlug: null,
     heading: 'h2',
     events: [],
-    help: { faq: [], compatibility: [], supportNote: '' },
+    help: { faq: [], supportNote: '' },
     devTools: false,
     ...overrides,
   };
@@ -269,7 +269,7 @@ describe('events view: card fields', () => {
     expect(card.querySelector('.wg-live__event-card-status')?.textContent).toBe('尚未開始');
     expect(Array.from(card.querySelectorAll('.wg-live__event-card-mode')).map((e) => e.textContent)).toEqual([
       '耳機 Binaural',
-      '家庭劇院 Dolby Atmos',
+      'Dolby Atmos',
     ]);
   });
 
@@ -687,7 +687,7 @@ describe('events view: countdown', () => {
 describe('events view: FAQ summary', () => {
   it('shows the first three admin FAQ entries with a help link', () => {
     const faq = [1, 2, 3, 4].map((n) => ({ question: `Q${n}`, answer: `A${n}\nline two` }));
-    mountView(makeBoot({ events: [makeEvent()], help: { faq, compatibility: [], supportNote: '' } }));
+    mountView(makeBoot({ events: [makeEvent()], help: { faq, supportNote: '' } }));
     const questions = Array.from(mount.querySelectorAll('.wg-live__faq-question')).map((e) => e.textContent);
     expect(questions).toEqual(['Q1', 'Q2', 'Q3']);
     expect(mount.querySelectorAll('.wg-live__faq-item')).toHaveLength(3);
@@ -699,7 +699,9 @@ describe('events view: FAQ summary', () => {
     mountView(makeBoot({ events: [makeEvent()] }));
     const questions = Array.from(mount.querySelectorAll('.wg-live__faq-question')).map((e) => e.textContent);
     expect(questions).toEqual(eventsCopy.defaultFaq.map((item) => item.question));
-    expect(questions).toHaveLength(3);
+    // 0.5.0: the device-output disclaimer is not a visitor question any more (maintainer document).
+    expect(questions).toHaveLength(2);
+    expect(mount.textContent).not.toContain('就代表我的設備已輸出 Atmos');
   });
 
   it('uses native details/summary so it works without script', () => {

@@ -38,26 +38,18 @@ function linkOr(
 export interface ModeLabel {
   /** `.wg-live__mode-info`: only the label text, so the control bar stays one row. */
   el: HTMLElement;
-  /**
-   * The「模式標示只代表…」note. It is NOT inside `el`: the view places it in the status block under the
-   * stage (HYBRID: the bar holds the label and the switch only). Hidden together with the label.
-   */
-  note: HTMLElement;
   update(state: AppState): void;
 }
 
 /** 已選擇：… before playback is confirmed, 目前播放：… afterwards (plan 6.10). Never claims device output. */
 export function createModeLabel(): ModeLabel {
   const text = h('p', { className: 'wg-live__mode-label', hidden: true });
-  const note = h('p', { className: 'wg-live__mode-note wg-live__small wg-live__muted', text: statusCopy.modeLabelNote, hidden: true });
   const el = h('div', { className: 'wg-live__mode-info' }, text);
   return {
     el,
-    note,
     update(state): void {
       const label = selectModeLabel(state);
       text.hidden = label === null;
-      note.hidden = label === null;
       setText(text, label ?? '');
     },
   };
@@ -76,8 +68,6 @@ export interface StatusPanelOptions {
   onSwitchMode(trigger: HTMLElement): void;
   /** The「查看活動資訊」action: the view moves focus to the info section. */
   onViewEvent(): void;
-  /** Optional extra note shown under the demo notice (the mode-label note, moved here by the view). */
-  note?: HTMLElement;
 }
 
 export interface StatusPanel {
@@ -143,7 +133,6 @@ export function createStatusPanel(options: StatusPanelOptions): StatusPanel {
     heading,
     detail,
     demoNotice,
-    options.note ?? null,
     actions,
     code,
   );

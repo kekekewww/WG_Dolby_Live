@@ -212,7 +212,6 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
   const modeLabel = createModeLabel();
   const statusPanel = createStatusPanel({
     controller,
-    note: modeLabel.note,
     headingTag: sectionTag,
     links: boot.links,
     event,
@@ -359,7 +358,6 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
           // A real sequence: an ordered list whose numerals (01, 02...) CSS draws (list-style is none, so the
           // role keeps the list semantics in Safari).
           h('ol', { className: 'wg-live__programme-list', attrs: { role: 'list' } }, ...programme.map((item) => h('li', { text: item }))),
-          h('p', { className: 'wg-live__programme-note wg-live__small wg-live__muted', text: playerCopy.info.programmeNote }),
         ),
       );
     }

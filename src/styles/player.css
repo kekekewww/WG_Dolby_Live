@@ -313,10 +313,6 @@
   line-height: 1.6;
 }
 
-.wg-live .wg-live__mode-note {
-  margin: 4px 0 0;
-}
-
 .wg-live .wg-live__error-code {
   margin: 8px 0 0;
 }
@@ -407,10 +403,6 @@
   align-items: center;
   gap: 8px 28px;
   margin: 12px 0 0;
-}
-
-.wg-live .wg-live__entitlement-note {
-  margin: 8px 0 0;
 }
 
 /* States without a controller (disabled mode, event not found). */
@@ -885,11 +877,6 @@
   font-synthesis: none;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-}
-
-.wg-live .wg-live__programme-note {
-  max-width: 34em;
-  margin: 20px 0 0;
 }
 
 .wg-live .wg-live__help-link {

@@ -207,7 +207,7 @@ test.describe('events and help pages, built bundle', () => {
 
   test('help page mounts with every fixed section', async ({ page }) => {
     await gotoView(page, 'help', { base: 'dist' });
-    for (const name of ['兩種聆聽模式', '瀏覽器與驗收說明', '家庭劇院連接方式', '沒有聲音時', '重新連線', '切換模式', '鍵盤操作', '聯絡我們']) {
+    for (const name of ['播放方式', '沒有聲音時', '重新連線', '用 VLC 收聽', '鍵盤操作', '聯絡我們']) {
       await expect(page.locator('.wg-live').getByRole('heading', { name })).toBeVisible();
     }
   });

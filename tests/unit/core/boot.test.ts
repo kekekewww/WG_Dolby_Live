@@ -28,7 +28,7 @@ function validConfig(overrides: Record<string, unknown> = {}): Record<string, un
     featuredEventSlug: 'demo-live-binaural-atmos',
     heading: 'h2',
     events: demoEvents(Date.UTC(2026, 9, 10, 12)),
-    help: { faq: [{ question: 'Q', answer: 'A' }], compatibility: [], supportNote: 'note' },
+    help: { faq: [{ question: 'Q', answer: 'A' }], supportNote: 'note' },
     devTools: false,
     ...overrides,
   };
@@ -195,7 +195,7 @@ describe('readBootConfig', () => {
     delete cfg.timezone;
     delete cfg.events;
     const boot = readBootConfig(makeRoot(cfg));
-    expect(boot?.help).toEqual({ faq: [], compatibility: [], supportNote: '' });
+    expect(boot?.help).toEqual({ faq: [], supportNote: '' });
     expect(boot?.links.home).toBe('/');
     expect(boot?.timezone).toBe('Asia/Taipei');
     expect(boot?.events).toEqual([]);
@@ -214,7 +214,7 @@ describe('readBootConfig', () => {
 });
 
 describe('help content validation', () => {
-  it('forces pending when verified/not_working has no test date, and keeps a dated verified row', () => {
+  it('keeps valid FAQ items, and never carries a compatibility table into the client (0.5.0)', () => {
     const row = { device: 'd', os: 'o', browser: 'b', outputPath: 'p', sourceFormat: 'f', notes: '' };
     const boot = readBootConfig(
       makeRoot(
@@ -234,12 +234,7 @@ describe('help content validation', () => {
       ),
     );
     expect(boot?.help.faq).toEqual([{ question: 'ok', answer: 'y' }]);
-    expect(boot?.help.compatibility.map((r) => [r.status, r.testedAt])).toEqual([
-      ['pending', null],
-      ['verified', '2026-10-01'],
-      ['pending', null],
-      ['pending', null],
-    ]);
+    expect(Object.keys(boot?.help ?? {}).sort()).toEqual(['faq', 'supportNote']);
     expect(boot?.help.supportNote).toBe('');
   });
 });

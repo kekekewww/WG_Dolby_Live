@@ -84,6 +84,16 @@ test.describe('production (:8889): visitors never see demo events', () => {
   });
 });
 
+test.describe('0.5.0: no internal test record in public data', () => {
+  test('the help bootstrap carries the FAQ and support note only, never the compatibility table', async () => {
+    for (const env of [DEV, TESTS]) {
+      const boots = bootConfigs((await fetchText(env, '/live/help/')).text);
+      expect(boots.length).toBeGreaterThan(0);
+      for (const boot of boots) expect(Object.keys(boot.help as object).sort()).toEqual(['faq', 'supportNote']);
+    }
+  });
+});
+
 test.describe('local (:8888): demo events stay public for testing', () => {
   test('REST lists the demo event for a visitor, with public cache headers', async () => {
     const list = await rest(DEV, 'events');

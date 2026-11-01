@@ -163,14 +163,11 @@ describe('mode label', () => {
     expect(label.el.querySelector('.wg-live__mode-label')?.textContent).toBe('已選擇：Dolby Atmos 音軌');
   });
 
-  it('adds the note that the label does not confirm device output', () => {
+  it('carries no device-output disclaimer (0.5.0: maintainer text) and never claims device output', () => {
     const label = createModeLabel();
     label.update(readyState());
-    // The note is a separate node (the view puts it in the status block), never inside the label element.
     expect(label.el.querySelector('.wg-live__mode-note')).toBeNull();
-    expect(label.note.classList.contains('wg-live__mode-note')).toBe(true);
-    expect(label.note.hidden).toBe(false);
-    expect(label.note.textContent).toContain('模式標示只代表');
+    expect(label.el.textContent).not.toContain('模式標示只代表');
     expect(label.el.textContent).not.toMatch(/已認證|7\.1\.4|Dolby 認證/);
   });
 });

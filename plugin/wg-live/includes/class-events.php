@@ -480,7 +480,7 @@ final class Events {
 		// Demo flag.
 		self::row_open( '', '示範活動' );
 		printf(
-			'<label><input type="checkbox" name="%1$s[is_demo]" value="1"%2$s /> 示範活動（前台會標示「介面示範」）</label>',
+			'<label><input type="checkbox" name="%1$s[is_demo]" value="1"%2$s /> 示範活動（標示「介面示範」；正式站只有登入的活動管理者看得到）</label>',
 			esc_attr( $key ),
 			checked( $data['is_demo'], true, false )
 		);
