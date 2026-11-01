@@ -79,12 +79,13 @@ Two halves live in one repo. Only the PHP plugin and the built static assets shi
 - At most one active adapter or media source per page. When the source switches: stop the old media, destroy the HLS instance, then load the new one. Update "目前播放" (now playing) only after the new source succeeds. Don't copy `currentTime` across sources.
 - Never autoplay; start playback only after a user gesture, and handle a rejected `play()`. Never rebuild the `<audio>`/`<video>` element when the UI re-renders. Stop playback when the viewer leaves the page.
 - One coordinator owns bounded retries, with no parallel infinite timers.
-- Never fake capabilities: no fake spectrum, no fake viewer counts, no fake track sync, no "Atmos certified" or "7.1.4 connected" labels, and no Dolby badges. Keep demo audio labeled 操作示範音訊，非 Binaural／Atmos 驗證素材 ("demo audio, not Binaural/Atmos validation material") in both modes. Hide controls the adapter can't perform.
+- Never fake capabilities: no fake spectrum, no fake viewer counts, no fake track sync, no "Atmos certified" or "7.1.4 connected" labels, and no Dolby badges. Keep demo audio labeled 操作示範音訊，非 Binaural／Atmos 驗證素材 ("demo audio, not Binaural/Atmos validation material") in both modes (on production only event managers see demo events). Hide controls the adapter can't perform.
 - iframe adapter: only HTTPS player URLs approved by an admin. Don't overlay controls that can't actually control the iframe. `postMessage` checks `origin`, `source`, and schema, and never uses `*`.
 - Use feature detection to pick the playback path, not the browser name. When the browser cannot decode E-AC-3, refuse in-page Atmos before any download and offer the ticket holder's VLC / Safari link; never claim Atmos. When support is unclear, show 尚未確認 ("not yet confirmed").
 
 **UI language and quality**
 - UI copy is Taiwan Traditional Chinese, with English section names (`Live`, `Listening Guide`). The exact copy for states and errors is in §5 and §6.
+- Visitor pages carry only what a viewer needs (0.5.0, user decision 2026-11-01): no testing, acceptance or maintainer text (no 驗收 notes, no compatibility table, no label/entitlement/programme disclaimers). That text goes in the maintainer document 「WG Studio Live 維護與測試說明」 (https://claude.ai/artifact/JMDbfCDwfiyUR4KFjvKQ3L). On `production`, demo events are visible only to logged-in users with the events capability (`Public_Data::can_see_demo()`).
 - Accessibility target is WCAG 2.2 AA. Don't let Space hijack keys outside the player. Screen readers must not announce the countdown every second. Respect `prefers-reduced-motion`.
 - Budgets: core JS ≤100 KB and CSS ≤30 KB compressed, excluding HLS.
 
@@ -99,4 +100,4 @@ Two halves live in one repo. Only the PHP plugin and the built static assets shi
 - Exclude `node_modules`, `.git`, `.env`, test reports, screenshots, fonts, and DB dumps. Asset URLs carry a version or content hash.
 - Never overwrite the production database with staging. Deploy only the plugin, pages, and settings.
 - Writing to production, overwriting existing pages, publishing, or touching commerce flows requires explicit authorization.
-- Playwright WebKit is not Safari. Real-device Safari results go in the test records, and the Atmos device compatibility table stays 尚待測試 ("pending testing") until actually tested.
+- Playwright WebKit is not Safari. Real-device Safari results go in the test records, and the Atmos device compatibility table (an internal record in the admin and the maintainer document, not on the site since 0.5.0) stays 尚待測試 ("pending testing") until actually tested.

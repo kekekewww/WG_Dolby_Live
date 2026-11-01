@@ -101,7 +101,7 @@ test('disabled hides events on every surface at once; demo brings them back', as
       await v.goto(HELP_URL);
       await waitMounted(v);
       await expect(v.locator('.wg-live--help')).toBeVisible();
-      await expect(v.locator('.wg-live--help').getByText('Binaural').first()).toBeVisible();
+      await expect(v.locator('.wg-live--help').getByRole('heading', { name: '播放方式' })).toBeVisible();
 
       // Homepage card: the fallback text only, no link, no event data.
       await v.goto('/');

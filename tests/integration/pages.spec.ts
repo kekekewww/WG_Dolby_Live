@@ -55,7 +55,9 @@ test.describe('Live pages mount on the real site', () => {
     await waitMounted(page);
     await expect(page.locator('.wg-live--help')).toHaveCount(1);
     await expect(page.locator('audio, video')).toHaveCount(0);
-    await expect(root(page).getByText('Binaural').first()).toBeVisible();
+    // 0.5.0: one Dolby Atmos stream, no testing text on the page.
+    await expect(root(page).getByRole('heading', { name: '播放方式' })).toBeVisible();
+    await expect(root(page)).not.toContainText('尚待測試');
   });
 
   test('the bootstrap carries no source URL, no credential and no raw meta', async () => {
