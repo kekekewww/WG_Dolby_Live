@@ -54,9 +54,9 @@ final class Playback_Provider {
 			return self::not_ready( 'disabled' );
 		}
 
-		// 2. The event must be publicly visible.
+		// 2. The event must be visible to this viewer (0.5.0: a demo event on production only to event managers).
 		$post = $event_id > 0 ? get_post( $event_id ) : null;
-		if ( ! $post instanceof \WP_Post || ! Events::is_public( $post ) ) {
+		if ( ! Public_Data::is_visible( $post ) ) {
 			return self::not_ready( 'event_not_found' );
 		}
 		$data = Events::get_event_data( $post );

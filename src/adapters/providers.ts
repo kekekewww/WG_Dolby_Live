@@ -140,12 +140,12 @@ export function createBootstrapEventProvider(events: PublicEvent[]): EventProvid
  * the provider behaves like createBootstrapEventProvider(fallback). It is never served after a failed
  * request: stale data must not revert a status the poller already learned (plan 6.4).
  */
-export function createRestEventProvider(restRoot: string, fallback?: PublicEvent[]): EventProvider {
+export function createRestEventProvider(restRoot: string, fallback?: PublicEvent[], session: RestSession | null = null): EventProvider {
   if (!restRootUsable(restRoot)) return createBootstrapEventProvider(fallback ?? []);
 
   return {
     async list(signal?: AbortSignal): Promise<PublicEvent[]> {
-      const res = await getJson(restUrl(restRoot, 'events'), signal, {});
+      const res = await getJsonWithSession(restUrl(restRoot, 'events'), signal, {}, session);
       if (!res.ok) throw new ProviderError('http', res.status);
       if (!isRecord(res.body) || !Array.isArray(res.body.events)) throw new ProviderError('invalid_response');
       return parsePublicEvents(res.body.events);
@@ -153,7 +153,7 @@ export function createRestEventProvider(restRoot: string, fallback?: PublicEvent
 
     async get(slug: string, signal?: AbortSignal): Promise<PublicEvent | null> {
       if (!isValidSlug(slug)) throw new ProviderError('invalid_request');
-      const res = await getJson(restUrl(restRoot, `events/${slug}`), signal, {});
+      const res = await getJsonWithSession(restUrl(restRoot, `events/${slug}`), signal, {}, session);
       if (res.status === 404) {
         const code = isRecord(res.body) ? res.body.code : undefined;
         if (code === 'rest_no_route') throw new ProviderError('http', 404);

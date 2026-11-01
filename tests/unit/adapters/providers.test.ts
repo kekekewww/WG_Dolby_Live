@@ -483,3 +483,35 @@ describe('M2 REST entitlement and nonce', () => {
     expect(headerOf(fetchMock.mock.calls[0] as unknown[])).toBe('0a1b2c3d4e');
   });
 });
+
+describe('0.5.0: event requests carry the REST session (a manager previews a demo event on production)', () => {
+  const NONCE_URL = 'https://sounds.example.test/wp-admin/admin-ajax.php?action=rest-nonce';
+  const headerOf = (call: unknown[]): string | null => new Headers((call[1] as RequestInit | undefined)?.headers).get('X-WP-Nonce');
+  const badNonce = () => json({ code: 'rest_cookie_invalid_nonce', message: 'Cookie check failed' }, 403);
+
+  it('get() and list() send X-WP-Nonce when logged in, and nothing for guests', async () => {
+    const session = createRestSession({ root: PRETTY, nonce: '0a1b2c3d4e', nonceUrl: NONCE_URL });
+    fetchMock.mockResolvedValueOnce(json({ event: events[0] })).mockResolvedValueOnce(json({ events }));
+    const provider = createRestEventProvider(PRETTY, events, session);
+    await provider.get(events[0]!.slug);
+    await provider.list();
+    expect(headerOf(fetchMock.mock.calls[0] as unknown[])).toBe('0a1b2c3d4e');
+    expect(headerOf(fetchMock.mock.calls[1] as unknown[])).toBe('0a1b2c3d4e');
+
+    fetchMock.mockClear();
+    fetchMock.mockResolvedValueOnce(json({ event: events[0] }));
+    await createRestEventProvider(PRETTY, events, createRestSession({ root: PRETTY, nonce: null, nonceUrl: NONCE_URL })).get(events[0]!.slug);
+    expect(headerOf(fetchMock.mock.calls[0] as unknown[])).toBeNull();
+  });
+
+  it('an expired nonce is refreshed once and the event request retried', async () => {
+    fetchMock
+      .mockResolvedValueOnce(badNonce())
+      .mockResolvedValueOnce(new Response('9f8e7d6c5b', { status: 200 }))
+      .mockResolvedValueOnce(json({ event: events[0] }));
+    const session = createRestSession({ root: PRETTY, nonce: '0a1b2c3d4e', nonceUrl: NONCE_URL });
+    await expect(createRestEventProvider(PRETTY, events, session).get(events[0]!.slug)).resolves.toEqual(events[0]);
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe(NONCE_URL);
+    expect(headerOf(fetchMock.mock.calls[2] as unknown[])).toBe('9f8e7d6c5b');
+  });
+});

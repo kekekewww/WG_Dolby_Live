@@ -26,7 +26,8 @@ final class Public_Data {
 	const REST_NAMESPACE = 'wg-live/v1';
 
 	/**
-	 * Cache-Control for the public event routes (plan 5). The data never varies by user.
+	 * Cache-Control for the public event routes (plan 5), used whenever the answer is the same for everyone
+	 * (0.5.0: a manager on production also sees demo events and gets no-store, event_cache_headers()).
 	 *
 	 * @var string
 	 */
@@ -91,6 +92,57 @@ final class Public_Data {
 	}
 
 	/**
+	 * May this request see demo events? (0.5.0: visitors never see test content on the live site.)
+	 *
+	 * Everywhere except production: yes. Production: only a logged-in user who can manage Live events, so
+	 * the boss can still preview a demo event. REST requests only carry that user with the wp_rest nonce.
+	 *
+	 * @return bool
+	 */
+	public static function can_see_demo() {
+		if ( 'production' !== wp_get_environment_type() ) {
+			return true;
+		}
+		return is_user_logged_in() && current_user_can( Plugin::events_cap() );
+	}
+
+	/**
+	 * Is this event visible to this request? Events::is_public() plus the demo rule above.
+	 *
+	 * @param mixed $post Candidate.
+	 * @return bool
+	 */
+	public static function is_visible( $post ) {
+		if ( ! $post instanceof \WP_Post || ! Events::is_public( $post ) ) {
+			return false;
+		}
+		if ( self::can_see_demo() ) {
+			return true;
+		}
+		$data = Events::get_event_data( $post );
+		return empty( $data['is_demo'] );
+	}
+
+	/**
+	 * Cache-Control for the event routes: shared caching only when the answer is the same for everyone. A
+	 * manager on production may get demo events, so that answer is never stored by a shared cache.
+	 *
+	 * @param \WP_REST_Response $response Response.
+	 * @return \WP_REST_Response
+	 */
+	private static function event_cache_headers( \WP_REST_Response $response ) {
+		if ( 'production' === wp_get_environment_type() && self::can_see_demo() ) {
+			foreach ( wp_get_nocache_headers() as $name => $value ) {
+				$response->header( $name, $value );
+			}
+			$response->header( 'Cache-Control', 'private, no-store' );
+			return $response;
+		}
+		$response->header( 'Cache-Control', self::CACHE_PUBLIC );
+		return $response;
+	}
+
+	/**
 	 * Is this a valid event slug? Delegates to the one shared check, Events::is_valid_slug()
 	 * (shared pattern, 1-100 characters, strict end anchor so a trailing newline is rejected).
 	 *
@@ -141,7 +193,7 @@ final class Public_Data {
 			)
 		);
 		$post  = empty( $posts ) ? null : $posts[0];
-		return ( $post instanceof \WP_Post && Events::is_public( $post ) ) ? $post : null;
+		return self::is_visible( $post ) ? $post : null;
 	}
 
 	/* ------------------------------------------------------------------ */
@@ -161,7 +213,11 @@ final class Public_Data {
 		if ( ! $post instanceof \WP_Post || ! Events::is_public( $post ) ) {
 			return null;
 		}
-		$data   = Events::get_event_data( $post );
+		$data = Events::get_event_data( $post );
+		// 0.5.0: on production a demo event is for the people who manage events only.
+		if ( ! empty( $data['is_demo'] ) && ! self::can_see_demo() ) {
+			return null;
+		}
 		$starts = isset( $data['starts_at_utc'] ) ? (string) $data['starts_at_utc'] : '';
 		if ( 1 !== preg_match( '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', $starts ) || false === strtotime( $starts ) ) {
 			return null;
@@ -500,9 +556,7 @@ final class Public_Data {
 	 * @return \WP_REST_Response
 	 */
 	public static function rest_events() {
-		$response = new \WP_REST_Response( array( 'events' => self::published_events() ), 200 );
-		$response->header( 'Cache-Control', self::CACHE_PUBLIC );
-		return $response;
+		return self::event_cache_headers( new \WP_REST_Response( array( 'events' => self::published_events() ), 200 ) );
 	}
 
 	/**
@@ -521,9 +575,7 @@ final class Public_Data {
 		if ( null === $event ) {
 			return $not_found;
 		}
-		$response = new \WP_REST_Response( array( 'event' => $event ), 200 );
-		$response->header( 'Cache-Control', self::CACHE_PUBLIC );
-		return $response;
+		return self::event_cache_headers( new \WP_REST_Response( array( 'event' => $event ), 200 ) );
 	}
 
 	/**

@@ -105,9 +105,10 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
   const preselect: ListeningMode | null =
     onlyMode ?? fromParam ?? (remembered !== null && event.availableModes.includes(remembered) ? remembered : null);
 
-  const eventProvider = createRestEventProvider(boot.rest.root, boot.events);
   // M2-PLAN A3: one REST session (wp_rest nonce) for playback and entitlement; real events ask the server in live mode.
+  // 0.5.0: the event poller uses it too, so a manager previewing a demo event on production keeps seeing it.
   const session = createRestSession(boot.rest);
+  const eventProvider = createRestEventProvider(boot.rest.root, boot.events, session);
   const placeholder = createEntitlementPlaceholder(boot.events);
   const deps: CoordinatorDeps = {
     boot,
