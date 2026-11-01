@@ -3,81 +3,7 @@
   "runs": 3,
   "on": {
     "Home": {
-      "lcpMedianMs": 244,
-      "clsMax": 0,
-      "samples": [
-        {
-          "lcp": 244,
-          "cls": 0
-        },
-        {
-          "lcp": 248,
-          "cls": 0
-        },
-        {
-          "lcp": 224,
-          "cls": 0
-        }
-      ]
-    },
-    "Live /live/": {
-      "lcpMedianMs": 344,
-      "clsMax": 0,
-      "samples": [
-        {
-          "lcp": 344,
-          "cls": 0
-        },
-        {
-          "lcp": 324,
-          "cls": 0
-        },
-        {
-          "lcp": 368,
-          "cls": 0
-        }
-      ]
-    },
-    "Listen /live/listen/?wg_event=demo-live": {
-      "lcpMedianMs": 384,
-      "clsMax": 0,
-      "samples": [
-        {
-          "lcp": 400,
-          "cls": 0
-        },
-        {
-          "lcp": 304,
-          "cls": 0
-        },
-        {
-          "lcp": 384,
-          "cls": 0
-        }
-      ]
-    }
-  },
-  "off": {
-    "Home": {
-      "lcpMedianMs": 200,
-      "clsMax": 0,
-      "samples": [
-        {
-          "lcp": 200,
-          "cls": 0
-        },
-        {
-          "lcp": 252,
-          "cls": 0
-        },
-        {
-          "lcp": 192,
-          "cls": 0
-        }
-      ]
-    },
-    "Live /live/": {
-      "lcpMedianMs": 196,
+      "lcpMedianMs": 220,
       "clsMax": 0,
       "samples": [
         {
@@ -85,29 +11,103 @@
           "cls": 0
         },
         {
-          "lcp": 196,
+          "lcp": 240,
           "cls": 0
         },
         {
-          "lcp": 192,
+          "lcp": 212,
+          "cls": 0
+        }
+      ]
+    },
+    "Live /live/": {
+      "lcpMedianMs": 256,
+      "clsMax": 0,
+      "samples": [
+        {
+          "lcp": 264,
+          "cls": 0
+        },
+        {
+          "lcp": 256,
+          "cls": 0
+        },
+        {
+          "lcp": 248,
           "cls": 0
         }
       ]
     },
     "Listen /live/listen/?wg_event=demo-live": {
-      "lcpMedianMs": 192,
+      "lcpMedianMs": 268,
+      "clsMax": 0.00267608642578125,
+      "samples": [
+        {
+          "lcp": 280,
+          "cls": 0.00267608642578125
+        },
+        {
+          "lcp": 268,
+          "cls": 0.00267608642578125
+        },
+        {
+          "lcp": 268,
+          "cls": 0.00267608642578125
+        }
+      ]
+    }
+  },
+  "off": {
+    "Home": {
+      "lcpMedianMs": 156,
       "clsMax": 0,
       "samples": [
         {
-          "lcp": 192,
+          "lcp": 152,
           "cls": 0
         },
         {
-          "lcp": 204,
+          "lcp": 156,
           "cls": 0
         },
         {
-          "lcp": 164,
+          "lcp": 176,
+          "cls": 0
+        }
+      ]
+    },
+    "Live /live/": {
+      "lcpMedianMs": 144,
+      "clsMax": 0,
+      "samples": [
+        {
+          "lcp": 248,
+          "cls": 0
+        },
+        {
+          "lcp": 140,
+          "cls": 0
+        },
+        {
+          "lcp": 144,
+          "cls": 0
+        }
+      ]
+    },
+    "Listen /live/listen/?wg_event=demo-live": {
+      "lcpMedianMs": 160,
+      "clsMax": 0,
+      "samples": [
+        {
+          "lcp": 160,
+          "cls": 0
+        },
+        {
+          "lcp": 140,
+          "cls": 0
+        },
+        {
+          "lcp": 160,
           "cls": 0
         }
       ]
