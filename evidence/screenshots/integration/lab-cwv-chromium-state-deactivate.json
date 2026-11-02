@@ -3,55 +3,55 @@
   "runs": 3,
   "on": {
     "Home": {
-      "lcpMedianMs": 216,
+      "lcpMedianMs": 232,
       "clsMax": 0,
       "samples": [
         {
-          "lcp": 312,
+          "lcp": 220,
           "cls": 0
         },
         {
-          "lcp": 216,
+          "lcp": 232,
           "cls": 0
         },
         {
-          "lcp": 188,
+          "lcp": 252,
           "cls": 0
         }
       ]
     },
     "Live /live/": {
-      "lcpMedianMs": 256,
+      "lcpMedianMs": 320,
       "clsMax": 0,
       "samples": [
         {
-          "lcp": 256,
+          "lcp": 320,
           "cls": 0
         },
         {
-          "lcp": 284,
+          "lcp": 248,
           "cls": 0
         },
         {
-          "lcp": 244,
+          "lcp": 320,
           "cls": 0
         }
       ]
     },
     "Listen /live/listen/?wg_event=demo-live": {
-      "lcpMedianMs": 276,
+      "lcpMedianMs": 340,
       "clsMax": 0.00267608642578125,
       "samples": [
         {
-          "lcp": 276,
+          "lcp": 540,
           "cls": 0.00267608642578125
         },
         {
-          "lcp": 296,
+          "lcp": 340,
           "cls": 0.00267608642578125
         },
         {
-          "lcp": 252,
+          "lcp": 336,
           "cls": 0.00267608642578125
         }
       ]
@@ -59,55 +59,55 @@
   },
   "off": {
     "Home": {
-      "lcpMedianMs": 148,
+      "lcpMedianMs": 168,
       "clsMax": 0,
       "samples": [
         {
-          "lcp": 152,
+          "lcp": 228,
           "cls": 0
         },
         {
-          "lcp": 148,
+          "lcp": 156,
           "cls": 0
         },
         {
-          "lcp": 140,
+          "lcp": 168,
           "cls": 0
         }
       ]
     },
     "Live /live/": {
-      "lcpMedianMs": 140,
+      "lcpMedianMs": 224,
       "clsMax": 0,
       "samples": [
         {
-          "lcp": 140,
+          "lcp": 224,
           "cls": 0
         },
         {
-          "lcp": 152,
+          "lcp": 224,
           "cls": 0
         },
         {
-          "lcp": 136,
+          "lcp": 160,
           "cls": 0
         }
       ]
     },
     "Listen /live/listen/?wg_event=demo-live": {
-      "lcpMedianMs": 132,
+      "lcpMedianMs": 156,
       "clsMax": 0,
       "samples": [
         {
-          "lcp": 132,
+          "lcp": 156,
           "cls": 0
         },
         {
-          "lcp": 140,
+          "lcp": 208,
           "cls": 0
         },
         {
-          "lcp": 128,
+          "lcp": 148,
           "cls": 0
         }
       ]
