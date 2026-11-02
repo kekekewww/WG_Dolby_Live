@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       WG Studio Live
  * Description:       Live / 線上音樂會: event pages and a Dolby Atmos player (one Atmos stream per concert) with a demo player. Ticket checks and real sources (HLS or the provider's player page) work only in deployment mode 「正式」, which is off until an administrator switches it on; stream URL signing waits on the streaming provider.
- * Version:           0.5.2
+ * Version:           0.5.3
  * Requires at least: 6.3
  * Requires PHP:      7.4
  * Author:            WG Studio
@@ -16,7 +16,7 @@
 defined( 'ABSPATH' ) || exit;
 
 // Keep in sync with package.json, readme.txt (Stable tag) and assets/dist/build-info.json (check:artifact).
-define( 'WG_LIVE_VERSION', '0.5.2' );
+define( 'WG_LIVE_VERSION', '0.5.3' );
 define( 'WG_LIVE_FILE', __FILE__ );
 define( 'WG_LIVE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WG_LIVE_URL', plugin_dir_url( __FILE__ ) );
@@ -42,6 +42,7 @@ require_once WG_LIVE_DIR . 'includes/class-stream-signer.php';
 require_once WG_LIVE_DIR . 'includes/class-site-links.php';
 require_once WG_LIVE_DIR . 'includes/class-public-data.php';
 require_once WG_LIVE_DIR . 'includes/class-playback-provider.php';
+require_once WG_LIVE_DIR . 'includes/class-stream-links.php';
 require_once WG_LIVE_DIR . 'includes/class-shortcodes.php';
 require_once WG_LIVE_DIR . 'includes/class-assets.php';
 

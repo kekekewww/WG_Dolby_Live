@@ -1,7 +1,7 @@
 === WG Studio Live ===
 Requires at least: 6.3
 Requires PHP: 7.4
-Stable tag: 0.5.2
+Stable tag: 0.5.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Tags: live, concert, audio, binaural, dolby atmos
@@ -44,6 +44,10 @@ The two demo video files (`assets/demo/demo-video-1.mp4`, `assets/demo/demo-vide
 The plugin bundles hls.js (Apache-2.0), unmodified, as `assets/dist/wg-live-hls.js`; it is loaded only when a real event plays an HLS stream. Its license and copyright notices are in `assets/dist/THIRD-PARTY-NOTICES.txt`. The other built scripts and stylesheets in `assets/dist` are compiled from this project's own source.
 
 == Changelog ==
+
+= 0.5.3 =
+* Every ticket holder gets their own random link on this site (`/wp-json/wg-live/v1/s/<event>/<token>/atmos.m3u8`) instead of the stream address (user decision 2026-11-02). Opening it, with no login needed, checks the ticket and the event status again, then redirects to the stream; WordPress answers once per start and never carries the media. A refund or an event that is not 直播中／中場休息 closes the link (403); an unknown link is 404. The personal-link panel and Safari's 開始聆聽 use this link; the page itself still plays the stream address.
+* This hides the address from the link people copy; it does not protect the stream (the player follows the redirect, and the stream server accepts any request until it checks signed links).
 
 = 0.5.2 =
 * Safari on Mac, iPhone and iPad (any browser that plays HLS itself and can decode Dolby Atmos): 開始聆聽 on an http stream now opens the ticket holder's stream link in the browser's own player, exactly like opening the link, instead of failing inside the https page (user decision 2026-11-02). The server still checks the ticket first. Chrome, Edge, Firefox and Windows keep the VLC link panel.
