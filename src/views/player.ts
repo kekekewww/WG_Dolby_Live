@@ -24,7 +24,7 @@ import { createDevPanel } from '../components/dev-panel';
 import { h, isFocusable, safeUrl, uid } from '../dom';
 import { DEMO_EVENT_BADGE, playerCopy, statusCopy } from '../i18n/copy';
 import { createAdapterFactory } from '../adapters/factory';
-import { prepareHlsLibrary } from '../adapters/hls';
+import { opensInBrowserPlayer, prepareHlsLibrary } from '../adapters/hls';
 import { createEntitlementPlaceholder } from '../adapters/entitlement-placeholder';
 import { createLiveEntitlementProvider, createRestEntitlementProvider, createRestEventProvider, createRestPlaybackProvider, createRestSession } from '../adapters/providers';
 import { createPlayerController } from '../state/coordinator';
@@ -129,6 +129,12 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     // M2-PLAN C3: fetch the plugin's hls.js before the click, so load() and play() stay inside it.
     onSourceResolved: (source) => {
       if (source.kind === 'hls') prepareHlsLibrary(shell.host.media, ctx.env);
+    },
+    // 0.5.2: Safari plays an http stream the same way as opening the link, so Start opens the link itself.
+    openInBrowserPlayer: (source) => {
+      if (!opensInBrowserPlayer(source, shell.host.media, window)) return false;
+      window.location.assign(source.url);
+      return true;
     },
   };
   const controller = createPlayerController(deps);

@@ -326,6 +326,7 @@ export interface HarnessOptions {
   scripts?: AdapterScript[];
   /** Skip the initial prefetch/entitlement flush (to observe the in-flight state). */
   noFlush?: boolean;
+  openInBrowserPlayer?: CoordinatorDeps['openInBrowserPlayer'];
 }
 
 /** Create a controller around fakes. Call inside a test that has vi.useFakeTimers() active. */
@@ -375,6 +376,7 @@ export async function createHarness(options: HarnessOptions = {}): Promise<Harne
     preselect: options.preselect ?? null,
     onModeRemembered: (mode) => remembered.push(mode),
     onSourceResolved: (source) => resolved.push(source.kind),
+    ...(options.openInBrowserPlayer ? { openInBrowserPlayer: options.openInBrowserPlayer } : {}),
   };
 
   const controller = createPlayerController(deps);

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __resetHlsLoaderForTests, createHlsAdapter, prepareHlsLibrary, type HlsCtor } from '../../../src/adapters/hls';
+import { __resetHlsLoaderForTests, createHlsAdapter, opensInBrowserPlayer, prepareHlsLibrary, type HlsCtor } from '../../../src/adapters/hls';
 import { AdapterLoadError } from '../../../src/adapters/native-media';
 import type { AdapterErrorDetail, AdapterEnv, MediaHost, PlaybackAdapter } from '../../../src/types';
 
@@ -351,6 +351,40 @@ describe('0.5.1: an http stream on an https page (mixed content)', () => {
     void adapter.load(HTTP_ATMOS, controller.signal);
     expect(FakeHls.instances).toHaveLength(1);
     adapter.destroy();
+  });
+});
+
+describe('0.5.2: the browser opens an http stream in its own player (decision 2026-11-02)', () => {
+  const HTTP_ATMOS = { kind: 'hls', url: 'http://198.51.100.7:1935/live/atmos/playlist.m3u8', mode: 'atmos' } as const;
+  const EC3 = { isTypeSupported: () => true };
+  const SAFARI = { ManagedMediaSource: EC3, MediaSource: EC3, location: { protocol: 'https:' } } as unknown as Window;
+  const native = (ec3: CanPlayTypeResult): void => {
+    vi.mocked(media.canPlayType).mockImplementation((t) => (t === 'application/vnd.apple.mpegurl' ? 'maybe' : t.includes('ec-3') ? ec3 : ''));
+  };
+
+  it('Safari (native HLS that plays E-AC-3) on the https site: yes, like opening the link itself', () => {
+    native('probably');
+    expect(opensInBrowserPlayer(HTTP_ATMOS, media, SAFARI)).toBe(true);
+  });
+
+  it('no when the page can load the link itself (an https link, or an http page)', () => {
+    native('probably');
+    expect(opensInBrowserPlayer(ATMOS, media, SAFARI)).toBe(false);
+    expect(opensInBrowserPlayer(HTTP_ATMOS, media, { ...SAFARI, location: { protocol: 'http:' } } as unknown as Window)).toBe(false);
+  });
+
+  it('no on the hls.js path (Chrome, Edge, Firefox): they keep the VLC link panel', () => {
+    expect(opensInBrowserPlayer(HTTP_ATMOS, media, { MediaSource: EC3, location: { protocol: 'https:' } } as unknown as Window)).toBe(false);
+  });
+
+  it('no when the browser says it cannot play E-AC-3 (Dolby Atmos)', () => {
+    native('');
+    expect(opensInBrowserPlayer(HTTP_ATMOS, media, SAFARI)).toBe(false);
+  });
+
+  it('only for an hls source', () => {
+    native('probably');
+    expect(opensInBrowserPlayer({ kind: 'demo', url: 'http://198.51.100.7/demo.mp4', mimeType: 'video/mp4' }, media, SAFARI)).toBe(false);
   });
 });
 

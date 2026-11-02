@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { selectGate } from '../../../src/state/model';
 import type { ListeningMode, PlaybackSource } from '../../../src/types';
-import { createHarness, makeEvent, startPlaying, type Harness, type HarnessOptions } from './helpers';
+import { createHarness, makeEvent, prepare, startPlaying, type Harness, type HarnessOptions } from './helpers';
 
 const harnesses: Harness[] = [];
 let token = 0;
@@ -168,5 +168,30 @@ describe('hls sources (M2-PLAN C3)', () => {
     await h.advance(2_000);
     expect(h.playback.callsFor('binaural')).toHaveLength(1);
     expect(h.adapters).toHaveLength(2);
+  });
+});
+
+describe("0.5.2: the browser's own player (decision 2026-11-02)", () => {
+  it('Start hands the cached link to the view inside the click and attaches nothing in the page', async () => {
+    const opened: PlaybackSource[] = [];
+    const h = await make({ openInBrowserPlayer: (source) => (opened.push(source), true) });
+    await prepare(h, 'atmos');
+    const before = h.state().player.status;
+    void h.controller.start();
+    // Synchronously: still inside the click, so the browser lets the page open the link.
+    expect(opened).toEqual([h.playback.answers.get('atmos')]);
+    await h.flush();
+    expect(h.adapters).toHaveLength(0);
+    expect(h.state().player.status).toBe(before);
+    expect(h.playback.callsFor('atmos')).toHaveLength(1);
+  });
+
+  it('a view that declines plays in the page exactly as before', async () => {
+    const opened: PlaybackSource[] = [];
+    const h = await make({ openInBrowserPlayer: (source) => (opened.push(source), false) });
+    await startPlaying(h, 'atmos');
+    expect(opened).toHaveLength(1);
+    expect(h.adapters).toHaveLength(1);
+    expect(h.state().player.status).toBe('playing');
   });
 });

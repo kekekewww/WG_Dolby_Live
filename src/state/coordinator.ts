@@ -62,6 +62,11 @@ export interface CoordinatorDeps {
    * adapter will need, for an hls source the plugin's own hls.js file, so load() and play() stay in the click.
    */
   onSourceResolved?(source: Exclude<PlaybackSource, { kind: 'not_ready' }>): void;
+  /**
+   * 0.5.2: Start offers the cached descriptor here first, still inside the click. true = the view opened the link in
+   * the browser's own player (Safari, an http stream on the https site), so nothing is attached in the page.
+   */
+  openInBrowserPlayer?(source: Exclude<PlaybackSource, { kind: 'not_ready' }>): boolean;
 }
 
 /* ---- policy numbers (plan 6.5) ---- */
@@ -996,6 +1001,7 @@ export function createPlayerController(deps: CoordinatorDeps): PlayerController 
       if (mode === null) return done;
       const source = descriptors.get(mode);
       if (source === undefined) return done;
+      if (deps.openInBrowserPlayer?.(source) === true) return done;
       retriesUsed = 0;
       return runAttempt({ kind: 'start', mode, source, remembered: false }, true);
     },

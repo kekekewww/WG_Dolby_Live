@@ -181,6 +181,14 @@ describe('event resolution and controller dependencies', () => {
     expect(typeof d.eventProvider.get).toBe('function');
   });
 
+  it('0.5.2: offers the browser player hook, which leaves a page that can load the link alone (jsdom is http)', () => {
+    mountView();
+    const open = deps().openInBrowserPlayer;
+    expect(typeof open).toBe('function');
+    expect(open?.({ kind: 'hls', url: 'http://198.51.100.7:1935/live/atmos/playlist.m3u8', mode: 'atmos' })).toBe(false);
+    expect(window.location.pathname).toBe('/live/listen/');
+  });
+
   it('preselects a valid ?wg_mode=', () => {
     mountView({ search: '/live/listen/?wg_event=demo-live-binaural-atmos&wg_mode=atmos' });
     expect(deps().preselect).toBe('atmos');

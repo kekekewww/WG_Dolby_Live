@@ -158,6 +158,17 @@ export function isMixedContent(url: string, win: Window): boolean {
   }
 }
 
+/**
+ * 0.5.2 (user decision 2026-11-02: the sound must play the same way as opening the link). A browser that plays HLS
+ * itself (Safari on Mac, iPhone, iPad) cannot load an http stream inside the https page, yet plays the very same link
+ * when it opens it. Then Start opens the link in the browser's own player instead of refusing it. Feature detection
+ * only; the hls.js browsers (no E-AC-3) keep the VLC link panel.
+ */
+export function opensInBrowserPlayer(source: PlaybackSource, media: HTMLMediaElement, win: Window): boolean {
+  if (source.kind !== 'hls' || !isMixedContent(source.url, win)) return false;
+  return chooseHlsPath(media, win) === 'native' && canPlayMode(source.mode, 'native', media, win) !== false;
+}
+
 export function createHlsAdapter(host: MediaHost, env: AdapterEnv, deps: HlsDeps = {}): PlaybackAdapter {
   const primary = createSingleHlsAdapter(host, env, deps);
   // 0.5.1: only a video stage can show a separate picture link; an audio stage always plays the one link.
