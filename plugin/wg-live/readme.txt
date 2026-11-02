@@ -1,7 +1,7 @@
 === WG Studio Live ===
 Requires at least: 6.3
 Requires PHP: 7.4
-Stable tag: 0.5.1
+Stable tag: 0.5.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Tags: live, concert, audio, binaural, dolby atmos
@@ -44,6 +44,9 @@ The two demo video files (`assets/demo/demo-video-1.mp4`, `assets/demo/demo-vide
 The plugin bundles hls.js (Apache-2.0), unmodified, as `assets/dist/wg-live-hls.js`; it is loaded only when a real event plays an HLS stream. Its license and copyright notices are in `assets/dist/THIRD-PARTY-NOTICES.txt`. The other built scripts and stylesheets in `assets/dist` are compiled from this project's own source.
 
 == Changelog ==
+
+= 0.5.2 =
+* Safari on Mac, iPhone and iPad (any browser that plays HLS itself and can decode Dolby Atmos): 開始聆聽 on an http stream now opens the ticket holder's stream link in the browser's own player, exactly like opening the link, instead of failing inside the https page (user decision 2026-11-02). The server still checks the ticket first. Chrome, Edge, Firefox and Windows keep the VLC link panel.
 
 = 0.5.1 =
 * Stream links may be plain http (user decision 2026-11-02: the live stream is an http link); the host must still be on the stream host list, an IP address included. On the https site an http stream cannot play inside the page (mixed content): the player refuses it before any request and ticket holders use their personal link in VLC or Safari.
