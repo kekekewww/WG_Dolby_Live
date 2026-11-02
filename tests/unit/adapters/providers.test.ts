@@ -537,3 +537,19 @@ describe('0.5.1: a separate picture link (videoUrl) on an hls source', () => {
     expect(parsePlaybackSource(base)).toEqual(base);
   });
 });
+
+describe("0.5.3: the ticket holder's own link (link) on an hls source", () => {
+  const base = { kind: 'hls', url: 'http://198.51.100.7:1935/live/atmos/playlist.m3u8', mode: 'atmos' } as const;
+  const LINK = 'https://sounds.example.test/wp-json/wg-live/v1/s/1004/AbCdEfGhIjKlMnOpQrStUv/atmos.m3u8';
+
+  it('keeps an http(s) link next to the stream address', () => {
+    expect(parsePlaybackSource({ ...base, link: LINK })).toEqual({ ...base, link: LINK });
+    expect(parsePlaybackSource({ ...base, link: LINK, videoUrl: 'https://v.example.test/v.m3u8' })).toEqual({ ...base, link: LINK, videoUrl: 'https://v.example.test/v.m3u8' });
+  });
+
+  it('drops an unsafe or malformed link but keeps the source', () => {
+    for (const link of ['javascript:alert(1)', 'mailto:a@b.test', 42, '', null]) {
+      expect(parsePlaybackSource({ ...base, link })).toEqual(base);
+    }
+  });
+});

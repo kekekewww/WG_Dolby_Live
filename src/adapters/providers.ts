@@ -234,8 +234,16 @@ export function parsePlaybackSource(raw: unknown): PlaybackSource {
     }
     if (protocol !== 'http:' && protocol !== 'https:') return NOT_CONFIGURED;
     // 0.5.1: an optional separate picture link, same rules; a bad one is dropped and the sound still plays.
+    // 0.5.3: an optional own link of the ticket holder, same rules; a bad one is dropped and the panel shows `url`.
     const video = httpUrl(raw.videoUrl);
-    return video === null ? { kind: 'hls', url: safe, mode: mode as ListeningMode } : { kind: 'hls', url: safe, mode: mode as ListeningMode, videoUrl: video };
+    const link = httpUrl(raw.link);
+    return {
+      kind: 'hls',
+      url: safe,
+      mode: mode as ListeningMode,
+      ...(video === null ? {} : { videoUrl: video }),
+      ...(link === null ? {} : { link }),
+    };
   }
 
   if (raw.kind === 'iframe') {

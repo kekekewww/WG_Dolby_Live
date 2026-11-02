@@ -4,7 +4,7 @@
  * is fetched from /playback on a click, a fresh one per click, never at page load.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createExternalLinkPanel } from '../../../src/components/external-link';
+import { createExternalLinkPanel, personalLink } from '../../../src/components/external-link';
 import type { AppState, ListeningMode, PlaybackSource } from '../../../src/types';
 import { attach, makeEvent, makeState } from './helpers';
 
@@ -76,6 +76,25 @@ describe('createExternalLinkPanel', () => {
     await flush();
     expect(resolve).toHaveBeenCalledTimes(2);
     expect(panel.el.querySelector<HTMLInputElement>('input')!.value).toBe(URL_2);
+  });
+
+  it("0.5.3: shows and opens the ticket holder's own link, never the stream address behind it", async () => {
+    const LINK = 'https://sounds.example.test/wp-json/wg-live/v1/s/1004/AbCdEfGhIjKlMnOpQrStUv/atmos.m3u8';
+    const resolve = vi.fn().mockResolvedValue({ kind: 'hls', url: 'http://198.51.100.7:1935/live/atmos/playlist.m3u8', mode: 'atmos', link: LINK });
+    const panel = createExternalLinkPanel({ event: HLS_EVENT, resolve, atmosPlayable: false });
+    attach(panel.el);
+    panel.update(entitledLive());
+    panel.el.querySelector<HTMLButtonElement>('button.wg-live__external-get')!.click();
+    await flush();
+    expect(panel.el.querySelector<HTMLInputElement>('input')!.value).toBe(LINK);
+    expect(panel.el.querySelector<HTMLAnchorElement>('a.wg-live__external-open')!.href).toBe(LINK);
+    expect(panel.el.innerHTML).not.toContain('198.51.100.7');
+  });
+
+  it('personalLink: the own link when the server sent one, else the stream address', () => {
+    expect(personalLink({ kind: 'hls', url: URL_1, mode: 'atmos', link: URL_2 })).toBe(URL_2);
+    expect(personalLink({ kind: 'hls', url: URL_1, mode: 'atmos' })).toBe(URL_1);
+    expect(personalLink({ kind: 'demo', url: URL_1, mimeType: 'video/mp4' })).toBe(URL_1);
   });
 
   it('shows a plain message and no link when the server hands out none', async () => {

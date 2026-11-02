@@ -17,7 +17,7 @@ import { createModeSelector } from '../components/mode-selector';
 import { createPlayerControls, handlePlayerKeydown } from '../components/player-controls';
 import { createModeLabel, createStatusPanel, createUnavailablePanel } from '../components/status-panel';
 import { createEntitlementPanel } from '../components/entitlement-panel';
-import { createExternalLinkPanel } from '../components/external-link';
+import { createExternalLinkPanel, personalLink } from '../components/external-link';
 import { canPlayMode, chooseHlsPath } from '../adapters/hls-path';
 import { createSwitchDialog } from '../components/dialog';
 import { createDevPanel } from '../components/dev-panel';
@@ -130,10 +130,11 @@ export function mountPlayerView(mount: HTMLElement, boot: BootConfig, ctx: ViewC
     onSourceResolved: (source) => {
       if (source.kind === 'hls') prepareHlsLibrary(shell.host.media, ctx.env);
     },
-    // 0.5.2: Safari plays an http stream the same way as opening the link, so Start opens the link itself.
+    // 0.5.2: Safari plays an http stream the same way as opening the link, so Start opens the link itself
+    // (0.5.3: the ticket holder's own link, which redirects to the stream).
     openInBrowserPlayer: (source) => {
       if (!opensInBrowserPlayer(source, shell.host.media, window)) return false;
-      window.location.assign(source.url);
+      window.location.assign(personalLink(source));
       return true;
     },
   };

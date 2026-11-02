@@ -26,6 +26,11 @@ export interface ExternalLinkPanel {
 
 const MODE: ListeningMode = 'atmos';
 
+/** 0.5.3: the address a ticket holder gets to open or copy: their own link on this site when the server sent one. */
+export function personalLink(source: Exclude<PlaybackSource, { kind: 'not_ready' }>): string {
+  return source.kind === 'hls' && typeof source.link === 'string' && source.link !== '' ? source.link : source.url;
+}
+
 export function createExternalLinkPanel(options: ExternalLinkPanelOptions): ExternalLinkPanel {
   const { event, resolve, atmosPlayable } = options;
   const headingId = uid('wg-live-external');
@@ -74,7 +79,7 @@ export function createExternalLinkPanel(options: ExternalLinkPanelOptions): Exte
         if (destroyed || mine !== request) return;
         get.removeAttribute('aria-disabled');
         get.textContent = externalCopy.getAgain;
-        if (source.kind === 'hls' && typeof source.url === 'string' && source.url !== '') show(source.url);
+        if (source.kind === 'hls' && typeof source.url === 'string' && source.url !== '') show(personalLink(source));
         else result.replaceChildren(h('p', { className: 'wg-live__small', text: externalCopy.unavailable }));
       },
       () => {

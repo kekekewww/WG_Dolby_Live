@@ -73,8 +73,12 @@ export interface PublicEvent {
 export type PlaybackSource =
   | { kind: 'not_ready'; reason: NotReadyReason }
   | { kind: 'demo'; url: string; mimeType: string }
-  /** 0.5.1: videoUrl = a separate picture link (played muted beside the Atmos sound); absent = picture and sound in `url`. */
-  | { kind: 'hls'; url: string; mode: ListeningMode; videoUrl?: string }
+  /**
+   * 0.5.1: videoUrl = a separate picture link (played muted beside the Atmos sound); absent = picture and sound in `url`.
+   * 0.5.3: link = the ticket holder's own address on this site that redirects to `url` after a ticket check; it is what
+   * the personal-link panel shows and what Safari opens. The page itself still plays `url`.
+   */
+  | { kind: 'hls'; url: string; mode: ListeningMode; videoUrl?: string; link?: string }
   | { kind: 'iframe'; url: string; allowedOrigin: string };
 
 /** Server resolution order and UI mapping: plan §5.1 and §6.7. Never auto-retried. */

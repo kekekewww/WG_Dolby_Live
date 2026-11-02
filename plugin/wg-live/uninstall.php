@@ -45,6 +45,8 @@ if ( ! function_exists( 'wg_live_uninstall_site' ) ) {
 			);
 			$fresh = array_diff( array_map( 'intval', $ids ), $seen ); // Stop if something refuses to delete.
 			foreach ( $fresh as $event_id ) {
+				// 0.5.3: the ticket holders' own links for this event (user meta; the users stay).
+				delete_metadata( 'user', 0, '_wg_live_link_' . $event_id, '', true );
 				wp_delete_post( $event_id, true );
 				$seen[] = $event_id;
 			}

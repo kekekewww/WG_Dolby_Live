@@ -93,7 +93,7 @@ final class Playback_Provider {
 		}
 
 		if ( ! $is_demo ) {
-			return self::real_source( $event_id, $type, $mode );
+			return self::real_source( $event_id, $type, $mode, (int) $user_id );
 		}
 
 		// 7. The demo source.
@@ -117,9 +117,10 @@ final class Playback_Provider {
 	 * @param int    $event_id Event post ID.
 	 * @param string $type     hls|iframe. Only the stored URLs of this type are read.
 	 * @param string $mode     binaural|atmos.
+	 * @param int    $user_id  The entitled viewer (owner of the 0.5.3 personal link).
 	 * @return array
 	 */
-	private static function real_source( $event_id, $type, $mode ) {
+	private static function real_source( $event_id, $type, $mode, $user_id ) {
 		// Real sources only in deployment mode "live" (Entitlement already refuses otherwise; kept explicit).
 		if ( 'live' !== Settings::get()['deployment_mode'] ) {
 			return self::not_ready( 'source_not_configured' );
@@ -155,6 +156,11 @@ final class Playback_Provider {
 			'url'  => $signed,
 			'mode' => $mode,
 		);
+		// 0.5.3: the viewer's own link on this site (redirects here after the same checks); shown instead of the URL.
+		$link = Stream_Links::url( (int) $event_id, $user_id, $mode );
+		if ( '' !== $link ) {
+			$source['link'] = $link;
+		}
 		// 0.5.1: a video event with a separate picture link plays that link (muted) beside the Atmos sound. A missing,
 		// refused or unsignable picture link leaves the sound alone: the stage then stays without a picture.
 		$data = Events::get_event_data( get_post( (int) $event_id ) );

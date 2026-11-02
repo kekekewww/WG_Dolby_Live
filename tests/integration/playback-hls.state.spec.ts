@@ -11,6 +11,8 @@ test.describe.configure({ mode: 'serial' });
 
 const prefix = 'it-hls-state';
 const GOOD = 'https://stream.example.test/live/atmos/playlist.m3u8';
+/** 0.5.3: a ticket holder's own link on this site: event id, a 22-character random token, the mode. */
+const LINK_RE = /\/wp-json\/wg-live\/v1\/s\/(\d+)\/([A-Za-z0-9_-]{22})\/atmos\.m3u8$/;
 let snapshot: Record<string, unknown> = {};
 let eventId = 0;
 
@@ -310,7 +312,7 @@ test.describe('B3', () => {
   test('B3: a buyer gets the Atmos playlist, never cached; binaural is not offered and yields no URL', async ({ browser }) => {
     const atmos = await buyerPlayback(browser, 'atmos');
     expect(atmos.status).toBe(200);
-    expect(atmos.json).toEqual({ kind: 'hls', url: GOOD, mode: 'atmos' });
+    expect(atmos.json).toEqual({ kind: 'hls', url: GOOD, mode: 'atmos', link: expect.stringMatching(LINK_RE) });
     expect(atmos.cache).toMatch(/no-store/);
     expect(atmos.cache).toMatch(/private/);
     const bin = await buyerPlayback(browser, 'binaural');
@@ -353,7 +355,59 @@ test.describe('B3', () => {
     const resolve = `return WG_Live\\Playback_Provider::resolve( ${testsEvent}, 'atmos', ${testsShop.user.id} );`;
     expect(wpPhp(TESTS, `return WG_Live\\Entitlement::check( ${testsEvent}, ${testsShop.user.id} );`)).toEqual({ status: 'entitled', reason: 'ticket' });
     expect(wpPhp(TESTS, resolve)).toEqual({ kind: 'not_ready', reason: 'source_not_configured' });
-    expect(wpPhp(TESTS, `define( 'WG_LIVE_ALLOW_UNSIGNED_STREAMS', true ); ${resolve}`)).toEqual({ kind: 'hls', url: GOOD, mode: 'atmos' });
+    expect(wpPhp(TESTS, `define( 'WG_LIVE_ALLOW_UNSIGNED_STREAMS', true ); ${resolve}`)).toEqual({ kind: 'hls', url: GOOD, mode: 'atmos', link: expect.stringMatching(LINK_RE) });
+  });
+
+  test("0.5.3: the buyer's own link: one per buyer and event, it redirects to the stream and refuses everyone else", async ({ browser }) => {
+    const first = (await buyerPlayback(browser, 'atmos')).json.link as string;
+    expect(first).toMatch(LINK_RE);
+    expect(first).not.toContain('stream.example.test');
+    expect((await buyerPlayback(browser, 'atmos')).json.link).toBe(first);
+
+    // VLC or Safari opens it without a cookie: the server checks the ticket, then redirects to the stream.
+    const open = async (url: string): Promise<{ status: number; location: string | null; cache: string | null; text: string }> => {
+      const r = await fetch(url, { redirect: 'manual' });
+      return { status: r.status, location: r.headers.get('location'), cache: r.headers.get('cache-control'), text: await r.text() };
+    };
+    const ok = await open(first);
+    expect(ok.status).toBe(302);
+    expect(ok.location).toBe(GOOD);
+    expect(ok.cache).toMatch(/no-store/);
+
+    // A changed character, the same token in another case, or another event: not found, and nothing about the stream.
+    const [, id, token] = LINK_RE.exec(first) as RegExpExecArray;
+    const swapped = [...(token as string)].map((c) => (c === c.toLowerCase() ? c.toUpperCase() : c.toLowerCase())).join('');
+    const changed = `${(token as string)[0] === 'Q' ? 'R' : 'Q'}${(token as string).slice(1)}`;
+    for (const bad of [first.replace(`/${token}/`, `/${changed}/`), first.replace(`/${token}/`, `/${swapped}/`), first.replace(`/s/${id}/`, `/s/${Number(id) + 100000}/`)]) {
+      const r = await open(bad);
+      expect(r.status).toBe(404);
+      expect(r.location).toBeNull();
+      expect(r.text).not.toContain('stream.example.test');
+    }
+
+    // Closed outside live and intermission and after a refund; open again once they are back.
+    setMeta(DEV, eventId, { status: 'ended' });
+    expect((await open(first)).status).toBe(403);
+    setMeta(DEV, eventId, { status: 'live' });
+    wpPhp(DEV, `$o = wc_get_order( ${devShop!.order} ); $o->set_status( 'refunded' ); $o->save(); return true;`);
+    const refunded = await open(first);
+    expect(refunded.status).toBe(403);
+    expect(refunded.location).toBeNull();
+    wpPhp(DEV, `$o = wc_get_order( ${devShop!.order} ); $o->set_status( 'completed' ); $o->save(); return true;`);
+    expect((await open(first)).status).toBe(302);
+
+    // Another buyer of the same ticket gets a different link of their own.
+    const login = `${prefix}-buyer2-${randomUUID().slice(0, 6)}`;
+    const other = wpPhp<number>(DEV, `return wp_insert_user( array( 'user_login' => '${login}', 'user_pass' => '${randomUUID()}', 'user_email' => '${login}@example.invalid', 'role' => 'customer' ) );`);
+    const order = wpPhp<number>(DEV, `$o = wc_create_order( array( 'customer_id' => ${other} ) ); $o->add_product( wc_get_product( ${devShop!.product} ), 1 ); $o->calculate_totals(); $o->set_status( 'completed' ); $o->save(); return $o->get_id();`);
+    try {
+      const second = wpPhp<string>(DEV, `return WG_Live\\Stream_Links::url( ${eventId}, ${other}, 'atmos' );`);
+      expect(second).toMatch(LINK_RE);
+      expect(second).not.toBe(first);
+      expect((await open(second)).location).toBe(GOOD);
+    } finally {
+      wpPhp(DEV, `$o = wc_get_order( ${order} ); if ( $o ) { $o->delete( true ); } return true;`);
+    }
   });
 });
 

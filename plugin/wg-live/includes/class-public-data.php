@@ -529,6 +529,17 @@ final class Public_Data {
 				),
 			)
 		);
+
+		// 0.5.3: a ticket holder's own link; the random token in the path is the credential (VLC sends no cookie).
+		register_rest_route(
+			self::REST_NAMESPACE,
+			Stream_Links::ROUTE,
+			array(
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => array( Stream_Links::class, 'rest_open' ),
+				'permission_callback' => '__return_true',
+			)
+		);
 	}
 
 	/**

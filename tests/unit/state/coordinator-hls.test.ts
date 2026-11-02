@@ -186,6 +186,16 @@ describe("0.5.2: the browser's own player (decision 2026-11-02)", () => {
     expect(h.playback.callsFor('atmos')).toHaveLength(1);
   });
 
+  it("0.5.3: the ticket holder's own link travels with the descriptor to the view", async () => {
+    const opened: PlaybackSource[] = [];
+    const h = await make({ openInBrowserPlayer: (source) => (opened.push(source), true) });
+    const LINK = 'https://sounds.example.test/wp-json/wg-live/v1/s/1/AbCdEfGhIjKlMnOpQrStUv/atmos.m3u8';
+    h.playback.answers.set('atmos', { kind: 'hls', url: 'http://198.51.100.7:1935/atmos/playlist.m3u8', mode: 'atmos', link: LINK });
+    await prepare(h, 'atmos');
+    void h.controller.start();
+    expect(opened).toEqual([{ kind: 'hls', url: 'http://198.51.100.7:1935/atmos/playlist.m3u8', mode: 'atmos', link: LINK }]);
+  });
+
   it('a view that declines plays in the page exactly as before', async () => {
     const opened: PlaybackSource[] = [];
     const h = await make({ openInBrowserPlayer: (source) => (opened.push(source), false) });
