@@ -365,9 +365,13 @@ test.describe('B3', () => {
     expect((await buyerPlayback(browser, 'atmos')).json.link).toBe(first);
 
     // VLC or Safari opens it without a cookie: the server checks the ticket, then redirects to the stream.
+    // fetchText retries a network error: the WP-CLI calls between the opens leave the keep-alive connection idle past
+    // Apache's 5 s, and a raw fetch then hit ECONNRESET (twice in the 0.5.4 runs, at different steps).
     const open = async (url: string): Promise<{ status: number; location: string | null; cache: string | null; text: string }> => {
-      const r = await fetch(url, { redirect: 'manual' });
-      return { status: r.status, location: r.headers.get('location'), cache: r.headers.get('cache-control'), text: await r.text() };
+      const u = new URL(url);
+      expect(u.origin).toBe(DEV.baseURL);
+      const r = await fetchText(DEV, `${u.pathname}${u.search}`);
+      return { status: r.status, location: r.headers.get('location'), cache: r.headers.get('cache-control'), text: r.text };
     };
     const ok = await open(first);
     expect(ok.status).toBe(302);
