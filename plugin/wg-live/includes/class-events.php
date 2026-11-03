@@ -168,7 +168,7 @@ final class Events {
 	 * Normalized event data, from the stored meta (M1-PLAN 4.2). Never throws on bad data.
 	 *
 	 * @param WP_Post $post Event post.
-	 * @return array{performers:string[],description:string,starts_at_utc:string,display_timezone:string,status:string,media_kind:string,available_modes:string[],programme:string[],product_id:int,product_url:string,replay_available:bool,is_demo:bool,source_type:string,video_source:string}
+	 * @return array{performers:string[],description:string,starts_at_utc:string,display_timezone:string,status:string,media_kind:string,available_modes:string[],programme:string[],product_id:int,product_url:string,replay_available:bool,is_demo:bool,source_type:string,video_source:string,unlisted:bool}
 	 */
 	public static function get_event_data( $post ): array {
 		$id = $post instanceof WP_Post ? (int) $post->ID : 0;
@@ -211,7 +211,21 @@ final class Events {
 			'source_type'      => $source_type,
 			// 0.5.1: where a video event's picture comes from: the Atmos link itself, or a separate HLS link.
 			'video_source'     => 'separate' === self::meta( $id, 'video_source' ) ? 'separate' : 'same',
+			// 0.5.4: published but left out of every list (see is_unlisted()).
+			'unlisted'         => self::meta_bool( $id, 'unlisted' ),
 		);
+	}
+
+	/**
+	 * 0.5.4 不公開列出 (user decision 2026-11-03): the event stays published, so tickets, /playback and the
+	 * personal links work, and its own player page opens; but no list shows it (the /live/ list, the homepage
+	 * card, REST `events`, the bootstrap of other pages). Nobody finds it before the studio sends the link.
+	 *
+	 * @param int $post_id Event ID.
+	 * @return bool
+	 */
+	public static function is_unlisted( int $post_id ): bool {
+		return self::meta_bool( $post_id, 'unlisted' );
 	}
 
 	/* ------------------------------------------------------------------ */
@@ -542,6 +556,24 @@ final class Events {
 		}
 		echo '<tr><th scope="row"></th><td><p class="description">網址必須使用 https，且網域在「Live 活動 → 設定 → 播放器網域」清單內（由管理員設定）。觀眾使用服務商播放器自己的控制鈕。</p></td></tr>';
 
+		// 0.5.4: published but not listed anywhere; the buyers get the event link from the studio.
+		self::row_open( '', '不公開列出' );
+		printf(
+			'<label><input type="checkbox" name="%1$s[unlisted]" value="1"%2$s /> 不公開列出（不出現在 Live 活動列表、首頁與公開的活動清單）</label>',
+			esc_attr( $key ),
+			checked( $data['unlisted'], true, false )
+		);
+		// An unticked box sends nothing: this marker tells save_post() the box was on the form.
+		printf( '<input type="hidden" name="%s[unlisted_shown]" value="1" />', esc_attr( $key ) );
+		echo '<p class="description">活動仍是「已發佈」：已購票的觀眾從下方的活動連結進入，照常觀看。準備公布時取消勾選並更新，活動就會出現在列表（以及首頁精選）。</p>';
+		$buyer_link = self::is_valid_slug( (string) $post->post_name ) ? Site_Links::player_url( (string) $post->post_name ) : '';
+		if ( '' !== $buyer_link ) {
+			printf( '<p class="description">活動連結（寄給購票者）：<code id="wg-live-buyer-link">%s</code></p>', esc_html( $buyer_link ) );
+		} else {
+			echo '<p class="description" id="wg-live-buyer-link">儲存有效的代稱並綁定播放頁之後，這裡會顯示活動連結。</p>';
+		}
+		self::row_close();
+
 		// Homepage featured card (0.2.0).
 		$featured = (int) Settings::get()['featured_event'];
 		self::row_open( '', '首頁精選' );
@@ -556,7 +588,7 @@ final class Events {
 			$current = get_the_title( $featured );
 			printf( '<p class="description">目前的首頁精選是「%s」，勾選後會改成這場。</p>', esc_html( '' !== $current ? $current : '（無標題）' ) );
 		}
-		echo '<p class="description">同一時間只有一場首頁精選。活動發布、代稱有效並設定開始時間之後，首頁才會顯示它。</p>';
+		echo '<p class="description">同一時間只有一場首頁精選。活動發布、代稱有效並設定開始時間之後，首頁才會顯示它；勾選「不公開列出」時首頁也不顯示。</p>';
 		self::row_close();
 
 		echo '</tbody></table></div>';
@@ -1078,6 +1110,10 @@ final class Events {
 		$is_demo = ! empty( $in['is_demo'] );
 		update_post_meta( $post_id, $p . 'is_demo', $is_demo ? '1' : '0' );
 		update_post_meta( $post_id, $p . 'replay_available', ! empty( $in['replay_available'] ) ? '1' : '0' );
+		// 0.5.4: only a form that had the box may change it (a screen opened before 0.5.4 has none).
+		if ( ! empty( $in['unlisted_shown'] ) ) {
+			update_post_meta( $post_id, $p . 'unlisted', ! empty( $in['unlisted'] ) ? '1' : '0' );
+		}
 
 		$source = isset( $in['source_type'] ) && is_string( $in['source_type'] ) ? $in['source_type'] : 'not_configured';
 		if ( 'demo' === $source && ! $is_demo ) {
@@ -1176,13 +1212,14 @@ final class Events {
 		if ( isset( $columns['cb'] ) ) {
 			$out['cb'] = $columns['cb'];
 		}
-		$out['title']         = '活動';
-		$out['wg_live_slug']  = '代稱';
-		$out['wg_live_start'] = '開始時間';
-		$out['wg_live_state'] = '活動狀態';
-		$out['wg_live_demo']  = '示範';
-		$out['wg_live_src']   = '來源';
-		$out['wg_live_home']  = '首頁精選';
+		$out['title']          = '活動';
+		$out['wg_live_slug']   = '代稱';
+		$out['wg_live_start']  = '開始時間';
+		$out['wg_live_state']  = '活動狀態';
+		$out['wg_live_demo']   = '示範';
+		$out['wg_live_src']    = '來源';
+		$out['wg_live_home']   = '首頁精選';
+		$out['wg_live_listed'] = '列出';
 		if ( isset( $columns['date'] ) ) {
 			$out['date'] = $columns['date'];
 		}
@@ -1248,6 +1285,9 @@ final class Events {
 				break;
 			case 'wg_live_home':
 				echo (int) Settings::get()['featured_event'] === (int) $post->ID ? '<span class="wg-live-admin__flag wg-live-admin__flag--ok">首頁精選</span>' : '—';
+				break;
+			case 'wg_live_listed':
+				echo $data['unlisted'] ? '<span class="wg-live-admin__flag">不公開列出</span>' : '公開';
 				break;
 		}
 	}

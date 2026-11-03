@@ -313,6 +313,77 @@ final class Public_Data {
 	}
 
 	/**
+	 * 0.5.4: the public events that may appear in a list (published_events() minus 不公開列出 ones). The /live/
+	 * list, the homepage card, REST `events` and every page bootstrap use this; an unlisted event is reachable
+	 * only by its own link (see boot_events()), REST `events/<slug>`, /playback and the personal links.
+	 *
+	 * @return array[]
+	 */
+	public static function listed_events() {
+		return array_values(
+			array_filter(
+				self::published_events(),
+				static function ( $event ) {
+					return ! Events::is_unlisted( (int) $event['id'] );
+				}
+			)
+		);
+	}
+
+	/**
+	 * The events of a page bootstrap: the listed ones, plus, on a player page, the unlisted event that page is for
+	 * (the shortcode's `event` attribute, else `?wg_event=`), so its own link opens it and no other page names it.
+	 *
+	 * @param string      $view events|player|help.
+	 * @param string|null $slug Slug fixed by the shortcode "event" attribute.
+	 * @return array[]
+	 */
+	private static function boot_events( $view, $slug ) {
+		$events = self::listed_events();
+		if ( 'player' !== $view ) {
+			return $events;
+		}
+		$wanted = self::is_valid_slug( $slug ) ? $slug : self::requested_slug();
+		if ( null === $wanted ) {
+			return $events;
+		}
+		foreach ( $events as $event ) {
+			if ( $event['slug'] === $wanted ) {
+				return $events;
+			}
+		}
+		foreach ( self::published_events() as $event ) {
+			if ( $event['slug'] === $wanted ) {
+				$events[] = $event;
+				usort(
+					$events,
+					static function ( $a, $b ) {
+						return strcmp( $a['startsAt'], $b['startsAt'] );
+					}
+				);
+				break;
+			}
+		}
+		return $events;
+	}
+
+	/**
+	 * The `?wg_event=` slug of this request when it is a single valid slug, else null. It only selects which public
+	 * event the player page describes; it never changes what a visitor may play (/playback decides that).
+	 *
+	 * @return string|null
+	 */
+	private static function requested_slug() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only choice of a public event to display.
+		$raw = isset( $_GET['wg_event'] ) ? $_GET['wg_event'] : null;
+		if ( ! is_string( $raw ) ) {
+			return null;
+		}
+		$slug = sanitize_text_field( wp_unslash( $raw ) );
+		return self::is_valid_slug( $slug ) ? $slug : null;
+	}
+
+	/**
 	 * The slug of the settings' featured event when it is public (and has a valid start), else null.
 	 *
 	 * @return string|null
@@ -333,7 +404,8 @@ final class Public_Data {
 		if ( $id <= 0 ) {
 			return null;
 		}
-		foreach ( self::published_events() as $event ) {
+		// 0.5.4: an unlisted event is never on the homepage, even when it is the featured one.
+		foreach ( self::listed_events() as $event ) {
 			if ( $event['id'] === $id ) {
 				return $event;
 			}
@@ -380,7 +452,7 @@ final class Public_Data {
 			'fixedEventSlug'    => ( $enabled && self::is_valid_slug( $slug ) ) ? $slug : null,
 			'featuredEventSlug' => $enabled ? self::featured_event_slug() : null,
 			'heading'           => 'h1' === $heading ? 'h1' : 'h2',
-			'events'            => self::published_events(),
+			'events'            => self::boot_events( $view, $slug ),
 			'help'              => self::help_content(),
 			'devTools'          => Plugin::dev_tools_enabled(),
 		);
@@ -558,7 +630,7 @@ final class Public_Data {
 	 * @return \WP_REST_Response
 	 */
 	public static function rest_events() {
-		return self::event_cache_headers( new \WP_REST_Response( array( 'events' => self::published_events() ), 200 ) );
+		return self::event_cache_headers( new \WP_REST_Response( array( 'events' => self::listed_events() ), 200 ) );
 	}
 
 	/**
