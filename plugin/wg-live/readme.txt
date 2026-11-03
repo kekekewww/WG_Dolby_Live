@@ -1,7 +1,7 @@
 === WG Studio Live ===
 Requires at least: 6.3
 Requires PHP: 7.4
-Stable tag: 0.5.3
+Stable tag: 0.5.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Tags: live, concert, audio, binaural, dolby atmos
@@ -44,6 +44,9 @@ The two demo video files (`assets/demo/demo-video-1.mp4`, `assets/demo/demo-vide
 The plugin bundles hls.js (Apache-2.0), unmodified, as `assets/dist/wg-live-hls.js`; it is loaded only when a real event plays an HLS stream. Its license and copyright notices are in `assets/dist/THIRD-PARTY-NOTICES.txt`. The other built scripts and stylesheets in `assets/dist` are compiled from this project's own source.
 
 == Changelog ==
+
+= 0.5.4 =
+* New event checkbox 「不公開列出」 (user decision 2026-11-03): the event stays published, so tickets, playback and every ticket holder's own link work, but it is left out of the Live list, the homepage card (even as the featured event), the public event list (REST `events`) and every other page. Only its own link (`/live/listen/?wg_event=<代稱>`, shown on the event screen for sending to buyers) opens it. Untick it to announce the event. The event list has a 「列出」 column.
 
 = 0.5.3 =
 * Every ticket holder gets their own random link on this site (`/wp-json/wg-live/v1/s/<event>/<token>/atmos.m3u8`) instead of the stream address (user decision 2026-11-02). Opening it, with no login needed, checks the ticket and the event status again, then redirects to the stream; WordPress answers once per start and never carries the media. A refund or an event that is not 直播中／中場休息 closes the link (403); an unknown link is 404. The personal-link panel and Safari's 開始聆聽 use this link; the page itself still plays the stream address.

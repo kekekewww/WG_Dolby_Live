@@ -68,7 +68,7 @@ test.describe('link overrides and the host-mismatch warning (deployment screen)'
       await expect(page.locator(PLUGIN_WARNING)).toHaveCount(0);
       // The deployment screen reports the real environment.
       await expect(page.locator('#wpbody-content')).toContainText('local');
-      await expect(page.locator('#wpbody-content')).toContainText('0.5.3');
+      await expect(page.locator('#wpbody-content')).toContainText('0.5.4');
     } finally {
       await close();
     }
