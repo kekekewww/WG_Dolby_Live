@@ -551,12 +551,12 @@ Only if the provider documents a player API. Then:
 
 - [ ] Bump to 0.3.0 (`wg-live.php` header and constant, `readme.txt` stable tag and changelog, `package.json`, the version assertion in `settings.state.spec.ts`).
 - [ ] Run the full gates:
-  - `npm run check`;
+  - `npm run release` from a clean commit (check, then package and check:artifact; `npm run check` alone no longer builds the ZIP);
   - `npm run lint:php`;
   - `npm run test:integration:wsl`, all projects;
   - `npm run test:e2e`;
   - `npm run test:zip-install`.
-- [ ] Build the ZIP from a clean tree.
+- [ ] Ship the ZIP that `npm run release` built from the clean tree.
 - [ ] On production: take a backup, upload with replace, keep mode `demo`, and verify nothing changed (same checks as the 0.2.0 record). Rollback ZIP: 0.2.0, SHA `0b76b4b3…`.
 
 ### Task E2: rehearsal (needs §2 items 1–6, D5)

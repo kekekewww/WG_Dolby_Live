@@ -24,7 +24,8 @@ These scripts exist in `package.json` (also `lint:php`, `test:integration`, `tes
 
 ```bash
 npm ci
-npm run check           # fast gate (~35 s): typecheck, lint, unit, build, package, check:artifact
+npm run check           # fast gate (~35 s): typecheck, lint, unit, build. Never writes artifacts/
+npm run release         # release ZIP: check, then package + check:artifact (size budgets). Refuses a dirty tree; run only from a clean commit
 npm run wp:start:wsl    # PREFERRED: wp-env inside WSL2 (fast); see docs/implementation/WSL.md
 npm run test:integration:wsl  # sync to WSL, then Playwright integration specs against :8888/:8889
 npm run wp:start        # wp-env from the Windows checkout (slow: 5-25 s per WordPress request); never together with the WSL one
@@ -34,7 +35,7 @@ npm run lint
 npm run test:unit
 npm run build           # Vite library mode → IIFE JS + CSS into plugin/wg-live/assets/dist
 npm run test:e2e        # Playwright: Chromium/Firefox/WebKit
-npm run package         # scripts/package.mjs → artifacts/wg-live-<version>.zip + SHA-256
+npm run package         # scripts/package.mjs → artifacts/wg-live-<version>.zip + SHA-256 (overwrites that version's ZIP; never run it with --allow-dirty for a deployed version)
 npm run check:artifact  # scripts/check-artifact.mjs validates ZIP contents
 npm run test:zip-install  # installs the ZIP into a throwaway WordPress on the running wp-env, activates, probes, uninstalls
 ```
