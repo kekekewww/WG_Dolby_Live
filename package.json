@@ -31,7 +31,8 @@
     "test:e2e:dist": "playwright test --project=harness-dist",
     "test:e2e:dev": "playwright test --project=harness-dev-chromium --project=harness-dev-firefox --project=harness-dev-webkit",
     "serve:dist": "node dev/serve-dist.mjs",
-    "check": "npm run typecheck && npm run lint && npm run test:unit && npm run build && npm run package -- --allow-dirty && npm run check:artifact -- --allow-dirty"
+    "check": "npm run typecheck && npm run lint && npm run test:unit && npm run build",
+    "release": "npm run check && npm run package && npm run check:artifact"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

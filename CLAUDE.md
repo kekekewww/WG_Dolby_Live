@@ -10,13 +10,14 @@ The project is **`wg-live`**, a WordPress plugin. It adds a "Live / 線上音樂
 
 ## Milestones: what you may claim
 
-- **M1 (current scope):** the full UI flow, the admin event management, the installable ZIP, Elementor integration, playback through a real **DemoAdapter** with test media, staging and production deployment steps, and rollback.
-- **M2 (out of scope, don't build):** real ticket checks, playback authorization, stream protection/DRM, end-to-end Atmos validation on real devices, and checking provider capacity and bitrates for 300 concurrent streams.
-- **Load testing in M1 (§13.5):** only a stepped test of pages, static assets and the `wg-live/v1/events*` endpoints, run in an environment the admin has approved. It never requests `/playback` media and never sends 300 streams against production.
+- **M1 (done, in production since 0.1.0):** the full UI flow, the admin event management, the installable ZIP, Elementor integration, playback through a real **DemoAdapter** with test media, staging and production deployment steps, and rollback.
+- **M2 (current scope):** [docs/implementation/M2-PLAN.md](docs/implementation/M2-PLAN.md) (rev 1, decisions D1–D5 made 2026-10-31): ticket entitlement from paid WooCommerce orders and deployment mode `live` (Phase A), signed HLS and provider-iframe sources on the server (B, D), HLS in the player (C), release and acceptance (E). Blocked on the provider deliverables in M2-PLAN §2: B3b (provider signer), D3 (vendor control API), E2 (rehearsal), E3 (go live). Production stays in mode `demo` (示範) until E3; `docs/deploy/records/` says which version is deployed.
+- **Not in M2:** DRM, replay/VOD, ticket transfer, per-ticket session limits (M2-PLAN "Not in this plan"). Add them only if asked.
+- **Load testing (§13.5):** only stepped tests of pages, static assets and `wg-live/v1/*` (M2 E2 adds `/entitlement` and `/playback` with test users), run in an environment the admin has approved. Never send 300 streams against production; stream capacity is the provider's to prove.
 
-**Binding contracts:** [docs/implementation/M1-PLAN.md](docs/implementation/M1-PLAN.md) (rev 2, after the contract review) and `src/types.ts`. Implement against them, and change them only together.
+**Binding contracts:** [docs/implementation/M1-PLAN.md](docs/implementation/M1-PLAN.md) (rev 2, after the contract review), [docs/implementation/M2-PLAN.md](docs/implementation/M2-PLAN.md) and `src/types.ts`. Implement against them, and change them only together.
 
-Keep working on M1 while M2 is undecided. Never report M1 as "paid live streaming is securely online". Final reports keep four groups separate: 已實作 (implemented), 已測試 (tested), 已部署 (deployed), and 尚待外部條件 (waiting on external conditions) (§20).
+Never report "paid live streaming online" before M2 E3 is done, and then only for the paths the device matrix proved. Final reports keep four groups separate: 已實作 (implemented), 已測試 (tested), 已部署 (deployed), and 尚待外部條件 (waiting on external conditions) (§20).
 
 ## Commands (per §11.1)
 
@@ -24,7 +25,8 @@ These scripts exist in `package.json` (also `lint:php`, `test:integration`, `tes
 
 ```bash
 npm ci
-npm run check           # fast gate (~35 s): typecheck, lint, unit, build, package, check:artifact
+npm run check           # fast gate (~35 s): typecheck, lint, unit, build. Never writes artifacts/
+npm run release         # release ZIP: check, then package + check:artifact (size budgets). Refuses a dirty tree; run only from a clean commit
 npm run wp:start:wsl    # PREFERRED: wp-env inside WSL2 (fast); see docs/implementation/WSL.md
 npm run test:integration:wsl  # sync to WSL, then Playwright integration specs against :8888/:8889
 npm run wp:start        # wp-env from the Windows checkout (slow: 5-25 s per WordPress request); never together with the WSL one
@@ -34,7 +36,7 @@ npm run lint
 npm run test:unit
 npm run build           # Vite library mode → IIFE JS + CSS into plugin/wg-live/assets/dist
 npm run test:e2e        # Playwright: Chromium/Firefox/WebKit
-npm run package         # scripts/package.mjs → artifacts/wg-live-<version>.zip + SHA-256
+npm run package         # scripts/package.mjs → artifacts/wg-live-<version>.zip + SHA-256 (overwrites that version's ZIP; never run it with --allow-dirty for a deployed version)
 npm run check:artifact  # scripts/check-artifact.mjs validates ZIP contents
 npm run test:zip-install  # installs the ZIP into a throwaway WordPress on the running wp-env, activates, probes, uninstalls
 ```
@@ -54,7 +56,7 @@ Two halves live in one repo. Only the PHP plugin and the built static assets shi
   - Shortcodes: `[wg_live view="events|player|help"]`, with an optional validated `event` attribute, and `[wg_live_featured]` for the homepage. These are lightweight: they don't load hls.js or start a player.
   - Pages: `/live/`, `/live/listen/` (`?wg_event=<slug>`; `wg_mode` is ignored except `atmos`), and `/live/help/`. These are ordinary WP parent/child pages, not SPA routes and not a CPT archive.
   - Links come from **stored Page IDs + `get_permalink()`**. Page IDs differ between environments, so never hardcode them (the production homepage is currently ID 8; check this in the admin).
-  - Settings deployment modes in M1: only `disabled` and `demo`. The plugin activates in `disabled` mode.
+  - Settings deployment modes: `disabled`, `demo` (示範) and `live` (正式; real events check tickets, M2-PLAN A2). The plugin activates in `disabled` mode.
 
 ## Hard rules that are easy to violate
 
